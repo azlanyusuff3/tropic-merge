@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Tropic Merge v7</title>
+<title>Tropic Merge v8</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10251d;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
@@ -8,9 +8,11 @@ body{touch-action:none}
 #app{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% -8%,#fff7c52b,transparent 29%),linear-gradient(165deg,#173c2e,#0d251e 56%,#081b18)}
 #wrap{position:relative;width:min(100vw,520px);height:100vh;height:100dvh;max-height:980px;overflow:hidden}
 #game{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-#top{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));height:70px;display:grid;grid-template-columns:minmax(0,1fr) minmax(62px,76px) minmax(62px,76px);gap:5px;align-items:start;pointer-events:none}
-.brand{padding:6px 2px;min-width:0;overflow:hidden;text-shadow:0 3px 11px #000b}.brand b{display:block;font-size:clamp(17px,5.3vw,23px);line-height:1;font-weight:950;letter-spacing:.2px;color:#ffe46d;white-space:nowrap}.brand em{font-style:normal;color:#aee86c}.brand small{display:block;margin-top:5px;font-size:clamp(7px,2.15vw,9px);font-weight:800;letter-spacing:.8px;opacity:.72;white-space:nowrap}
-.card{height:55px;min-width:0;padding:7px 3px;border-radius:16px;background:linear-gradient(180deg,#5c351ee8,#3a2118e8);border:1px solid #ffc96f52;box-shadow:0 7px 18px #0007,inset 0 1px #fff2;text-align:center}.card span{display:block;font-size:9px;color:#ffd98d;font-weight:900;letter-spacing:1px}.card b{display:block;font-size:clamp(13px,4vw,17px);line-height:1.25;color:#fff7d8;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden}
+#top{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));height:104px;pointer-events:none;z-index:2}
+.brand{position:absolute;left:0;top:0;width:min(235px,62vw);padding:6px 2px;min-width:0;overflow:visible;text-shadow:0 3px 11px #000b}.brand b{display:block;font-size:clamp(18px,5.3vw,24px);line-height:1;font-weight:950;letter-spacing:.2px;color:#ffe46d;white-space:nowrap}.brand em{font-style:normal;color:#aee86c}.brand small{display:block;margin-top:5px;font-size:clamp(7px,2.15vw,9px);font-weight:800;letter-spacing:.8px;opacity:.72;white-space:nowrap}
+.card{height:55px;min-width:0;padding:7px 5px;border-radius:16px;background:linear-gradient(180deg,#5c351ee8,#3a2118e8);border:1px solid #ffc96f52;box-shadow:0 7px 18px #0007,inset 0 1px #fff2;text-align:center}.card span{display:block;font-size:9px;color:#ffd98d;font-weight:900;letter-spacing:1px}.card b{display:block;font-size:clamp(13px,4vw,17px);line-height:1.25;color:#fff7d8;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:visible}
+#scoreCard{position:absolute;right:0;top:0;width:76px}
+#bestCard{position:absolute;left:50%;top:48px;transform:translateX(-50%);width:96px;height:50px;padding-top:5px;border-radius:15px;box-shadow:0 8px 22px #0008,inset 0 1px #fff2}#bestCard span{font-size:8px}#bestCard b{font-size:clamp(14px,4.2vw,18px)}
 #toolbar{position:absolute;right:max(8px,env(safe-area-inset-right));top:85px;display:flex;flex-direction:column;gap:8px;z-index:3}
 .tool{width:49px;height:49px;border:0;border-radius:15px;color:white;font-size:20px;font-weight:900;background:linear-gradient(155deg,#6b422a,#3f291f);border:1px solid #ffd58840;box-shadow:0 7px 19px #0006}.tool:active{transform:scale(.95)}
 #bomb{background:linear-gradient(145deg,#ffbd36,#f07819);color:#2c1805;box-shadow:0 8px 22px #f078194f}
@@ -25,7 +27,7 @@ body{touch-action:none}
 #randomTag{padding:7px 10px;border-radius:12px;background:#75b83325;border:1px solid #bdea6f3b;font-size:10px;font-weight:900;color:#dafa98;white-space:nowrap}
 #modal,#start{position:absolute;inset:0;display:grid;place-items:center;background:#07150fca;backdrop-filter:blur(8px);z-index:10}
 .panel{width:min(87%,390px);padding:26px;border-radius:29px;background:linear-gradient(170deg,#52351f,#251b15);border:1px solid #ffd98c40;box-shadow:0 30px 80px #000a;text-align:center}.panel h1{font-size:34px;margin:2px 0 5px;color:#ffe268}.panel p{color:#ead8bc;line-height:1.45}.primary{border:0;border-radius:18px;padding:14px 25px;color:#251509;font-size:17px;font-weight:950;background:linear-gradient(135deg,#ffe45d,#f5a82d);box-shadow:0 10px 30px #f7b32e4c}.secondary{margin-top:10px;border:1px solid #ffffff27;background:#ffffff12;color:white;border-radius:14px;padding:10px 18px;font-weight:800}
-@media(max-width:370px){#top{grid-template-columns:minmax(0,1fr) 62px 62px;gap:4px}.card{border-radius:14px}.brand b{font-size:16px}.brand small{font-size:7px;letter-spacing:.55px}#toolbar{right:7px}.tool{width:46px;height:46px}#bottomBar{gap:7px;padding-left:8px;padding-right:8px}#nextMini{width:67px}#randomTag{padding:6px 7px;font-size:9px}}
+@media(max-width:370px){.brand{width:220px}.brand b{font-size:17px}.brand small{font-size:7px;letter-spacing:.55px}#scoreCard{width:66px}.card{border-radius:14px}#bestCard{top:47px;width:88px}#toolbar{right:7px}.tool{width:46px;height:46px}#bottomBar{gap:7px;padding-left:8px;padding-right:8px}#nextMini{width:67px}#randomTag{padding:6px 7px;font-size:9px}}
 #modal{display:none}.bigscore{font-size:44px;font-weight:950;margin:10px;color:#fff3bd}.tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#8cc53f21;border:1px solid #bce56a31;color:#dbf89b;font-size:11px;font-weight:900;letter-spacing:.6px}
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -41,11 +43,11 @@ body{touch-action:none}
 </head>
 <body><div id="app"><div id="wrap">
 <canvas id="game"></canvas>
-<div id="top"><div class="brand"><b>TROPIC <em>MERGE</em></b><small>OFFLINE • RANDOM DROP</small></div><div class="card"><span>SCORE</span><b id="score">0</b></div><div class="card"><span>BEST</span><b id="best">0</b></div></div>
+<div id="top"><div class="brand"><b>TROPIC <em>MERGE</em></b><small>OFFLINE • RANDOM DROP</small></div><div class="card" id="scoreCard"><span>SCORE</span><b id="score">0</b></div><div class="card" id="bestCard"><span>BEST</span><b id="best">0</b></div></div>
 <div id="toolbar"><button class="tool" id="bomb" aria-label="Bomb">💣</button><button class="tool" id="shakeBtn" aria-label="Shake box">≋</button><button class="tool" id="new" aria-label="New game">↻</button><button class="tool" id="sound" aria-label="Sound">♪</button></div>
 <div id="hint">Bomb aktif — tap buah yang nak dibuang 💣</div>
 <div id="bottomBar"><div id="nextMini"><span>NEXT</span><canvas id="nextIcon" width="80" height="80"></canvas></div><div id="howto"><b>Hold • Slide • Release</b><small>Sentuh skrin, gerak kiri/kanan untuk aim. Release baru buah jatuh.</small></div><div id="randomTag">RANDOM</div></div>
-<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v7</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
+<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v8</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
 <div id="modal"><div class="panel"><div class="tag">GAME OVER</div><h1>Nice run!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>
@@ -111,16 +113,16 @@ for(let sub=0;sub<steps;sub++){
     }
   }
 
-  for(let pass=0;pass<6;pass++){
+  for(let pass=0;pass<9;pass++){
     let merged=false;
     outer:for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
       let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,sumR=a.r+b.r,d2=dx*dx+dy*dy;
       // Same fruits merge at visual contact (with tiny tolerance), not only after deep overlap.
-      let mergeR=sumR*1.018;
+      let mergeR=sumR*1.010;
       if(a.level===b.level&&a.level<fruits.length-1&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){
         if(merge(a,b)){merged=true;break outer}
       }
-      let rr=sumR*.965;
+      let rr=sumR*.9975;
       if(d2<rr*rr){
         let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,tx=-ny,ty=nx,over=rr-d,ma=a.r*a.r,mb=b.r*b.r,sum=ma+mb;
         a.contact=b.contact=true;
@@ -139,6 +141,19 @@ for(let sub=0;sub<steps;sub++){
       }
     }
     if(merged)continue;
+  }
+
+  // FINAL DEPENETRATION: dense boards can leave a tiny residual overlap after impulse solving.
+  // This pass only separates shapes; it does not add energy, so stacks stay stable and visually touching.
+  for(let settlePass=0;settlePass<4;settlePass++){
+    for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+      let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,sumR=a.r+b.r,target=sumR*.9975,d2=dx*dx+dy*dy;
+      if(d2<target*target){
+        let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,over=target-d,ma=a.r*a.r,mb=b.r*b.r,ms=ma+mb;
+        a.x-=nx*over*(mb/ms);a.y-=ny*over*(mb/ms);b.x+=nx*over*(ma/ms);b.y+=ny*over*(ma/ms);
+        a.contact=b.contact=true;
+      }
+    }
   }
 
   // HARD CONTAINMENT after collision solving: once a fruit enters the box it cannot be launched outside.
