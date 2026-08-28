@@ -1,17 +1,17 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Tropic Merge v6</title>
+<title>Tropic Merge v7</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10251d;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
 body{touch-action:none}
 #app{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% -8%,#fff7c52b,transparent 29%),linear-gradient(165deg,#173c2e,#0d251e 56%,#081b18)}
-#wrap{position:relative;width:min(100vw,520px);height:100vh;max-height:980px;overflow:hidden}
+#wrap{position:relative;width:min(100vw,520px);height:100vh;height:100dvh;max-height:980px;overflow:hidden}
 #game{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-#top{position:absolute;left:11px;right:11px;top:max(8px,env(safe-area-inset-top));height:70px;display:grid;grid-template-columns:1fr 82px 82px;gap:7px;align-items:start;pointer-events:none}
-.brand{padding:6px 3px;text-shadow:0 3px 11px #000b}.brand b{display:block;font-size:23px;line-height:1;font-weight:950;letter-spacing:.4px;color:#ffe46d}.brand em{font-style:normal;color:#aee86c}.brand small{display:block;margin-top:5px;font-size:9px;font-weight:800;letter-spacing:1px;opacity:.72}
-.card{height:55px;padding:7px 6px;border-radius:16px;background:linear-gradient(180deg,#5c351ee8,#3a2118e8);border:1px solid #ffc96f52;box-shadow:0 7px 18px #0007,inset 0 1px #fff2;text-align:center}.card span{display:block;font-size:9px;color:#ffd98d;font-weight:900;letter-spacing:1px}.card b{font-size:18px;color:#fff7d8}
-#toolbar{position:absolute;right:12px;top:85px;display:flex;flex-direction:column;gap:8px;z-index:3}
+#top{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));height:70px;display:grid;grid-template-columns:minmax(0,1fr) minmax(62px,76px) minmax(62px,76px);gap:5px;align-items:start;pointer-events:none}
+.brand{padding:6px 2px;min-width:0;overflow:hidden;text-shadow:0 3px 11px #000b}.brand b{display:block;font-size:clamp(17px,5.3vw,23px);line-height:1;font-weight:950;letter-spacing:.2px;color:#ffe46d;white-space:nowrap}.brand em{font-style:normal;color:#aee86c}.brand small{display:block;margin-top:5px;font-size:clamp(7px,2.15vw,9px);font-weight:800;letter-spacing:.8px;opacity:.72;white-space:nowrap}
+.card{height:55px;min-width:0;padding:7px 3px;border-radius:16px;background:linear-gradient(180deg,#5c351ee8,#3a2118e8);border:1px solid #ffc96f52;box-shadow:0 7px 18px #0007,inset 0 1px #fff2;text-align:center}.card span{display:block;font-size:9px;color:#ffd98d;font-weight:900;letter-spacing:1px}.card b{display:block;font-size:clamp(13px,4vw,17px);line-height:1.25;color:#fff7d8;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden}
+#toolbar{position:absolute;right:max(8px,env(safe-area-inset-right));top:85px;display:flex;flex-direction:column;gap:8px;z-index:3}
 .tool{width:49px;height:49px;border:0;border-radius:15px;color:white;font-size:20px;font-weight:900;background:linear-gradient(155deg,#6b422a,#3f291f);border:1px solid #ffd58840;box-shadow:0 7px 19px #0006}.tool:active{transform:scale(.95)}
 #bomb{background:linear-gradient(145deg,#ffbd36,#f07819);color:#2c1805;box-shadow:0 8px 22px #f078194f}
 #bomb.active{animation:pulse .6s infinite alternate;outline:3px solid #fff0b1}
@@ -19,12 +19,13 @@ body{touch-action:none}
 @keyframes pulse{to{transform:scale(1.08);box-shadow:0 0 26px #ffc549}}
 #hint{position:absolute;left:50%;top:91px;transform:translateX(-50%);padding:8px 13px;border-radius:999px;background:#26150fe8;border:1px solid #ffd98d42;font-size:11px;font-weight:900;opacity:0;transition:.18s;pointer-events:none;white-space:nowrap;z-index:4}
 #hint.show{opacity:1}
-#bottomBar{position:absolute;left:12px;right:12px;bottom:calc(11px + env(safe-area-inset-bottom));height:88px;border-radius:23px;background:linear-gradient(180deg,#493022e8,#2a1b16eb);border:1px solid #ffd4853e;box-shadow:0 14px 35px #0008,inset 0 1px #fff2;display:flex;align-items:center;padding:9px 12px;gap:11px;backdrop-filter:blur(8px);pointer-events:none}
+#bottomBar{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));bottom:calc(11px + env(safe-area-inset-bottom));height:88px;border-radius:23px;background:linear-gradient(180deg,#493022e8,#2a1b16eb);border:1px solid #ffd4853e;box-shadow:0 14px 35px #0008,inset 0 1px #fff2;display:flex;align-items:center;padding:9px 12px;gap:11px;backdrop-filter:blur(8px);pointer-events:none}
 #nextMini{width:78px;height:68px;border-radius:17px;background:#fff4d915;border:1px solid #ffe1a737;text-align:center;padding-top:5px;flex:none}#nextMini span{display:block;font-size:9px;font-weight:900;color:#ffd983;letter-spacing:.8px}#nextIcon{position:static;width:40px;height:40px;margin:3px auto 0;display:block}
 #howto{flex:1;min-width:0}#howto b{display:block;font-size:13px;color:#fff5ca}#howto small{display:block;margin-top:3px;color:#e0c9a7;font-size:10px;line-height:1.3;font-weight:700}
 #randomTag{padding:7px 10px;border-radius:12px;background:#75b83325;border:1px solid #bdea6f3b;font-size:10px;font-weight:900;color:#dafa98;white-space:nowrap}
 #modal,#start{position:absolute;inset:0;display:grid;place-items:center;background:#07150fca;backdrop-filter:blur(8px);z-index:10}
 .panel{width:min(87%,390px);padding:26px;border-radius:29px;background:linear-gradient(170deg,#52351f,#251b15);border:1px solid #ffd98c40;box-shadow:0 30px 80px #000a;text-align:center}.panel h1{font-size:34px;margin:2px 0 5px;color:#ffe268}.panel p{color:#ead8bc;line-height:1.45}.primary{border:0;border-radius:18px;padding:14px 25px;color:#251509;font-size:17px;font-weight:950;background:linear-gradient(135deg,#ffe45d,#f5a82d);box-shadow:0 10px 30px #f7b32e4c}.secondary{margin-top:10px;border:1px solid #ffffff27;background:#ffffff12;color:white;border-radius:14px;padding:10px 18px;font-weight:800}
+@media(max-width:370px){#top{grid-template-columns:minmax(0,1fr) 62px 62px;gap:4px}.card{border-radius:14px}.brand b{font-size:16px}.brand small{font-size:7px;letter-spacing:.55px}#toolbar{right:7px}.tool{width:46px;height:46px}#bottomBar{gap:7px;padding-left:8px;padding-right:8px}#nextMini{width:67px}#randomTag{padding:6px 7px;font-size:9px}}
 #modal{display:none}.bigscore{font-size:44px;font-weight:950;margin:10px;color:#fff3bd}.tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#8cc53f21;border:1px solid #bce56a31;color:#dbf89b;font-size:11px;font-weight:900;letter-spacing:.6px}
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -44,7 +45,7 @@ body{touch-action:none}
 <div id="toolbar"><button class="tool" id="bomb" aria-label="Bomb">💣</button><button class="tool" id="shakeBtn" aria-label="Shake box">≋</button><button class="tool" id="new" aria-label="New game">↻</button><button class="tool" id="sound" aria-label="Sound">♪</button></div>
 <div id="hint">Bomb aktif — tap buah yang nak dibuang 💣</div>
 <div id="bottomBar"><div id="nextMini"><span>NEXT</span><canvas id="nextIcon" width="80" height="80"></canvas></div><div id="howto"><b>Hold • Slide • Release</b><small>Sentuh skrin, gerak kiri/kanan untuk aim. Release baru buah jatuh.</small></div><div id="randomTag">RANDOM</div></div>
-<div id="start"><div class="panel"><div class="tag">PRIVATE OFFLINE BUILD v6</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
+<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v7</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
 <div id="modal"><div class="panel"><div class="tag">GAME OVER</div><h1>Nice run!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>
@@ -79,65 +80,83 @@ function advanceFruit(){currentLevel=nextLevel;nextLevel=randomFruit();drawNext(
 function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY)}addEventListener('resize',resize);resize();
 const box={l:20,r:400,t:158,b:665,danger:207};
 function reset(){balls.length=0;particles.length=0;floaters.length=0;score=0;scoreEl.textContent=0;gameOver=false;bombMode=false;dragging=false;pointerId=null;bombBtn.classList.remove('active');hint.classList.remove('show');aimX=210;combo=0;currentLevel=randomFruit();nextLevel=randomFruit();drawNext();document.getElementById('modal').style.display='none'}
-function spawn(level,x){let f=fruits[level],r=f.r;x=Math.max(box.l+r+3,Math.min(box.r-r-3,x));balls.push({id:idSeq++,level,r,x,y:box.t-r-8,vx:(Math.random()-.5)*10,vy:25,born:performance.now(),danger:0,mergeLock:0,rot:(Math.random()-.5)*.16,w:(Math.random()-.5)*.9,contact:false});lastDrop=performance.now();audio(320+level*40,.055,'sine',.028)}
+function spawn(level,x){let f=fruits[level],r=f.r;x=Math.max(box.l+r+3,Math.min(box.r-r-3,x));balls.push({id:idSeq++,level,r,x,y:box.t-r-8,vx:(Math.random()-.5)*10,vy:25,born:performance.now(),danger:0,mergeLock:0,rot:(Math.random()-.5)*.12,spinKick:(Math.random()-.5)*.22,contact:false,entered:false});lastDrop=performance.now();audio(320+level*40,.055,'sine',.028)}
 function burst(x,y,color,count=15,power=150){for(let i=0;i<count;i++){let a=Math.random()*Math.PI*2,s=Math.random()*power+30;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:1,size:Math.random()*5+2,color})}}
 function bombAt(x,y){let hit=null,md=1e9;for(const b of balls){let d=Math.hypot(x-b.x,y-b.y);if(d<=b.r+13&&d<md){hit=b;md=d}}if(hit){balls.splice(balls.indexOf(hit),1);burst(hit.x,hit.y,'#ff6b3b',38,270);burst(hit.x,hit.y,'#ffd75b',22,185);floaters.push({x:hit.x,y:hit.y,text:'BOOM!',life:1,color:'#ffe46e'});shake=14;audio(82,.22,'sawtooth',.08);setTimeout(()=>audio(52,.2,'square',.04),30)}bombMode=false;bombBtn.classList.remove('active');hint.classList.remove('show')}
-function merge(a,b){if(a.level!==b.level||a.level>=fruits.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=fruits[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),danger:0,mergeLock:performance.now()+180,rot:(a.rot+b.rot)*.5,w:Math.max(-3.2,Math.min(3.2,((a.w||0)+(b.w||0))*.36+(Math.random()-.5)*.45)),contact:false});let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;if(score>best){best=score;bestEl.textContent=best;saveBest(best)}burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
-function physics(dt){if(gameOver)return;const g=1260;
-for(const b of balls){
-  b.contact=false;
-  if(!Number.isFinite(b.w))b.w=0;
-  b.vy+=g*dt;
-  b.vx*=Math.pow(.994,dt*60);
-  b.x+=b.vx*dt;b.y+=b.vy*dt;
-  let wallE=.25-Math.min(.08,b.level*.008),floorE=.27-Math.min(.13,b.level*.013);
-  if(b.x-b.r<box.l){b.x=box.l+b.r;let hit=Math.abs(b.vx);b.vx=Math.abs(b.vx)*wallE;b.w+=Math.min(2.6,hit/Math.max(18,b.r))*.55}
-  if(b.x+b.r>box.r){b.x=box.r-b.r;let hit=Math.abs(b.vx);b.vx=-Math.abs(b.vx)*wallE;b.w-=Math.min(2.6,hit/Math.max(18,b.r))*.55}
-  if(b.y+b.r>box.b){
-    b.y=box.b-b.r;b.contact=true;
-    let impact=Math.abs(b.vy);
-    if(impact<38)b.vy=0;else b.vy=-impact*floorE;
-    b.vx*=impact>90?.965:.935;
-    // Rolling speed follows horizontal travel instead of endless decorative spin.
-    let rollTarget=b.vx/Math.max(12,b.r);
-    b.w+=(rollTarget-b.w)*Math.min(1,dt*11);
-    if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8){b.vx=0}
-  }
-}
-for(let pass=0;pass<6;pass++){let merged=false;outer:for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-  let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,rr=(a.r+b.r)*.942,d2=dx*dx+dy*dy;
-  if(d2<rr*rr){
-    if(a.level===b.level&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&a.level<fruits.length-1){if(merge(a,b)){merged=true;break outer}}
-    let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,tx=-ny,ty=nx,over=rr-d,ma=a.r*a.r,mb=b.r*b.r,sum=ma+mb;
-    a.contact=b.contact=true;
-    a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
-    let rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
-    if(vn<0){
-      let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);
-      a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;
-      let vt=rvx*tx+rvy*ty;
-      a.vx+=tx*vt*.018;b.vx-=tx*vt*.018;
-      // Tangential collision energy becomes a short-lived visible roll.
-      let kick=Math.max(-2.8,Math.min(2.8,vt/Math.max(22,(a.r+b.r)*.5)))*.42;
-      a.w=(a.w||0)+kick;b.w=(b.w||0)-kick;
+function merge(a,b){if(a.level!==b.level||a.level>=fruits.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=fruits[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),danger:0,mergeLock:performance.now()+170,rot:((a.rot||0)+(b.rot||0))*.5,spinKick:Math.max(-.55,Math.min(.55,((a.spinKick||0)+(b.spinKick||0))*.25)),contact:false,entered:y+nf.r>=box.t+6});let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;if(score>best){best=score;bestEl.textContent=best;saveBest(best)}burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
+function physics(dt){
+if(gameOver)return;
+const g=1260,steps=Math.max(2,Math.min(4,Math.ceil(dt/.008))),h=dt/steps;
+for(let sub=0;sub<steps;sub++){
+  for(const b of balls){
+    b.contact=false;
+    if(!Number.isFinite(b.rot))b.rot=0;
+    if(!Number.isFinite(b.spinKick))b.spinKick=0;
+    b._oldX=b.x;
+    b.vy+=g*h;
+    b.vx*=Math.pow(.994,h*60);
+    b.vx=Math.max(-480,Math.min(480,b.vx));
+    b.vy=Math.max(-620,Math.min(820,b.vy));
+    b.x+=b.vx*h;b.y+=b.vy*h;
+    if(!b.entered&&b.y+b.r>=box.t+6)b.entered=true;
+    let wallE=.25-Math.min(.08,b.level*.008),floorE=.27-Math.min(.13,b.level*.013);
+    if(b.x-b.r<box.l){b.x=box.l+b.r;b.vx=Math.abs(b.vx)*wallE;b.spinKick=Math.min(.5,(b.spinKick||0)+.12)}
+    if(b.x+b.r>box.r){b.x=box.r-b.r;b.vx=-Math.abs(b.vx)*wallE;b.spinKick=Math.max(-.5,(b.spinKick||0)-.12)}
+    if(b.y+b.r>box.b){
+      b.y=box.b-b.r;b.contact=true;
+      let impact=Math.abs(b.vy);
+      if(impact<38)b.vy=0;else b.vy=-impact*floorE;
+      b.vx*=impact>90?.965:.935;
+      if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0;
     }
   }
-}if(merged)continue}
-// Integrate angular motion after collision solving, then damp it hard as fruit settles.
-for(const b of balls){
-  let speed=Math.hypot(b.vx,b.vy);
-  if(b.contact){
-    let target=b.vx/Math.max(12,b.r);
-    b.w+=(target-b.w)*Math.min(1,dt*6.5);
-    b.w*=Math.pow(.965,dt*60);
-  }else{
-    // Mild tumble while airborne; never allowed to become perpetual spin.
-    b.w*=Math.pow(.992,dt*60);
+
+  for(let pass=0;pass<6;pass++){
+    let merged=false;
+    outer:for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+      let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,sumR=a.r+b.r,d2=dx*dx+dy*dy;
+      // Same fruits merge at visual contact (with tiny tolerance), not only after deep overlap.
+      let mergeR=sumR*1.018;
+      if(a.level===b.level&&a.level<fruits.length-1&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){
+        if(merge(a,b)){merged=true;break outer}
+      }
+      let rr=sumR*.965;
+      if(d2<rr*rr){
+        let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,tx=-ny,ty=nx,over=rr-d,ma=a.r*a.r,mb=b.r*b.r,sum=ma+mb;
+        a.contact=b.contact=true;
+        a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
+        let rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
+        if(vn<0){
+          let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);
+          a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;
+          let vt=rvx*tx+rvy*ty;
+          a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;
+          // Collision gives only a short kick. Actual rolling angle comes from travelled distance.
+          let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));
+          a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));
+          b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick));
+        }
+      }
+    }
+    if(merged)continue;
   }
-  b.w=Math.max(-3.8,Math.min(3.8,b.w));
-  if(speed<8&&b.contact){b.w*=Math.pow(.72,dt*60);if(Math.abs(b.w)<.035)b.w=0}
-  b.rot=(b.rot||0)+b.w*dt;
-  if(Math.abs(b.rot)>Math.PI*8)b.rot%=Math.PI*2;
+
+  // HARD CONTAINMENT after collision solving: once a fruit enters the box it cannot be launched outside.
+  for(const b of balls){
+    if(b.x-b.r<box.l){b.x=box.l+b.r;if(b.vx<0)b.vx=Math.abs(b.vx)*.12}
+    if(b.x+b.r>box.r){b.x=box.r-b.r;if(b.vx>0)b.vx=-Math.abs(b.vx)*.12}
+    if(b.y+b.r>box.b){b.y=box.b-b.r;if(b.vy>0)b.vy=-Math.abs(b.vy)*.12;b.contact=true}
+    if(b.entered&&b.y-b.r<box.t){b.y=box.t+b.r;if(b.vy<0)b.vy=Math.abs(b.vy)*.08}
+
+    // Stable roll: rotate from actual horizontal travel, so stationary fruit can never spin forever.
+    let dxMove=b.x-(b._oldX??b.x);
+    let rollDelta=Math.max(-.20,Math.min(.20,dxMove/Math.max(12,b.r)));
+    b.rot+=rollDelta;
+    if(!b.contact&&Math.abs(b.vx)>18){b.rot+=b.spinKick*h;b.spinKick*=Math.pow(.82,h*60)}
+    else b.spinKick*=Math.pow(.48,h*60);
+    if(Math.hypot(b.vx,b.vy)<8&&b.contact)b.spinKick=0;
+    if(Math.abs(b.rot)>Math.PI*8)b.rot%=Math.PI*2;
+  }
 }
 let now=performance.now();for(const b of balls){if(now-b.born>1300&&b.y-b.r<box.danger&&Math.hypot(b.vx,b.vy)<45)b.danger+=dt;else b.danger=Math.max(0,b.danger-dt*2);if(b.danger>1.4){endGame();break}}
 for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.vy+=550*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt*1.6;if(p.life<=0)particles.splice(i,1)}for(let i=floaters.length-1;i>=0;i--){let f=floaters[i];f.y-=35*dt;f.life-=dt*.9;if(f.life<=0)floaters.splice(i,1)}}
@@ -192,7 +211,7 @@ canvas.addEventListener('pointerdown',e=>{if(!running||gameOver)return;let p=toW
 canvas.addEventListener('pointermove',e=>{if(!dragging||e.pointerId!==pointerId)return;let p=toWorld(e);aimX=p.x});
 function releaseDrop(e){if(!dragging||e.pointerId!==pointerId)return;let p=toWorld(e);aimX=p.x;dragging=false;pointerId=null;if(performance.now()-lastDrop>=260){spawn(currentLevel,aimX);advanceFruit()}}
 canvas.addEventListener('pointerup',releaseDrop);canvas.addEventListener('pointercancel',e=>{dragging=false;pointerId=null});
-function shakeBox(){if(!running||gameOver||bombMode)return;let now=performance.now();if(now-lastBoxShake<1200||!balls.length)return;lastBoxShake=now;dragging=false;for(const b of balls){let dir=(b.x<(box.l+box.r)/2)?1:-1;b.vx+=dir*(70+Math.random()*95)+(Math.random()-.5)*90;b.vy-=55+Math.random()*115;b.w=(b.w||0)+(Math.random()-.5)*1.8;b.danger=Math.max(0,b.danger-.45)}shake=18;hint.textContent='SHAKE! Buah tengah dirapatkan ≋';hint.classList.add('show');shakeBtn.classList.add('cool');burst((box.l+box.r)/2,box.b-30,'#9ff3e8',20,120);audio(150,.09,'square',.035);setTimeout(()=>audio(215,.08,'sine',.025),80);setTimeout(()=>hint.classList.remove('show'),650);setTimeout(()=>shakeBtn.classList.remove('cool'),1200)}
+function shakeBox(){if(!running||gameOver||bombMode)return;let now=performance.now();if(now-lastBoxShake<1200||!balls.length)return;lastBoxShake=now;dragging=false;for(const b of balls){let dir=(b.x<(box.l+box.r)/2)?1:-1;b.vx=Math.max(-330,Math.min(330,b.vx+dir*(55+Math.random()*75)+(Math.random()-.5)*70));b.vy=Math.max(-360,b.vy-(40+Math.random()*85));b.spinKick=Math.max(-.45,Math.min(.45,(b.spinKick||0)+(Math.random()-.5)*.22));b.danger=Math.max(0,b.danger-.45)}shake=15;hint.textContent='SHAKE! Buah tengah dirapatkan ≋';hint.classList.add('show');shakeBtn.classList.add('cool');burst((box.l+box.r)/2,box.b-30,'#9ff3e8',20,120);audio(150,.09,'square',.035);setTimeout(()=>audio(215,.08,'sine',.025),80);setTimeout(()=>hint.classList.remove('show'),650);setTimeout(()=>shakeBtn.classList.remove('cool'),1200)}
 bombBtn.onclick=e=>{e.stopPropagation();if(!running||gameOver)return;dragging=false;bombMode=!bombMode;bombBtn.classList.toggle('active',bombMode);hint.textContent='Bomb aktif — tap buah yang nak dibuang 💣';hint.classList.toggle('show',bombMode);audio(bombMode?250:180,.05,'square',.025)};
 shakeBtn.onclick=e=>{e.stopPropagation();shakeBox()};
 document.getElementById('new').onclick=e=>{e.stopPropagation();if(confirm('Start game baru?'))reset()};document.getElementById('sound').onclick=e=>{e.stopPropagation();soundOn=!soundOn;e.currentTarget.textContent=soundOn?'♪':'×';if(soundOn)audio(600,.05)};

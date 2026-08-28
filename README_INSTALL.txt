@@ -1,30 +1,23 @@
-TROPIC MERGE v6 — iPhone/iPad Offline PWA
+TROPIC MERGE v7 — Universal Offline PWA (iPhone / iPad / Android)
 
-APA DALAM PACKAGE
-- index.html : game Tropic Merge v6
-- manifest.webmanifest : metadata PWA
-- sw.js : offline cache/service worker
-- icons/ : Home Screen icons
+FIX v7
+- Rotation tak lagi guna free-running spin: angle ikut jarak horizontal sebenar buah bergerak.
+- Bila buah settle, ia tak boleh berpusing sendiri tanpa henti.
+- Physics guna sub-steps + hard containment; buah yang dah masuk box tak boleh terpelanting keluar kiri/kanan/atas/bawah.
+- Same fruit merge pada visual contact dengan sedikit tolerance; kes 'dah rapat tapi tak merge' dikurangkan.
+- Header Score/Best responsive untuk skrin phone sempit dan safe-area/notch.
+- Shake masih ada tetapi impulse di-cap supaya susunan bergerak tanpa melontar buah keluar.
+- Score/Best disimpan local pada device.
+- Offline cache dikemas kini ke v7.
 
-PENTING UNTUK iPHONE/iPAD
-PWA tidak boleh dipasang terus daripada ZIP/local file. Ia perlu dibuka daripada HTTPS website sekurang-kurangnya sekali.
-Selepas first load dan Add to Home Screen, game akan menggunakan offline cache dan boleh dimainkan tanpa internet.
+CARA UPDATE GITHUB PAGES
+1. Extract ZIP ini.
+2. Dalam repo tropic-merge GitHub, replace/upload SEMUA isi folder ini ke root repo:
+   index.html, sw.js, manifest.webmanifest, README_INSTALL.txt dan folder icons.
+3. Commit changes.
+4. Buka URL GitHub Pages dengan internet dan refresh sekali.
+5. iPhone/iPad: Safari > Share > Add to Home Screen.
+6. Android: Chrome > menu ⋮ > Install app / Add to Home screen.
+7. Selepas first load, boleh test Airplane Mode; game akan guna offline cache.
 
-CARA INSTALL DI iPHONE/iPAD
-1. Host seluruh folder ini di HTTPS (contoh GitHub Pages/Cloudflare Pages/Netlify atau server HTTPS sendiri).
-2. Buka URL menggunakan Safari.
-3. Tunggu game load sekali.
-4. Tekan Share.
-5. Pilih Add to Home Screen.
-6. Pastikan Open as Web App diaktifkan jika pilihan itu dipaparkan.
-7. Buka icon Tropic Merge dari Home Screen.
-8. Selepas itu boleh test Airplane Mode — game sepatutnya masih boleh dibuka/main offline.
-
-Gameplay berasaskan v5 dengan realistic roll physics: random fruit, drag kiri/kanan, release drop, Bomb, Shake Box, score/best score dan local save.
-
-
-PERUBAHAN v6
-- Rotation buah ikut pergerakan sebenar: bila slide/roll, buah berpusing mengikut kelajuan.
-- Collision memberi angular kick pendek supaya hentaman nampak hidup.
-- Rotation diredam bila buah settle, jadi tiada bug berpusing tanpa henti.
-- Shake Box turut memberi sedikit temporary rotation.
+Nota: Jika Home Screen app masih nampak versi lama selepas update, buka URL GitHub Pages dalam browser sekali dengan internet, refresh, tutup app Home Screen dan buka semula.
