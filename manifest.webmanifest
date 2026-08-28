@@ -1,7 +1,7 @@
 {
-  "name": "Tropic Merge Offline v8",
+  "name": "Tropic Merge Offline v9",
   "short_name": "Tropic Merge",
-  "description": "Universal offline tropical fruit merge game v8 with stable no-overlap physics, Bomb and Shake Box.",
+  "description": "Universal offline tropical fruit merge game v9 with close-contact fruit physics and clean bottom controls.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -1,4 +1,4 @@
-const CACHE = 'tropic-merge-v8-universal-20260828-1';
+const CACHE = 'tropic-merge-v9-universal-20260828-1';
 const CORE = [
   './',
   './index.html',
