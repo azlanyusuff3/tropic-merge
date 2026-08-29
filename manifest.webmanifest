@@ -1,7 +1,7 @@
 {
-  "name": "Tropic Merge Offline v9",
+  "name": "Tropic Merge Offline v10",
   "short_name": "Tropic Merge",
-  "description": "Universal offline tropical fruit merge game v9 with close-contact fruit physics and clean bottom controls.",
+  "description": "Universal offline tropical fruit merge game v10 with battery-optimized rendering, sleeping physics and adaptive frame rate.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

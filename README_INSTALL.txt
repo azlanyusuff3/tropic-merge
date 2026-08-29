@@ -1,14 +1,18 @@
-TROPIC MERGE v9 — Universal Offline PWA (iPhone / iPad / Android)
+TROPIC MERGE v10 — Battery Optimized Universal Offline PWA (iPhone / iPad / Android)
 
-UPDATE v9
-- Buah dirapatkan semula tanpa guna satu collision circle yang terlalu besar.
-- Setiap jenis buah ada physical contact radius ikut bentuk visualnya (contoh grape/pineapple), jadi tak nampak floating.
-- Final separation masih aktif untuk elak solid fruit body bertindih pada board padat.
-- Merge tolerance ikut physical contact radius supaya buah sama yang betul-betul rapat lebih reliable merge.
-- BEST dan SCORE kini satu baris di bahagian atas; BEST dianjak ke tengah.
-- Bomb / Shake / New Game / Sound dipindahkan ke bawah box.
-- Panel arahan bawah dibuang; hanya NEXT fruit dipaparkan.
-- Semua fungsi offline/save score kekal.
+BASELINE
+- Semua gameplay, fruit spacing, Bomb, Shake, NEXT, BEST/SCORE dan UI v9 dikekalkan.
+
+BATTERY OPTIMIZATION v10
+- Fruit artwork dirender sekali dan dicache sebagai sprite; texture kompleks tak dilukis semula setiap frame.
+- Background + box dicache sebagai static scene.
+- Physics aktif pada kadar adaptive (hingga 45 Hz semasa buah bergerak).
+- Bila board settle, physics turun ke low-power idle rate dan render sekitar 15 FPS.
+- Buah yang stabil masuk sleep state; gravity/collision tak dikira penuh sampai diganggu buah lain atau Shake.
+- Collision solver guna adaptive passes dan skip sleeping pairs yang stabil.
+- Device pixel ratio canvas dicap 1.6 untuk kurangkan GPU load sambil kekalkan visual tajam pada phone/tablet.
+- Bila PWA masuk background / screen lain, loop tidak buat physics/render aktif dan audio disuspend.
+- Merge, Bomb dan Shake akan wake semula buah yang perlu bergerak.
 
 CARA UPDATE GITHUB PAGES
 1. Extract ZIP.
@@ -17,3 +21,4 @@ CARA UPDATE GITHUB PAGES
 4. Tunggu GitHub Pages deploy.
 5. Buka URL game dalam Safari/Chrome dengan internet dan refresh sekali.
 6. Tutup PWA Home Screen sepenuhnya dan buka semula.
+7. Jika masih nampak v9, refresh browser sekali lagi supaya service worker v10 ambil alih.

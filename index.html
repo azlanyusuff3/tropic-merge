@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Tropic Merge v9</title>
+<title>Tropic Merge v10</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10251d;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
@@ -44,18 +44,19 @@ body{touch-action:none}
 <div id="top"><div class="brand"><b>TROPIC <em>MERGE</em></b><small>OFFLINE • RANDOM DROP</small></div><div class="card" id="scoreCard"><span>SCORE</span><b id="score">0</b></div><div class="card" id="bestCard"><span>BEST</span><b id="best">0</b></div></div>
 <div id="hint">Bomb aktif — tap buah yang nak dibuang 💣</div>
 <div id="bottomBar"><div id="nextMini"><span>NEXT</span><canvas id="nextIcon" width="80" height="80"></canvas></div><div id="toolbar"><button class="tool" id="bomb" aria-label="Bomb">💣</button><button class="tool" id="shakeBtn" aria-label="Shake box">≋</button><button class="tool" id="new" aria-label="New game">↻</button><button class="tool" id="sound" aria-label="Sound">♪</button></div></div>
-<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v9</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
+<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v10 • BATTERY OPTIMIZED</div><h1>🍉 Tropic Merge</h1><p>Buah keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap buah yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan buah yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
 <div id="modal"><div class="panel"><div class="tag">GAME OVER</div><h1>Nice run!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>
 (()=>{
-const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const nextCanvas=document.getElementById('nextIcon'),nctx=nextCanvas.getContext('2d');
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d',{alpha:false,desynchronized:true});
+const nextCanvas=document.getElementById('nextIcon'),nctx=nextCanvas.getContext('2d',{alpha:true,desynchronized:true});
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),hint=document.getElementById('hint'),bombBtn=document.getElementById('bomb'),shakeBtn=document.getElementById('shakeBtn');
 let W=420,H=780,dpr=1,scale=1,offsetX=0,offsetY=0;
 function loadBest(){try{return +(localStorage.getItem('tropicBest')||0)}catch(e){return 0}}
 function saveBest(v){try{localStorage.setItem('tropicBest',v)}catch(e){}}
 let running=false,last=performance.now(),score=0,best=loadBest(),bombMode=false,soundOn=true,gameOver=false,lastDrop=0,aimX=210,idSeq=1,combo=0,lastMerge=0,shake=0,lastBoxShake=-9999;
+let physicsAccumulator=0,lastRender=0,forceRedraw=true,pageVisible=!document.hidden,staticScene=null;
 let currentLevel=0,nextLevel=1,dragging=false,pointerId=null;
 bestEl.textContent=best;
 const fruits=[
@@ -80,109 +81,79 @@ let audioCtx=null;
 function audio(freq=420,dur=.07,type='sine',vol=.035){if(!soundOn)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 function randomFruit(){let r=Math.random();if(r<.36)return 0;if(r<.64)return 1;if(r<.83)return 2;if(r<.94)return 3;return 4}
 function advanceFruit(){currentLevel=nextLevel;nextLevel=randomFruit();drawNext()}
-function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY)}addEventListener('resize',resize);resize();
+function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.6);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY);staticScene=null;forceRedraw=true}addEventListener('resize',resize);resize();
 const box={l:20,r:400,t:158,b:665,danger:207};
-function reset(){balls.length=0;particles.length=0;floaters.length=0;score=0;scoreEl.textContent=0;gameOver=false;bombMode=false;dragging=false;pointerId=null;bombBtn.classList.remove('active');hint.classList.remove('show');aimX=210;combo=0;currentLevel=randomFruit();nextLevel=randomFruit();drawNext();document.getElementById('modal').style.display='none'}
-function spawn(level,x){let f=fruits[level],r=f.r;x=Math.max(box.l+r+3,Math.min(box.r-r-3,x));balls.push({id:idSeq++,level,r,x,y:box.t-r-8,vx:(Math.random()-.5)*10,vy:25,born:performance.now(),danger:0,mergeLock:0,rot:(Math.random()-.5)*.12,spinKick:(Math.random()-.5)*.22,contact:false,entered:false});lastDrop=performance.now();audio(320+level*40,.055,'sine',.028)}
+function reset(){balls.length=0;particles.length=0;floaters.length=0;score=0;scoreEl.textContent=0;gameOver=false;bombMode=false;dragging=false;pointerId=null;bombBtn.classList.remove('active');hint.classList.remove('show');aimX=210;combo=0;currentLevel=randomFruit();nextLevel=randomFruit();drawNext();document.getElementById('modal').style.display='none';physicsAccumulator=0;forceRedraw=true}
+function spawn(level,x){let f=fruits[level],r=f.r;x=Math.max(box.l+r+3,Math.min(box.r-r-3,x));balls.push({id:idSeq++,level,r,x,y:box.t-r-8,vx:(Math.random()-.5)*10,vy:25,born:performance.now(),danger:0,mergeLock:0,rot:(Math.random()-.5)*.12,spinKick:(Math.random()-.5)*.22,contact:false,entered:false,sleeping:false,sleepT:0});lastDrop=performance.now();forceRedraw=true;audio(320+level*40,.055,'sine',.028)}
 function burst(x,y,color,count=15,power=150){for(let i=0;i<count;i++){let a=Math.random()*Math.PI*2,s=Math.random()*power+30;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:1,size:Math.random()*5+2,color})}}
-function bombAt(x,y){let hit=null,md=1e9;for(const b of balls){let d=Math.hypot(x-b.x,y-b.y);if(d<=b.r+13&&d<md){hit=b;md=d}}if(hit){balls.splice(balls.indexOf(hit),1);burst(hit.x,hit.y,'#ff6b3b',38,270);burst(hit.x,hit.y,'#ffd75b',22,185);floaters.push({x:hit.x,y:hit.y,text:'BOOM!',life:1,color:'#ffe46e'});shake=14;audio(82,.22,'sawtooth',.08);setTimeout(()=>audio(52,.2,'square',.04),30)}bombMode=false;bombBtn.classList.remove('active');hint.classList.remove('show')}
-function merge(a,b){if(a.level!==b.level||a.level>=fruits.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=fruits[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),danger:0,mergeLock:performance.now()+170,rot:((a.rot||0)+(b.rot||0))*.5,spinKick:Math.max(-.55,Math.min(.55,((a.spinKick||0)+(b.spinKick||0))*.25)),contact:false,entered:y+nf.r>=box.t+6});let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;if(score>best){best=score;bestEl.textContent=best;saveBest(best)}burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
+function bombAt(x,y){let hit=null,md=1e9;for(const b of balls){let d=Math.hypot(x-b.x,y-b.y);if(d<=b.r+13&&d<md){hit=b;md=d}}if(hit){balls.splice(balls.indexOf(hit),1);for(const q of balls){q.sleeping=false;q.sleepT=0}forceRedraw=true;burst(hit.x,hit.y,'#ff6b3b',38,270);burst(hit.x,hit.y,'#ffd75b',22,185);floaters.push({x:hit.x,y:hit.y,text:'BOOM!',life:1,color:'#ffe46e'});shake=14;audio(82,.22,'sawtooth',.08);setTimeout(()=>audio(52,.2,'square',.04),30)}bombMode=false;bombBtn.classList.remove('active');hint.classList.remove('show')}
+function merge(a,b){if(a.level!==b.level||a.level>=fruits.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=fruits[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),danger:0,mergeLock:performance.now()+170,rot:((a.rot||0)+(b.rot||0))*.5,spinKick:Math.max(-.55,Math.min(.55,((a.spinKick||0)+(b.spinKick||0))*.25)),contact:false,entered:y+nf.r>=box.t+6,sleeping:false,sleepT:0});for(const q of balls){q.sleeping=false;q.sleepT=0}forceRedraw=true;let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;if(score>best){best=score;bestEl.textContent=best;saveBest(best)}burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
 function physics(dt){
 if(gameOver)return;
-const g=1260,steps=Math.max(2,Math.min(4,Math.ceil(dt/.008))),h=dt/steps;
+const g=1260,steps=Math.max(1,Math.min(3,Math.ceil(dt/.009))),h=dt/steps;
 for(let sub=0;sub<steps;sub++){
+  let awakeCount=0;
   for(const b of balls){
     b.contact=false;
-    if(!Number.isFinite(b.rot))b.rot=0;
-    if(!Number.isFinite(b.spinKick))b.spinKick=0;
+    if(!Number.isFinite(b.rot))b.rot=0;if(!Number.isFinite(b.spinKick))b.spinKick=0;
     b._oldX=b.x;
-    b.vy+=g*h;
-    b.vx*=Math.pow(.994,h*60);
-    b.vx=Math.max(-480,Math.min(480,b.vx));
-    b.vy=Math.max(-620,Math.min(820,b.vy));
-    b.x+=b.vx*h;b.y+=b.vy*h;
+    if(b.sleeping){b.contact=true;continue}
+    awakeCount++;
+    b.vy+=g*h;b.vx*=Math.pow(.994,h*60);b.vx=Math.max(-480,Math.min(480,b.vx));b.vy=Math.max(-620,Math.min(820,b.vy));b.x+=b.vx*h;b.y+=b.vy*h;
     let br=pr(b);if(!b.entered&&b.y+br>=box.t+6)b.entered=true;
     let wallE=.25-Math.min(.08,b.level*.008),floorE=.27-Math.min(.13,b.level*.013);
     if(b.x-br<box.l){b.x=box.l+br;b.vx=Math.abs(b.vx)*wallE;b.spinKick=Math.min(.5,(b.spinKick||0)+.12)}
     if(b.x+br>box.r){b.x=box.r-br;b.vx=-Math.abs(b.vx)*wallE;b.spinKick=Math.max(-.5,(b.spinKick||0)-.12)}
-    if(b.y+br>box.b){
-      b.y=box.b-br;b.contact=true;
-      let impact=Math.abs(b.vy);
-      if(impact<38)b.vy=0;else b.vy=-impact*floorE;
-      b.vx*=impact>90?.965:.935;
-      if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0;
-    }
+    if(b.y+br>box.b){b.y=box.b-br;b.contact=true;let impact=Math.abs(b.vy);if(impact<38)b.vy=0;else b.vy=-impact*floorE;b.vx*=impact>90?.965:.935;if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0}
   }
 
-  for(let pass=0;pass<9;pass++){
+  // Adaptive solver: fewer passes when most fruit are asleep; enough passes while the board is moving.
+  const solverPasses=awakeCount<=1?4:(awakeCount<=5?6:7);
+  for(let pass=0;pass<solverPasses;pass++){
     let merged=false;
     outer:for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-      let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,ar=pr(a),br=pr(b),sumR=ar+br,d2=dx*dx+dy*dy;
-      // Same fruits merge at visual contact (with tiny tolerance), not only after deep overlap.
-      let mergeR=sumR*1.025;
-      if(a.level===b.level&&a.level<fruits.length-1&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){
-        if(merge(a,b)){merged=true;break outer}
-      }
+      let a=balls[i],b=balls[j],ar=pr(a),br=pr(b),sumR=ar+br,dx=b.x-a.x,dy=b.y-a.y;
+      if(Math.abs(dx)>sumR*1.03||Math.abs(dy)>sumR*1.03)continue;
+      let d2=dx*dx+dy*dy,mergeR=sumR*1.025;
+      if(a.level===b.level&&a.level<fruits.length-1&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){if(merge(a,b)){merged=true;break outer}}
+      if(a.sleeping&&b.sleeping)continue;
       let rr=sumR*.995;
       if(d2<rr*rr){
+        if(a.sleeping){a.sleeping=false;a.sleepT=0}if(b.sleeping){b.sleeping=false;b.sleepT=0}
         let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,tx=-ny,ty=nx,over=rr-d,ma=ar*ar,mb=br*br,sum=ma+mb;
-        a.contact=b.contact=true;
-        a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
+        a.contact=b.contact=true;a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
         let rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
-        if(vn<0){
-          let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);
-          a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;
-          let vt=rvx*tx+rvy*ty;
-          a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;
-          // Collision gives only a short kick. Actual rolling angle comes from travelled distance.
-          let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));
-          a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));
-          b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick));
-        }
+        if(vn<0){let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;let vt=rvx*tx+rvy*ty;a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick))}
       }
     }
     if(merged)continue;
   }
 
-  // FINAL DEPENETRATION: dense boards can leave a tiny residual overlap after impulse solving.
-  // This pass only separates shapes; it does not add energy, so stacks stay stable and visually touching.
-  for(let settlePass=0;settlePass<4;settlePass++){
+  // Lightweight final separation. Sleeping/sleeping pairs are already stable and skipped.
+  for(let settlePass=0;settlePass<2;settlePass++){
     for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-      let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,ar=pr(a),br=pr(b),sumR=ar+br,target=sumR*.995,d2=dx*dx+dy*dy;
-      if(d2<target*target){
-        let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,over=target-d,ma=ar*ar,mb=br*br,ms=ma+mb;
-        a.x-=nx*over*(mb/ms);a.y-=ny*over*(mb/ms);b.x+=nx*over*(ma/ms);b.y+=ny*over*(ma/ms);
-        a.contact=b.contact=true;
-      }
+      let a=balls[i],b=balls[j];if(a.sleeping&&b.sleeping)continue;let ar=pr(a),br=pr(b),sumR=ar+br,dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)>sumR||Math.abs(dy)>sumR)continue;let d2=dx*dx+dy*dy,target=sumR*.995;
+      if(d2<target*target){if(a.sleeping){a.sleeping=false;a.sleepT=0}if(b.sleeping){b.sleeping=false;b.sleepT=0}let d=Math.sqrt(Math.max(.0001,d2)),nx=dx/d,ny=dy/d,over=target-d,ma=ar*ar,mb=br*br,ms=ma+mb;a.x-=nx*over*(mb/ms);a.y-=ny*over*(mb/ms);b.x+=nx*over*(ma/ms);b.y+=ny*over*(ma/ms);a.contact=b.contact=true}
     }
   }
 
-  // HARD CONTAINMENT after collision solving: once a fruit enters the box it cannot be launched outside.
   for(const b of balls){
-    let br=pr(b);
-    if(b.x-br<box.l){b.x=box.l+br;if(b.vx<0)b.vx=Math.abs(b.vx)*.12}
-    if(b.x+br>box.r){b.x=box.r-br;if(b.vx>0)b.vx=-Math.abs(b.vx)*.12}
-    if(b.y+br>box.b){b.y=box.b-br;if(b.vy>0)b.vy=-Math.abs(b.vy)*.12;b.contact=true}
-    if(b.entered&&b.y-b.r<box.t){b.y=box.t+b.r;if(b.vy<0)b.vy=Math.abs(b.vy)*.08}
-
-    // Stable roll: rotate from actual horizontal travel, so stationary fruit can never spin forever.
-    let dxMove=b.x-(b._oldX??b.x);
-    let rollDelta=Math.max(-.20,Math.min(.20,dxMove/Math.max(12,pr(b))));
-    b.rot+=rollDelta;
-    if(!b.contact&&Math.abs(b.vx)>18){b.rot+=b.spinKick*h;b.spinKick*=Math.pow(.82,h*60)}
-    else b.spinKick*=Math.pow(.48,h*60);
-    if(Math.hypot(b.vx,b.vy)<8&&b.contact)b.spinKick=0;
-    if(Math.abs(b.rot)>Math.PI*8)b.rot%=Math.PI*2;
+    let br=pr(b);if(b.x-br<box.l){b.x=box.l+br;if(b.vx<0)b.vx=Math.abs(b.vx)*.12}if(b.x+br>box.r){b.x=box.r-br;if(b.vx>0)b.vx=-Math.abs(b.vx)*.12}if(b.y+br>box.b){b.y=box.b-br;if(b.vy>0)b.vy=-Math.abs(b.vy)*.12;b.contact=true}if(b.entered&&b.y-b.r<box.t){b.y=box.t+b.r;if(b.vy<0)b.vy=Math.abs(b.vy)*.08}
+    if(!b.sleeping){let dxMove=b.x-(b._oldX??b.x),rollDelta=Math.max(-.20,Math.min(.20,dxMove/Math.max(12,pr(b))));b.rot+=rollDelta;if(!b.contact&&Math.abs(b.vx)>18){b.rot+=b.spinKick*h;b.spinKick*=Math.pow(.82,h*60)}else b.spinKick*=Math.pow(.48,h*60);if(Math.hypot(b.vx,b.vy)<8&&b.contact)b.spinKick=0;if(Math.abs(b.rot)>Math.PI*8)b.rot%=Math.PI*2}
+    const speed=Math.hypot(b.vx,b.vy);
+    if(b.contact&&speed<9&&Math.abs(b.spinKick||0)<.025){b.sleepT=(b.sleepT||0)+h;if(b.sleepT>.28){b.sleeping=true;b.vx=0;b.vy=0;b.spinKick=0}}
+    else{b.sleepT=0;if(speed>11)b.sleeping=false}
   }
 }
 let now=performance.now();for(const b of balls){if(now-b.born>1300&&b.y-b.r<box.danger&&Math.hypot(b.vx,b.vy)<45)b.danger+=dt;else b.danger=Math.max(0,b.danger-dt*2);if(b.danger>1.4){endGame();break}}
-for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.vy+=550*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt*1.6;if(p.life<=0)particles.splice(i,1)}for(let i=floaters.length-1;i>=0;i--){let f=floaters[i];f.y-=35*dt;f.life-=dt*.9;if(f.life<=0)floaters.splice(i,1)}}
+for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.vy+=550*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt*1.6;if(p.life<=0)particles.splice(i,1)}for(let i=floaters.length-1;i>=0;i--){let f=floaters[i];f.y-=35*dt;f.life-=dt*.9;if(f.life<=0)floaters.splice(i,1)}
+}
 function endGame(){gameOver=true;dragging=false;document.getElementById('finalScore').textContent=score;document.getElementById('finalBest').textContent=score>=best?'New personal best ✨':'Best: '+best;document.getElementById('modal').style.display='grid';audio(170,.22,'triangle',.05);setTimeout(()=>audio(115,.28,'triangle',.04),140)}
 function rr(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r)}
 function ellipsePath(c,rx,ry){c.beginPath();c.ellipse(0,0,rx,ry,0,0,Math.PI*2)}
 function fruitBase(c,f,r,rx=r,ry=r){let g=c.createRadialGradient(-rx*.38,-ry*.42,Math.max(2,r*.05),0,0,r*1.25);g.addColorStop(0,'#fffde9');g.addColorStop(.1,f.c1);g.addColorStop(.58,f.c2);g.addColorStop(1,f.c3);c.fillStyle=g;ellipsePath(c,rx,ry);c.fill();let h=c.createRadialGradient(-rx*.32,-ry*.38,0,-rx*.32,-ry*.38,r*.36);h.addColorStop(0,'#fff9');h.addColorStop(1,'#fff0');c.fillStyle=h;ellipsePath(c,rx*.9,ry*.9);c.fill()}
 function stemLeaf(c,r,stemX=0,stemY=-.84){c.lineCap='round';c.strokeStyle='#5c3a19';c.lineWidth=Math.max(2,r*.055);c.beginPath();c.moveTo(stemX*r,stemY*r);c.quadraticCurveTo(stemX*r+2,-r*1.06,stemX*r+5,-r*1.13);c.stroke();let lg=c.createLinearGradient(0,-r, r*.4,-r*.7);lg.addColorStop(0,'#a8e95e');lg.addColorStop(1,'#3e8c36');c.fillStyle=lg;c.beginPath();c.ellipse(r*.18,-r*.95,r*.26,r*.11,-.35,0,Math.PI*2);c.fill()}
-function drawRealFruit(c,b,alpha=1,preview=false){let f=fruits[b.level],r=b.r;c.save();c.globalAlpha=alpha;c.translate(b.x,b.y);c.rotate(b.rot||0);c.shadowColor='#0007';c.shadowBlur=preview?6:10;c.shadowOffsetY=preview?3:6;
+function drawFruitVector(c,b,alpha=1,preview=false){let f=fruits[b.level],r=b.r;c.save();c.globalAlpha=alpha;c.translate(b.x,b.y);c.rotate(b.rot||0);c.shadowColor='#0007';c.shadowBlur=preview?6:10;c.shadowOffsetY=preview?3:6;
 if(f.type==='cherry'){fruitBase(c,f,r,r*.88,r*.9);c.shadowColor='transparent';stemLeaf(c,r,.03,-.83);c.fillStyle='#fff8';c.beginPath();c.arc(-r*.3,-r*.28,r*.12,0,7);c.fill()}
 else if(f.type==='rambutan'){
   // Rambutan: glossy red/orange shell with soft curved hairs. Circular silhouette matches physics naturally.
@@ -209,29 +180,67 @@ else if(f.type==='melon'){fruitBase(c,f,r);c.shadowColor='transparent';c.strokeS
 else if(f.type==='watermelon'){fruitBase(c,f,r);c.shadowColor='transparent';c.strokeStyle='#0f593eaa';c.lineWidth=Math.max(4,r*.05);c.save();c.beginPath();c.arc(0,0,r*.98,0,7);c.clip();for(let k=-r;k<=r;k+=r*.23){c.beginPath();c.moveTo(k,-r*1.05);c.bezierCurveTo(k+r*.15,-r*.35,k-r*.12,r*.32,k+r*.05,r*1.06);c.stroke()}c.restore();c.strokeStyle='#9adc6d80';c.lineWidth=2;c.beginPath();c.arc(0,0,r*.9,0,7);c.stroke()}
 else if(f.type==='durian'){c.shadowColor='transparent';let g=c.createRadialGradient(-r*.28,-r*.35,r*.03,0,0,r*1.15);g.addColorStop(0,'#f2ec91');g.addColorStop(.28,f.c1);g.addColorStop(1,f.c3);c.fillStyle=g;c.beginPath();let spikes=36;for(let i=0;i<spikes*2;i++){let a=i*Math.PI/spikes,rad=i%2?r*.97:r*1.1;let x=Math.cos(a)*rad,y=Math.sin(a)*rad;if(i===0)c.moveTo(x,y);else c.lineTo(x,y)}c.closePath();c.fill();c.fillStyle='#657b2d88';for(let i=0;i<26;i++){let a=i*2.399,rr=r*.62*Math.sqrt((i+.8)/26);c.beginPath();c.arc(Math.cos(a)*rr,Math.sin(a)*rr,2,0,7);c.fill()}stemLeaf(c,r,.02,-.88)}
 c.restore()}
+
+const fruitSprites=new Map();
+function getFruitSprite(level){
+  if(fruitSprites.has(level))return fruitSprites.get(level);
+  const r=fruits[level].r, pad=1.58, spriteDpr=1.5, side=Math.ceil(r*2*pad*spriteDpr);
+  const sc=document.createElement('canvas');sc.width=sc.height=side;
+  const cc=sc.getContext('2d',{alpha:true,desynchronized:true});
+  cc.imageSmoothingEnabled=true;cc.imageSmoothingQuality='high';cc.scale(spriteDpr,spriteDpr);
+  const logical=side/spriteDpr;
+  drawFruitVector(cc,{x:logical/2,y:logical/2,r,level,rot:0},1,false);
+  const obj={canvas:sc,logical,r};fruitSprites.set(level,obj);return obj;
+}
+function drawRealFruit(c,b,alpha=1,preview=false){
+  const sp=getFruitSprite(b.level), scaleR=b.r/sp.r, size=sp.logical*scaleR;
+  c.save();c.globalAlpha*=alpha;c.translate(b.x,b.y);c.rotate(b.rot||0);
+  c.drawImage(sp.canvas,-size/2,-size/2,size,size);c.restore();
+}
 function drawNext(){nctx.clearRect(0,0,80,80);let r=Math.min(27,fruits[nextLevel].r*.72);drawRealFruit(nctx,{x:40,y:42,r,level:nextLevel,rot:0},1,true)}
 function roundRect(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.stroke()}}
-function draw(){ctx.clearRect(-100,-100,W+200,H+200);let sx=shake?(Math.random()-.5)*shake:0,sy=shake?(Math.random()-.5)*shake*.6:0;shake*=.86;if(shake<.2)shake=0;ctx.save();ctx.translate(sx,sy);
-let bg=ctx.createLinearGradient(0,70,0,H);bg.addColorStop(0,'#32624a');bg.addColorStop(.34,'#173c31');bg.addColorStop(1,'#0b221d');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-ctx.globalAlpha=.18;for(let i=0;i<18;i++){let x=(i*107)%W,y=70+(i*163)%(H-70);ctx.fillStyle=i%2?'#ffd86b':'#9be76c';ctx.beginPath();ctx.arc(x,y,1.2+(i%3),0,7);ctx.fill()}ctx.globalAlpha=1;
-// tropical blurred leaf silhouettes
-ctx.globalAlpha=.08;ctx.fillStyle='#b8ef79';for(let i=0;i<7;i++){ctx.save();ctx.translate((i*83)%W,70+(i%3)*120);ctx.rotate(-.6+i*.22);ctx.beginPath();ctx.ellipse(0,0,16,85,0,0,7);ctx.fill();ctx.restore()}ctx.globalAlpha=1;
-ctx.shadowColor='#000b';ctx.shadowBlur=22;roundRect(box.l-7,box.t-6,box.r-box.l+14,box.b-box.t+17,27,'#0714107a');ctx.shadowColor='transparent';let glass=ctx.createLinearGradient(box.l,box.t,box.r,box.b);glass.addColorStop(0,'#fff9dc17');glass.addColorStop(.55,'#dff6e80a');glass.addColorStop(1,'#8dd8b513');roundRect(box.l,box.t,box.r-box.l,box.b-box.t,24,glass,'#f7d99e5b');
-ctx.strokeStyle='#d4a85b5a';ctx.lineWidth=4;ctx.beginPath();ctx.roundRect(box.l+4,box.t+4,box.r-box.l-8,box.b-box.t-8,20);ctx.stroke();
-ctx.setLineDash([9,8]);ctx.strokeStyle='#ff655fcb';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(box.l+10,box.danger);ctx.lineTo(box.r-10,box.danger);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#ff9b8f';ctx.font='900 10px system-ui';ctx.fillText('DANGER LINE',box.l+13,box.danger-8);
+function buildStaticScene(){
+  const sc=document.createElement('canvas'),sd=1.25;sc.width=Math.ceil(W*sd);sc.height=Math.ceil(H*sd);
+  const c=sc.getContext('2d',{alpha:false,desynchronized:true});c.scale(sd,sd);
+  let bg=c.createLinearGradient(0,70,0,H);bg.addColorStop(0,'#32624a');bg.addColorStop(.34,'#173c31');bg.addColorStop(1,'#0b221d');c.fillStyle=bg;c.fillRect(0,0,W,H);
+  c.globalAlpha=.18;for(let i=0;i<18;i++){let x=(i*107)%W,y=70+(i*163)%(H-70);c.fillStyle=i%2?'#ffd86b':'#9be76c';c.beginPath();c.arc(x,y,1.2+(i%3),0,7);c.fill()}c.globalAlpha=1;
+  c.globalAlpha=.08;c.fillStyle='#b8ef79';for(let i=0;i<7;i++){c.save();c.translate((i*83)%W,70+(i%3)*120);c.rotate(-.6+i*.22);c.beginPath();c.ellipse(0,0,16,85,0,0,7);c.fill();c.restore()}c.globalAlpha=1;
+  c.shadowColor='#000b';c.shadowBlur=22;c.beginPath();c.roundRect(box.l-7,box.t-6,box.r-box.l+14,box.b-box.t+17,27);c.fillStyle='#0714107a';c.fill();c.shadowColor='transparent';
+  let glass=c.createLinearGradient(box.l,box.t,box.r,box.b);glass.addColorStop(0,'#fff9dc17');glass.addColorStop(.55,'#dff6e80a');glass.addColorStop(1,'#8dd8b513');c.beginPath();c.roundRect(box.l,box.t,box.r-box.l,box.b-box.t,24);c.fillStyle=glass;c.fill();c.strokeStyle='#f7d99e5b';c.stroke();
+  c.strokeStyle='#d4a85b5a';c.lineWidth=4;c.beginPath();c.roundRect(box.l+4,box.t+4,box.r-box.l-8,box.b-box.t-8,20);c.stroke();
+  c.setLineDash([9,8]);c.strokeStyle='#ff655fcb';c.lineWidth=2.4;c.beginPath();c.moveTo(box.l+10,box.danger);c.lineTo(box.r-10,box.danger);c.stroke();c.setLineDash([]);c.fillStyle='#ff9b8f';c.font='900 10px system-ui';c.fillText('DANGER LINE',box.l+13,box.danger-8);
+  staticScene={canvas:sc,sd};
+}
+function draw(){ctx.clearRect(-100,-100,W+200,H+200);let sx=shake?(Math.random()-.5)*shake:0,sy=shake?(Math.random()-.5)*shake*.6:0;shake*=.86;if(shake<.2)shake=0;ctx.save();ctx.translate(sx,sy);if(!staticScene)buildStaticScene();ctx.drawImage(staticScene.canvas,0,0,staticScene.canvas.width,staticScene.canvas.height,0,0,W,H);
 if(!gameOver&&!bombMode&&running){let r=fruits[currentLevel].r,x=Math.max(box.l+r+3,Math.min(box.r-r-3,aimX));ctx.strokeStyle=dragging?'#ffe992a8':'#ffffff43';ctx.lineWidth=dragging?2:1;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(x,box.t-3);ctx.lineTo(x,box.b-10);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#fff5c7b5';ctx.font='900 18px system-ui';ctx.textAlign='center';ctx.fillText('‹',x-r-14,box.t-r*.7);ctx.fillText('›',x+r+14,box.t-r*.7);ctx.textAlign='left';drawRealFruit(ctx,{x,y:box.t-r-8,r,level:currentLevel,rot:0},dragging?1:.82,true)}
 for(const b of balls)drawRealFruit(ctx,b);
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill()}ctx.globalAlpha=1;for(const f of floaters){ctx.globalAlpha=Math.max(0,f.life);ctx.fillStyle=f.color;ctx.font='900 17px system-ui';ctx.textAlign='center';ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;ctx.textAlign='left';ctx.restore()}
-function loop(t){let dt=Math.min(.025,(t-last)/1000);last=t;if(running)physics(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+function sceneBusy(){if(dragging||bombMode||shake>.25||particles.length||floaters.length)return true;for(const b of balls){if(!b.sleeping||Math.hypot(b.vx,b.vy)>10)return true}return false}
+function loop(t){
+  if(!pageVisible){last=t;requestAnimationFrame(loop);return}
+  let frameDt=Math.min(.05,(t-last)/1000);last=t;const busy=running&&sceneBusy();
+  if(running){
+    const hz=busy?45:10,step=1/hz;physicsAccumulator+=frameDt;let n=0,maxTicks=busy?2:1;
+    while(physicsAccumulator>=step&&n<maxTicks){physics(step);physicsAccumulator-=step;n++}
+    if(n===maxTicks&&physicsAccumulator>step*2)physicsAccumulator=0;
+  }
+  const renderMs=(busy||dragging)?1000/60:1000/15;
+  if(forceRedraw||t-lastRender>=renderMs){draw();lastRender=t;forceRedraw=false}
+  requestAnimationFrame(loop)
+}
+document.addEventListener('visibilitychange',()=>{pageVisible=!document.hidden;last=performance.now();physicsAccumulator=0;if(pageVisible){forceRedraw=true;requestAnimationFrame(()=>draw())}else if(audioCtx&&audioCtx.state==='running'){audioCtx.suspend().catch(()=>{})}});
+window.addEventListener('pagehide',()=>{pageVisible=false;if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{})});
+window.addEventListener('pageshow',()=>{pageVisible=true;last=performance.now();physicsAccumulator=0;forceRedraw=true});
+requestAnimationFrame(loop);
 function toWorld(ev){let rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left-offsetX)/scale,cy=(ev.clientY-rect.top-offsetY)/scale;return{x:cx,y:cy}}
-canvas.addEventListener('pointerdown',e=>{if(!running||gameOver)return;let p=toWorld(e);if(p.x<box.l||p.x>box.r||p.y<box.t-80||p.y>box.b)return;if(bombMode){bombAt(p.x,p.y);return}if(performance.now()-lastDrop<260)return;dragging=true;pointerId=e.pointerId;aimX=p.x;try{canvas.setPointerCapture(e.pointerId)}catch(_){}});
-canvas.addEventListener('pointermove',e=>{if(!dragging||e.pointerId!==pointerId)return;let p=toWorld(e);aimX=p.x});
+canvas.addEventListener('pointerdown',e=>{if(!running||gameOver)return;let p=toWorld(e);if(p.x<box.l||p.x>box.r||p.y<box.t-80||p.y>box.b)return;if(bombMode){bombAt(p.x,p.y);return}if(performance.now()-lastDrop<260)return;dragging=true;pointerId=e.pointerId;aimX=p.x;forceRedraw=true;try{canvas.setPointerCapture(e.pointerId)}catch(_){}});
+canvas.addEventListener('pointermove',e=>{if(!dragging||e.pointerId!==pointerId)return;let p=toWorld(e);aimX=p.x;forceRedraw=true});
 function releaseDrop(e){if(!dragging||e.pointerId!==pointerId)return;let p=toWorld(e);aimX=p.x;dragging=false;pointerId=null;if(performance.now()-lastDrop>=260){spawn(currentLevel,aimX);advanceFruit()}}
 canvas.addEventListener('pointerup',releaseDrop);canvas.addEventListener('pointercancel',e=>{dragging=false;pointerId=null});
-function shakeBox(){if(!running||gameOver||bombMode)return;let now=performance.now();if(now-lastBoxShake<1200||!balls.length)return;lastBoxShake=now;dragging=false;for(const b of balls){let dir=(b.x<(box.l+box.r)/2)?1:-1;b.vx=Math.max(-330,Math.min(330,b.vx+dir*(55+Math.random()*75)+(Math.random()-.5)*70));b.vy=Math.max(-360,b.vy-(40+Math.random()*85));b.spinKick=Math.max(-.45,Math.min(.45,(b.spinKick||0)+(Math.random()-.5)*.22));b.danger=Math.max(0,b.danger-.45)}shake=15;hint.textContent='SHAKE! Buah tengah dirapatkan ≋';hint.classList.add('show');shakeBtn.classList.add('cool');burst((box.l+box.r)/2,box.b-30,'#9ff3e8',20,120);audio(150,.09,'square',.035);setTimeout(()=>audio(215,.08,'sine',.025),80);setTimeout(()=>hint.classList.remove('show'),650);setTimeout(()=>shakeBtn.classList.remove('cool'),1200)}
-bombBtn.onclick=e=>{e.stopPropagation();if(!running||gameOver)return;dragging=false;bombMode=!bombMode;bombBtn.classList.toggle('active',bombMode);hint.textContent='Bomb aktif — tap buah yang nak dibuang 💣';hint.classList.toggle('show',bombMode);audio(bombMode?250:180,.05,'square',.025)};
+function shakeBox(){if(!running||gameOver||bombMode)return;let now=performance.now();if(now-lastBoxShake<1200||!balls.length)return;lastBoxShake=now;dragging=false;for(const b of balls){b.sleeping=false;b.sleepT=0;let dir=(b.x<(box.l+box.r)/2)?1:-1;b.vx=Math.max(-330,Math.min(330,b.vx+dir*(55+Math.random()*75)+(Math.random()-.5)*70));b.vy=Math.max(-360,b.vy-(40+Math.random()*85));b.spinKick=Math.max(-.45,Math.min(.45,(b.spinKick||0)+(Math.random()-.5)*.22));b.danger=Math.max(0,b.danger-.45)}shake=15;forceRedraw=true;hint.textContent='SHAKE! Buah tengah dirapatkan ≋';hint.classList.add('show');shakeBtn.classList.add('cool');burst((box.l+box.r)/2,box.b-30,'#9ff3e8',20,120);audio(150,.09,'square',.035);setTimeout(()=>audio(215,.08,'sine',.025),80);setTimeout(()=>hint.classList.remove('show'),650);setTimeout(()=>shakeBtn.classList.remove('cool'),1200)}
+bombBtn.onclick=e=>{e.stopPropagation();if(!running||gameOver)return;dragging=false;bombMode=!bombMode;forceRedraw=true;bombBtn.classList.toggle('active',bombMode);hint.textContent='Bomb aktif — tap buah yang nak dibuang 💣';hint.classList.toggle('show',bombMode);audio(bombMode?250:180,.05,'square',.025)};
 shakeBtn.onclick=e=>{e.stopPropagation();shakeBox()};
-document.getElementById('new').onclick=e=>{e.stopPropagation();if(confirm('Start game baru?'))reset()};document.getElementById('sound').onclick=e=>{e.stopPropagation();soundOn=!soundOn;e.currentTarget.textContent=soundOn?'♪':'×';if(soundOn)audio(600,.05)};
+document.getElementById('new').onclick=e=>{e.stopPropagation();if(confirm('Start game baru?'))reset()};document.getElementById('sound').onclick=e=>{e.stopPropagation();soundOn=!soundOn;forceRedraw=true;e.currentTarget.textContent=soundOn?'♪':'×';if(soundOn)audio(600,.05)};
 document.getElementById('play').onclick=()=>{document.getElementById('start').style.display='none';reset();running=true;audio(560,.08);setTimeout(()=>audio(780,.08),80)};document.getElementById('again').onclick=()=>{reset();running=true};document.getElementById('closeModal').onclick=()=>{document.getElementById('modal').style.display='none'};
 reset();
 })();
