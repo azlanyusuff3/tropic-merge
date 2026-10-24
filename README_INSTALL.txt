@@ -1,4 +1,9 @@
-TROPIC MERGE v10 — Battery Optimized Universal Offline PWA (iPhone / iPad / Android)
+TROPIC MERGE v11 — Ball Edition — Battery Optimized Universal Offline PWA (iPhone / iPad / Android)
+
+V11 BALL EDITION
+- Buah ditukar kepada 11 jenis bola: Ping Pong, Marble, Golf, 8-Ball, Tennis, Baseball, Volleyball, Bowling, Soccer, Basketball, Beach Ball.
+- Setiap bola ada shading 3D; corak (jahitan, panel, dimple) bergolek ikut physics manakala highlight cahaya kekal tetap.
+- Gameplay, physics dan optimization battery v10 tidak diubah.
 
 BASELINE
 - Semua gameplay, fruit spacing, Bomb, Shake, NEXT, BEST/SCORE dan UI v9 dikekalkan.
@@ -21,4 +26,4 @@ CARA UPDATE GITHUB PAGES
 4. Tunggu GitHub Pages deploy.
 5. Buka URL game dalam Safari/Chrome dengan internet dan refresh sekali.
 6. Tutup PWA Home Screen sepenuhnya dan buka semula.
-7. Jika masih nampak v9, refresh browser sekali lagi supaya service worker v10 ambil alih.
+7. Jika masih nampak buah (versi lama), refresh browser sekali lagi supaya service worker v11 ambil alih.

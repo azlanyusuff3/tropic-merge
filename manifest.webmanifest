@@ -1,7 +1,7 @@
 {
-  "name": "Tropic Merge Offline v10",
+  "name": "Tropic Merge Offline v11",
   "short_name": "Tropic Merge",
-  "description": "Universal offline tropical fruit merge game v10 with battery-optimized rendering, sleeping physics and adaptive frame rate.",
+  "description": "Universal offline ball merge game v11 with battery-optimized rendering, sleeping physics and adaptive frame rate.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
