@@ -1,4 +1,4 @@
-TROPIC MERGE v11 — Ball Edition — Battery Optimized Universal Offline PWA (iPhone / iPad / Android)
+BALL MERGE v11 — Battery Optimized Universal Offline PWA (iPhone / iPad / Android)
 
 V11 BALL EDITION
 - Buah ditukar kepada 11 jenis bola: Ping Pong, Marble, Golf, 8-Ball, Tennis, Baseball, Volleyball, Bowling, Soccer, Basketball, Beach Ball.

@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Tropic Merge v11</title>
+<title>Ball Merge v11</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10251d;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
@@ -32,7 +32,7 @@ body{touch-action:none}
 <meta name="theme-color" content="#10251d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Tropic Merge">
+<meta name="apple-mobile-web-app-title" content="Ball Merge">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="format-detection" content="telephone=no">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
@@ -41,10 +41,10 @@ body{touch-action:none}
 </head>
 <body><div id="app"><div id="wrap">
 <canvas id="game"></canvas>
-<div id="top"><div class="brand"><b>TROPIC <em>MERGE</em></b><small>OFFLINE • RANDOM DROP</small></div><div class="card" id="scoreCard"><span>SCORE</span><b id="score">0</b></div><div class="card" id="bestCard"><span>BEST</span><b id="best">0</b></div></div>
+<div id="top"><div class="brand"><b>BALL <em>MERGE</em></b><small>OFFLINE • RANDOM DROP</small></div><div class="card" id="scoreCard"><span>SCORE</span><b id="score">0</b></div><div class="card" id="bestCard"><span>BEST</span><b id="best">0</b></div></div>
 <div id="hint">Bomb aktif — tap bola yang nak dibuang 💣</div>
 <div id="bottomBar"><div id="nextMini"><span>NEXT</span><canvas id="nextIcon" width="80" height="80"></canvas></div><div id="toolbar"><button class="tool" id="bomb" aria-label="Bomb">💣</button><button class="tool" id="shakeBtn" aria-label="Shake box">≋</button><button class="tool" id="new" aria-label="New game">↻</button><button class="tool" id="sound" aria-label="Sound">♪</button></div></div>
-<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v11 • BALL EDITION</div><h1>⚽ Tropic Merge</h1><p>Bola keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap bola yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan bola yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
+<div id="start"><div class="panel"><div class="tag">UNIVERSAL OFFLINE BUILD v11 • BALL EDITION</div><h1>⚽ Ball Merge</h1><p>Bola keluar <b>random</b> dengan realistic bounce & stable roll.<br><br><b>Control:</b> sentuh → slide kiri/kanan → <b>release untuk drop</b>.<br><br><b>💣 Bomb:</b> tap Bomb → tap bola yang nak delete.<br><b>≋ Shake:</b> goncang box untuk rapatkan bola yang hampir merge.</p><button class="primary" id="play">PLAY</button></div></div>
 <div id="modal"><div class="panel"><div class="tag">GAME OVER</div><h1>Nice run!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>

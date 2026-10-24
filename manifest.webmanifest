@@ -1,6 +1,6 @@
 {
-  "name": "Tropic Merge Offline v11",
-  "short_name": "Tropic Merge",
+  "name": "Ball Merge Offline v11",
+  "short_name": "Ball Merge",
   "description": "Universal offline ball merge game v11 with battery-optimized rendering, sleeping physics and adaptive frame rate.",
   "start_url": "./index.html",
   "scope": "./",
