@@ -1,4 +1,4 @@
-const CACHE = 'ball-merge-v11-20261024-2';
+const CACHE = 'ball-merge-v11-20261024-3';
 const CORE = [
   './',
   './index.html',
