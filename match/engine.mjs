@@ -278,6 +278,15 @@ export function makeMove(board, from, to, rng = Math.random) {
     const runs = findRuns(working);
     const groups = groupedRuns(runs);
     if (!groups.length && !(chain === 1 && direct.size)) break;
+    // Visual-only metadata: original matching tiles before any blast or gravity.
+    // This must never change the actual clearing rules, scoring or saved board.
+    const matches = groups.map(group => {
+      const cells = [...group.keys].map(position);
+      const [firstR, firstC] = cells[0];
+      const special = powerFor(group);
+      return { kind: working[firstR][firstC].kind, cells,
+        tier: special === 'evolved' ? 5 : special ? 4 : 3 };
+    });
     const seedClear = new Set(chain === 1 ? direct : []);
     for (const group of groups) for (const key of group.keys) seedClear.add(key);
     const effects = chain === 1 ? [...initialEffects] : [];
@@ -319,7 +328,7 @@ export function makeMove(board, from, to, rng = Math.random) {
       effects.filter(effect => effect.type === 'mega').length * 500;
     score += points;
     fallAndFill(working, rng);
-    stages.push({ clear: [...clears].map(position), created, effects, points, chain, afterClear, afterFall: cloneBoard(working), removed });
+    stages.push({ clear: [...clears].map(position), matches, created, effects, points, chain, afterClear, afterFall: cloneBoard(working), removed });
   }
   let reshuffled = false;
   if (findRuns(working).length || !hasMove(working)) {

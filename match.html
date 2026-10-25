@@ -9,6 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./match/style.css">
+  <link rel="stylesheet" href="./match/effects.css">
   <title>Monster Match | Monster Island</title>
 </head>
 <body>
@@ -37,12 +38,13 @@
       <button id="help-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">?</span><span>How to Play</span></button>
       <button id="new-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">&#10227;</span><span>New Game</span></button>
     </nav>
-    <p class="bottom-note">Match 4: Line Blast &nbsp;&bull; Match 5: EVOLVE! &nbsp;&bull; Swap to BOOM!</p>
+    <p class="bottom-note">Match 3: Elemental Burst &nbsp;&bull; Match 4: Power &nbsp;&bull; Match 5: EVOLVE!</p>
   </main>
 
   <div class="modal-screen" id="help-modal" hidden>
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title"><button class="modal-x" type="button" data-close aria-label="Close">&#10005;</button><h2 id="help-title">How to Play</h2><p>Swap two neighbouring monsters. Match <b>3 or more</b> of the same monster in a row or column to earn points.</p>
-      <div class="rule"><span>&#9733;</span><p><b>Match 4</b> creates a line-blast monster. Swap it to clear a whole row or column.</p></div>
+      <div class="rule"><span>&#9733;</span><p><b>Every Match 3+</b> makes the matching monsters cast their element first: slime, water, puff, leaves, rocks or ice. These are visual effects and do not remove extra tiles.</p></div>
+      <div class="rule"><span>&#9733;</span><p><b>Match 4</b> casts a stronger elemental burst and creates a line-blast monster.</p></div>
       <div class="rule"><span>&#10024;</span><p><b>Match 5+</b> evolves a monster! It stays on the board. Swap it with a neighbour to blast a <b>3×3 area</b>.</p></div><div class="rule"><span>&#128165;</span><p><b>Five evolved powers:</b> Bubblo sweeps two rows; Shadebub explodes 3×3; Groveling clears diagonals; Lumiorb removes the swapped type; Infernodon blasts a row and column.</p></div><div class="rule"><span>&#11088;</span><p><b>Two evolved monsters</b> combine into a <b>5×5 MEGA BLAST</b>. Tap an evolved monster to preview its power; drag for an exact target preview.</p></div>
       <div class="rule"><span>&#10022;</span><p><b>T or L combo</b> creates a nearby blast. Chain reactions earn bonus points.</p></div>
       <p class="muted">Six base monsters evolve into five special characters. No timer, lives or move limit. Your board and best score save automatically.</p><button class="primary-btn" type="button" data-close>Let's Play!</button>

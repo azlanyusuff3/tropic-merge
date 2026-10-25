@@ -1,0 +1,109 @@
+/* Lightweight elemental battle effects for matching. No images/canvas or libraries. */
+.tile.element-charged:not(.clearing) .tile-well{
+  --element-glow:#e4ffe3;
+  box-shadow:0 0 0 2px var(--element-glow),0 0 13px var(--element-glow),inset 0 2px #ffffffd2;
+  animation:element-charge .13s ease-out both;
+}
+.tile.element-charged[data-element="slime"] .tile-well{--element-glow:#8ce85d}
+.tile.element-charged[data-element="water"] .tile-well{--element-glow:#70e4ff}
+.tile.element-charged[data-element="puff"] .tile-well{--element-glow:#f7b3e7}
+.tile.element-charged[data-element="leaf"] .tile-well{--element-glow:#a8e96f}
+.tile.element-charged[data-element="rock"] .tile-well{--element-glow:#f6bd71}
+.tile.element-charged[data-element="ice"] .tile-well{--element-glow:#d4faff}
+@keyframes element-charge{from{filter:brightness(1);transform:scale(1)}to{filter:brightness(1.28);transform:scale(1.07)}}
+
+.elemental-cast{
+  position:absolute;z-index:8;display:block;width:0;height:0;pointer-events:none;
+  contain:layout style;opacity:0;animation:element-cast-life .52s ease-out both;
+}
+.elemental-ring,.elemental-core,.elemental-particle,.elemental-title{position:absolute;pointer-events:none}
+.elemental-ring{
+  left:0;top:0;width:calc(var(--fx-radius) * 2);height:calc(var(--fx-radius) * 2);
+  border:2px solid var(--fx-tint);border-radius:50%;
+  box-shadow:0 0 12px var(--fx-tint),inset 0 0 10px var(--fx-tint);
+  opacity:0;animation:element-ring .42s cubic-bezier(.17,.66,.25,1) both;
+}
+.elemental-core{
+  left:0;top:0;width:calc(var(--fx-radius) * 1.25);height:calc(var(--fx-radius) * 1.25);
+  border-radius:50%;background:radial-gradient(circle,var(--fx-tint) 0%,#ffffff55 26%,transparent 72%);
+  opacity:0;animation:element-core .4s ease-out both;
+}
+.elemental-particle{
+  left:0;top:0;width:var(--particle-size);height:var(--particle-size);
+  opacity:0;transform:translate(-50%,-50%) scale(.3);
+  animation:element-particle .45s cubic-bezier(.18,.61,.32,1) var(--delay) both;
+}
+.elemental-title{
+  left:0;top:-14px;transform:translate(-50%,-50%);width:max-content;max-width:200px;
+  font-size:clamp(10px,2.8vw,15px);line-height:1;letter-spacing:.7px;
+  font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;
+  color:#ffffff;text-shadow:-1px -1px #46786e,1px 2px #2c535e,0 0 7px var(--fx-tint);
+  -webkit-text-stroke:.35px #345868;
+  opacity:0;animation:element-title .45s ease-out both;
+}
+.elemental-cast[data-tier="4"] .elemental-ring{border-width:3px;filter:brightness(1.2)}
+.elemental-cast[data-tier="5"] .elemental-ring{border-width:4px;filter:brightness(1.45)}
+.elemental-cast[data-tier="5"] .elemental-core{background:radial-gradient(circle,#fff9d6 0%,var(--fx-tint) 25%,transparent 75%)}
+.elemental-cast[data-chain="3"] .elemental-ring,
+.elemental-cast[data-chain="4"] .elemental-ring,
+.elemental-cast[data-chain="5"] .elemental-ring{filter:brightness(1.35)}
+
+/* Each element uses its own silhouettes rather than color-swapped dots. */
+.elemental-cast[data-element="slime"] .elemental-particle{
+  border-radius:60% 42% 23% 75%;transform-origin:50% 50%;
+  background:radial-gradient(circle at 30% 24%,#e7ffba 2%,#8ee35b 33%,#279d67 90%);
+  box-shadow:inset 0 1px 2px #ffffffc2,0 0 4px #91f4a6;
+}
+.elemental-cast[data-element="slime"] .elemental-ring{border-radius:46% 54% 67% 33%}
+.elemental-cast[data-element="water"] .elemental-particle{
+  border:1.8px solid #d1faff;border-radius:50%;
+  background:radial-gradient(circle at 25% 20%,#ffffffd9 0 11%,#6bddff72 33%,#62c6ff2b 59%,transparent 75%);
+  box-shadow:inset -1px -2px 3px #4bb0df,0 0 5px #affaff;
+}
+.elemental-cast[data-element="water"] .elemental-ring{border-style:double;border-width:4px;box-shadow:0 0 14px #6de8fa}
+.elemental-cast[data-element="puff"] .elemental-particle{
+  border-radius:50%;background:radial-gradient(circle at 34% 31%,#ffffff 0 18%,#ffb3ee 43%,#d77fbdaa 72%,transparent 95%);
+  box-shadow:-4px 0 3px #f8c4f69c,3px 2px 3px #fff2ffab;
+}
+.elemental-cast[data-element="puff"] .elemental-ring{border-style:dotted;border-width:3px}
+.elemental-cast[data-element="leaf"] .elemental-particle{
+  border-radius:100% 2% 100% 2%;background:linear-gradient(135deg,#e1ff99,#72ce65 52%,#319969);
+  box-shadow:0 0 4px #80ee88;
+}
+.elemental-cast[data-element="leaf"] .elemental-ring{border-style:dashed;transform-origin:center}
+.elemental-cast[data-element="rock"] .elemental-particle{
+  border-radius:0;clip-path:polygon(42% 0,100% 36%,80% 100%,9% 88%,0 27%);
+  background:linear-gradient(139deg,#ffedd0 2%,#dea86c 36%,#98644b 88%);
+}
+.elemental-cast[data-element="rock"] .elemental-ring{border:3px dashed #f3be80;border-radius:24%}
+.elemental-cast[data-element="ice"] .elemental-particle{
+  border-radius:0;clip-path:polygon(50% 0,85% 34%,100% 100%,40% 83%,0 100%,17% 28%);
+  background:linear-gradient(130deg,#ffffff,#dbffff 31%,#70c9f0 67%,#369ad1);
+}
+.elemental-cast[data-element="ice"] .elemental-ring{border:3px solid #e3fbff;clip-path:polygon(50% 0,92% 28%,92% 76%,50% 100%,8% 76%,8% 28%)}
+
+@keyframes element-cast-life{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
+@keyframes element-ring{
+  0%{transform:translate(-50%,-50%) scale(.15) rotate(-12deg);opacity:0}
+  22%{opacity:.95}
+  100%{transform:translate(-50%,-50%) scale(1.02) rotate(19deg);opacity:0}
+}
+@keyframes element-core{
+  0%{transform:translate(-50%,-50%) scale(.3);opacity:0}
+  28%{opacity:.74}
+  100%{transform:translate(-50%,-50%) scale(1.35);opacity:0}
+}
+@keyframes element-particle{
+  0%{transform:translate(-50%,-50%) scale(.25) rotate(0deg);opacity:0}
+  20%{opacity:1}
+  100%{transform:translate(calc(var(--dx) - 50%),calc(var(--dy) - 50%)) scale(.65) rotate(var(--turn));opacity:0}
+}
+@keyframes element-title{
+  0%{opacity:0;transform:translate(-50%,-12px) scale(.75)}
+  20%{opacity:1;transform:translate(-50%,-23px) scale(1.02)}
+  100%{opacity:0;transform:translate(-50%,-43px) scale(.93)}
+}
+@media(prefers-reduced-motion:reduce){
+  .tile.element-charged .tile-well{animation:none!important}
+  .elemental-cast,.elemental-ring,.elemental-core,.elemental-particle,.elemental-title{animation-duration:.01ms!important}
+}

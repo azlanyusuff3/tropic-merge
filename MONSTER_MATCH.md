@@ -1,35 +1,54 @@
-# Monster Match — Elemental Evolution v18.4
+# Monster Match — Elemental FX v18.5
 
-Monster Match remains a lightweight, endless 8×8 match-three game. The Monster Island menu still shows only Monster Merge and Monster Match; Sling remains hidden.
+This release improves **every ordinary match** without adding gameplay complexity.
+The 8x8 Classic Endless board, six normal monster types, five evolved characters,
+score, saved progress and power-combo mechanics remain unchanged.
 
-## Gameplay
+## Match effects
 
-- Match 3: clear normal tiles and score.
-- Match 4: create a row/column blast.
-- Match 5+: evolve one tile into a rare monster that stays on the board.
-- Tap an evolved monster to briefly **preview its power**, or drag toward a neighbor for an exact directional preview.
-- Swap evolved + any neighbor: activate that evolved monster's unique element power instantly.
-- Swap two evolved monsters together: a 5×5 **MEGA BLAST**, without doubling the original powers.
-- Blasts that hit other evolved monsters chain-trigger their own abilities. No lives, limits, level system, rescues or energy meters.
+| Regular tile | Every Match 3+ casts |
+|---|---|
+| Slimelet | Slime Splash — glossy green blobs |
+| Tidalon | Water Splash — ocean-blue rings and bubbles |
+| Puffling | Puff Burst — light pink puffs |
+| Sproutiball | Leaf Storm — stylized green leaf particles |
+| Rockro | Rock Smash — earthy angular shards and gold dust |
+| Frostbop | Ice Shatter — cyan crystal shards and frost |
 
-## Five unique elemental powers
+- Match 3: light elemental burst just before the normal tiles disappear.
+- Match 4: stronger element burst, then the existing row/column power tile.
+- Match 5+: larger burst and the existing EVOLVE effect. The evolved monster
+  stays on the board; users can activate its unique power by swiping.
+- Cascades play their own element effects, with a restrained combo cue.
+- T/L bombs, elemental evolved powers, 5x5 Mega Blast and saved legacy rainbow
+  powers work the same as in v18.4.
 
-| Match 5 of | Evolved monster | Power |
-|---|---|---|
-| Slimelet / Sproutiball | Groveling | **Vine Strike**: clear the two intersecting diagonals through the landing tile |
-| Tidalon | Bubblo | **Tidal Wave**: clear two horizontal rows |
-| Puffling | Shadebub | **Shadow Explosion**: blast 3×3 around the landing tile |
-| Frostbop | Lumiorb | **Star Magic**: remove all ordinary monsters of the type swapped with Lumiorb |
-| Rockro | Infernodon | **Inferno Blast**: clear one full row and column |
+This is **visual feedback only**: no extra tile clears, no effect on score or
+balance. Compact CSS-only particles with a maximum of four simultaneous groups
+keep phone rendering light; reduced-motion settings eliminate particles. Audio
+uses the existing optional sound toggle.
 
-Lumiorb hit by a *chain reaction* targets the most common remaining ordinary monster kind. Powers show brief, distinct CSS elemental animations and highlighted impact cells. The standard board still has just six matching kinds; the other five are evolved specials, bringing all eleven Monster Merge characters into the game.
+## Implementation
 
-## Compatibility and testing
+- `match/engine.mjs` now includes visual-only `stages[].matches` metadata
+  (group color, matched cell positions, visual tier 3/4/5). Actual game logic
+  is unchanged.
+- `match/effects.mjs` creates short-lived elemental FX overlay nodes and tile
+  charging highlights. `match/effects.css` draws the particles, rings and
+  match labels using CSS. No new image files, dependencies or canvas engine.
+- `match/app.js` displays elemental casting before clearing, while preserving
+  existing special power FX and evolution animations.
+- `match.html` explains the behavior; service worker precaches the new files.
+- Local save keys `monsterMatchSaveV1` and `monsterMatchBestV1` unchanged.
+- `merge.html`, source monster assets and archived Sling game untouched.
 
-- Rules: `match/engine.mjs` exports `ABILITY_NAMES`, `powerCells`, `previewPower`, and `makeMove`. UI is `match/app.js`, `match/style.css`, and `match.html`.
-- Previews and actual effect footprints share the same rules. Existing saved rainbow pieces still function; new five-matches create evolved monsters.
-- Save keys `monsterMatchSaveV1` and `monsterMatchBestV1` are unchanged, including old valid boards and high scores.
-- Monster Merge and Monster Sling engines, sprite files, and saved progress are not changed. Sling remains hidden and un-cached by default.
-- Offline service worker cache is versioned for this update.
+## Testing
 
-Run `npm run test:match` for engine and browser regression suites, or `npm test` for all games. Development tests locally covered 343 core + elemental scenarios and the five abilities on a simulated mobile touch browser, alongside 320×568, 390×844, 430×932 and 768×1024 layouts. Real Android installed-PWA QA is still recommended.
+`npm run test:match` runs earlier engine/evolved-power checks plus
+`tests/match-elements.mjs` (matched-cell/tier metadata) and
+`tests/match-fx.cjs` (browser effects/reduced motion).
+Local QA completed: 149 match-metadata cases; 450 equivalent moves compared
+against the previous engine (identical score, board, clears, specials and combos);
+34x elemental and power checks; mobile browser at 320x568, 390x844,
+430x932 and 768x1024, including all six elements and enhanced tier effects.
+Physical Android/PWA visual performance still needs on-device confirmation.

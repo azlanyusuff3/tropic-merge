@@ -1,4 +1,5 @@
 import { SIZE, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
+import { castElementalMatches, clearElementalCharge } from './effects.mjs';
 
 const SPRITES = [
   ['Slimelet', './assets/monsters/01-slimelet.webp'],
@@ -213,6 +214,14 @@ async function playMove(from, to) {
   render(result.swapped); tone(330, .07);
   await delay(180);
   for (const stage of result.stages) {
+    // Monsters visibly cast their own element BEFORE disappearing. Cascades
+    // cast as well; special blasts keep their existing distinct effects.
+    const cast = castElementalMatches(boardEl, stage.matches, stage.chain);
+    if (cast) {
+      tone(260 + cast.kind * 72 + (cast.tier - 3) * 54 + Math.min(stage.chain, 4) * 24, .075);
+      if (!cast.reducedMotion) await delay(stage.chain > 2 ? 85 : 130);
+    }
+    clearElementalCharge(boardEl);
     highlight(stage.clear, 'clearing');
     const mega = stage.effects.some(effect => effect.type === 'mega');
     const powers = stage.effects.filter(effect => effect.type === 'evolved');
@@ -224,8 +233,8 @@ async function playMove(from, to) {
     }
     for (const effect of stage.effects) showBlast(effect);
     popup(`+${stage.points.toLocaleString()}`, stage.clear[Math.floor(stage.clear.length / 2)] || [3, 3]);
-    tone(400 + stage.chain * 95, .12);
-    await delay(210);
+    if (!cast) tone(400 + stage.chain * 95, .12);
+    await delay(cast ? (stage.chain > 2 ? 155 : 175) : 210);
     render(stage.afterClear);
     showEvolution(stage.created);
     await delay(evolution ? 330 : 85);
@@ -243,7 +252,10 @@ async function playMove(from, to) {
     showMessage(`${power.ability}! Keep the combo going.`);
   }
   else if (result.chains > 1) showMessage(`Amazing! ${result.chains} chain combos!`);
-  else showMessage('Nice match! Keep going.');
+  else if (result.stages[0]?.matches?.length) {
+    const kind = result.stages[0].matches[0].kind;
+    showMessage(['Slime Splash!', 'Water Splash!', 'Puff Burst!', 'Leaf Storm!', 'Rock Smash!', 'Ice Shatter!'][kind] + ' Keep going.');
+  } else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');
   el('chain-badge').textContent = 'NO MOVE LIMIT';
   setBusy(false);

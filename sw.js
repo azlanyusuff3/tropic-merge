@@ -1,7 +1,7 @@
-const CACHE='monster-island-v18-6-elemental-powers-20261025';
+const CACHE='monster-island-v18-7-match-elemental-fx-20261025';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/app.js','./match/engine.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
+ './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
  './assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2',
  './sling/menu.css','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
