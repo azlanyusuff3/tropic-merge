@@ -5,8 +5,8 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 const hook=`
-window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,
- state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel}),
+window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,
+ state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel,dragging,pointerId}),
  pause:()=>{running=false},resume:()=>{running=true},
  seed:(level,x,y)=>{spawn(level,x);let b=balls[balls.length-1];Object.assign(b,{y,vx:0,vy:0,born:performance.now()-2000,mergeLock:0,entered:true,sleeping:false});return b},
  setDrop:(level)=>{currentLevel=level;lastDrop=0},
@@ -56,6 +56,20 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{__game.reset();__game.resume();__game.setDrop(0)});
  const dragStart=await page.evaluate(()=>__game.world(100,350)),dragEnd=await page.evaluate(()=>__game.world(300,350));await page.mouse.move(dragStart.x,dragStart.y);await page.mouse.down();await page.mouse.move(dragEnd.x,dragEnd.y,{steps:8});await page.mouse.up();assert.ok(await page.evaluate(()=>__game.balls[0].x>290));results.push('Drag-and-release world coordinate mapping');
  for(let i=0;i<18;i++){await page.evaluate(i=>__game.setDrop(i%5),i);const p=await page.evaluate(i=>__game.world(70+(i*79)%280,350),i);await page.touchscreen.tap(p.x,p.y);await page.waitForTimeout(280)}await page.waitForTimeout(1000);await page.screenshot({path:path.join(root,'test-output/gameplay.png')});results.push('Actual running board after 19 interactive drops');
+ // Regression: a second finger pressing Shake or Bomb while the first finger is aiming used to block every later drop.
+ const cdp=await context.newCDPSession(page);const touch=(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y,id:0}]});
+ for(const press of ['shake','bomb']){
+  await page.evaluate(()=>{__game.reset();__game.resume();__game.seed(2,200,600)});await page.waitForTimeout(1400);
+  let q=await page.evaluate(()=>__game.world(100,350));await touch('touchStart',q.x,q.y);await page.waitForTimeout(40);
+  await page.evaluate(p=>{if(p==='shake')__game.shakeBox();else{document.getElementById('bomb').click();document.getElementById('bomb').click()}},press);
+  await touch('touchEnd');await page.waitForTimeout(350);const n=await page.evaluate(()=>__game.balls.length);
+  q=await page.evaluate(()=>__game.world(300,350));await page.touchscreen.tap(q.x,q.y);await page.waitForTimeout(350);
+  assert.equal(await page.evaluate(()=>__game.balls.length),n+1,press+' left input stuck')}
+ results.push('Drops keep working after Shake/Bomb pressed mid-aim');
+ await page.evaluate(()=>{__game.reset();__game.resume();__game.endGame()});await page.locator('#closeModal').tap();
+ let q=await page.evaluate(()=>__game.world(200,350));await page.touchscreen.tap(q.x,q.y);await page.waitForTimeout(100);
+ assert.equal(await page.locator('#modal').isVisible(),true);assert.notEqual(await page.locator('#finalBest').textContent(),'New personal best ✨');
+ await page.locator('#again').tap();results.push('View Board: tapping the board brings Game Over back; zero score is not a personal best');
  assert.deepEqual(errors,[]);results.push('No browser JavaScript errors');await context.close();
  // Real unmodified page, real service worker, real offline network failure.
  const offline=await browser.newContext({viewport:{width:390,height:844}}),op=await offline.newPage();op.on('pageerror',e=>errors.push(e.message));

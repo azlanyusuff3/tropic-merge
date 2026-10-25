@@ -19,10 +19,16 @@ Tested the actual application in headless Chromium 153 using Playwright 1.62.1. 
 - No page overflow or overlapping controls at 5 phone/tablet/desktop sizes
 - Drag-and-release world coordinate mapping
 - Actual running board after 19 interactive drops
+- Drops keep working after Shake/Bomb pressed mid-aim (two-finger regression)
+- View Board: tapping the board brings Game Over back; zero score is not a personal best
 - No browser JavaScript errors
 - Real offline reload, play and 19 cached resources
 
 Phone/tablet/desktop viewport sizes: 320×568, 390×844, 430×932, 768×1024 and 1440×900. Screenshots of all 11 sprites and the board after interactive drops were visually reviewed. All sprite files have alpha transparency and are 512×512. Artwork and icons total approximately 1 MB. Syntax and `git diff --check` also pass.
+
+## Update delivery (v13.1.0)
+
+The service worker installs every file with `cache: 'reload'`. Verified against a server sending GitHub Pages' `Cache-Control: max-age=600`: the previous worker re-cached the old `index.html` after an update, the new one picks up the new build. The start screen shows the running version.
 
 ## Changes to the original engine
 

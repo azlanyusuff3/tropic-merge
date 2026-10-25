@@ -1,4 +1,4 @@
-const CACHE = 'monster-merge-v13-20261025-3';
+const CACHE = 'monster-merge-v13-20261025-4';
 const CORE = [
   './', './index.html', './manifest.webmanifest', './assets/tropical.webp',
   './icons/apple-touch-icon.png', './icons/icon-192.png',
@@ -7,7 +7,9 @@ const CORE = [
     .map((name,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${name}.webp`)
 ];
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));
+  // cache:'reload' skips the browser's HTTP cache. GitHub Pages lets browsers keep files for ~10 minutes,
+  // so without it a new version could be installed with the OLD index.html inside it.
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE.map(u => new Request(u, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
   // GitHub Pages shares an origin with the owner's other projects. Leave their caches alone.
