@@ -1,4 +1,4 @@
-const CACHE='monster-merge-v18-0-sling-20261025-1';
+const CACHE='monster-merge-v18-1-pilefix-20261025-2';
 const CORE=[
  './','./index.html','./merge.html','./sling.html','./manifest.webmanifest',
  './sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',

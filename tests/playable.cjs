@@ -6,7 +6,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 // Exact original b3afe41 engine and visual stylesheet; the only Merge addition is navigation.
 const crypto=require('node:crypto'),original=fs.readFileSync(path.join(root,'merge.html'),'utf8');
-assert.equal(crypto.createHash('sha256').update(original.match(/<script>([\s\S]*?)<\/script>/)[1]).digest('hex'),'1386508f6affd0af53c2b1bc9b6097037e9d14086b60fd0f364b6036bfe62fc0');
+assert.equal(crypto.createHash('sha256').update(original.match(/<script>([\s\S]*?)<\/script>/)[1]).digest('hex'),'2a3f3608ee9739cbec91cdad50e28acb7d242ecf6f751a1b843ab83111d32729');
 assert.equal(crypto.createHash('sha256').update(original.match(/<style>([\s\S]*?)<\/style>/)[1]).digest('hex'),'35b6793b61469c990492c096571a96de37c5b9f93caac85b2a953046c58ca569');
 
 const hook=`

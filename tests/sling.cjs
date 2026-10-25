@@ -161,7 +161,7 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await p.goto(BASE+'/');await p.evaluate(async()=>{await navigator.serviceWorker.ready;const c=await caches.open('another-game-test');await c.put('/another-game/x',new Response('x'));localStorage.setItem('monsterSlingSaveV1',JSON.stringify({version:1,results:[{score:4242,stars:3},{score:10,stars:1}],selected:4,sound:true,revision:3}))});
   await poll(p,async()=>(await caches.keys()).some(k=>k.startsWith('monster-merge-v16')));
   siteRoot=ROOT;await p.goto(BASE+'/');await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
-  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v18-0-sling-20261025-1')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v18-0-sling-20261025-1')});
+  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v18-1-pilefix-20261025-2')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v18-1-pilefix-20261025-2')});
   // the page that was open during the update reloads itself once (it is not in a level)
   await p.waitForLoadState('load');await poll(p,async()=>{const r=await navigator.serviceWorker.getRegistration();return !!r?.active&&r.active.state==='activated'&&!r.waiting&&!r.installing});
   const keys=await p.evaluate(()=>caches.keys());assert.ok(keys.includes('another-game-test'),'unrelated caches survive');
