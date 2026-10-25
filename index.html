@@ -42,7 +42,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:ui-rounded
 <button class="tool" id="new" data-label="RESTART" aria-label="Restart game"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M30 12a13 13 0 1 0 2 16" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M32 3v14H18Z" fill="currentColor"/></svg></button>
 <button class="tool" id="sound" data-label="SOUND" aria-label="Mute sound" aria-pressed="true"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M4 15h7l11-9v28l-11-9H4Z" fill="currentColor"/><path id="soundWaves" d="M27 13q7 7 0 14m5-19q12 12 0 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
 </div></div>
-<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><p id="loadStatus" role="status">Preparing your island…</p><p id="ver">v13.1.0 · build 20261025-4</p></div></div>
+<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><p id="loadStatus" role="status">Preparing your island…</p><p id="ver">v13.2.0 · build 20261025-5</p></div></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="overTitle"><div class="panel"><div class="tag">GAME OVER</div><h1 id="overTitle">An island full of friends!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>
@@ -223,7 +223,12 @@ function drawRealFruit(c,b,alpha=1,live=false){const sp=getBallSprite(b.level);i
   if(p.glow){c.globalCompositeOperation='lighter';c.globalAlpha*=p.glow*(.6+.4*Math.sin((frameNow||0)/1000*2.2+p.ph));c.drawImage(sp.body,-size/2,-size/2,size,size)}
  }else{c.translate(b.x,b.y);c.rotate(b.rot||0);c.drawImage(sp.body,-size/2,-size/2,size,size)}
  c.restore();}
-function drawNext(){nctx.clearRect(0,0,100,100);drawRealFruit(nctx,{x:50,y:51,r:Math.min(33,88/ballKinds[nextLevel].artScale),level:nextLevel,rot:0});nextCanvas.setAttribute('aria-label','Next: '+ballKinds[nextLevel].name)}
+// The NEXT box must show a monster at the same size RELATIVE to the others as on the board
+// (a Slimelet is tiny, a Rockro is big). One common scale fits the biggest droppable monster (levels 0-4).
+const NEXT_FIT=94;
+const NEXT_SCALE=Math.min(...ballKinds.slice(0,5).map(k=>NEXT_FIT/(k.artScale*k.r)));
+function nextIconR(level){const k=ballKinds[level];return k.r*Math.min(NEXT_SCALE,NEXT_FIT/(k.artScale*k.r))}
+function drawNext(){nctx.clearRect(0,0,100,100);drawRealFruit(nctx,{x:50,y:51,r:nextIconR(nextLevel),level:nextLevel,rot:0});nextCanvas.setAttribute('aria-label','Next: '+ballKinds[nextLevel].name)}
 async function prepareAssets(){const play=document.getElementById('play'),status=document.getElementById('loadStatus');play.disabled=true;
  try{const images=await Promise.all(ballKinds.map(k=>loadImage(k.asset)));images.forEach((im,i)=>monsterImages[i]=im);const bg=await loadImage('./assets/tropical.webp');backgroundImage.src=bg.src;await backgroundImage.decode();ballSprites.clear();ballKinds.forEach((_,i)=>getBallSprite(i));staticScene=null;drawNext();forceRedraw=true;play.disabled=false;play.onclick=startGame;play.textContent='LET’S PLAY';status.textContent='Ready to play offline after the first full load.';}
  catch(e){status.textContent='Some artwork could not load. Check your connection and retry.';play.textContent='RETRY';play.disabled=false;play.onclick=prepareAssets;console.error(e)}

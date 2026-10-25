@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 const hook=`
-window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,
+window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,nextIconR,
  state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel,dragging,pointerId}),
  pause:()=>{running=false},resume:()=>{running=true},
  seed:(level,x,y)=>{spawn(level,x);let b=balls[balls.length-1];Object.assign(b,{y,vx:0,vy:0,born:performance.now()-2000,mergeLock:0,entered:true,sleeping:false});return b},
@@ -56,6 +56,11 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{__game.reset();__game.resume();__game.setDrop(0)});
  const dragStart=await page.evaluate(()=>__game.world(100,350)),dragEnd=await page.evaluate(()=>__game.world(300,350));await page.mouse.move(dragStart.x,dragStart.y);await page.mouse.down();await page.mouse.move(dragEnd.x,dragEnd.y,{steps:8});await page.mouse.up();assert.ok(await page.evaluate(()=>__game.balls[0].x>290));results.push('Drag-and-release world coordinate mapping');
  for(let i=0;i<18;i++){await page.evaluate(i=>__game.setDrop(i%5),i);const p=await page.evaluate(i=>__game.world(70+(i*79)%280,350),i);await page.touchscreen.tap(p.x,p.y);await page.waitForTimeout(280)}await page.waitForTimeout(1000);await page.screenshot({path:path.join(root,'test-output/gameplay.png')});results.push('Actual running board after 19 interactive drops');
+ // Regression: the NEXT box used to draw every monster at about the same size, so a tiny Slimelet looked 2x too big.
+ const nextRatios=await page.evaluate(()=>[0,1,2,3,4].map(l=>__game.nextIconR(l)/__game.ballKinds[l].r));
+ for(const r of nextRatios)assert.ok(Math.abs(r-nextRatios[0])<1e-9,'NEXT size ratio must be identical for every level');
+ const nextFits=await page.evaluate(()=>[0,1,2,3,4].map(l=>__game.nextIconR(l)*__game.ballKinds[l].artScale));assert.ok(Math.max(...nextFits)<=94.01);
+ results.push('NEXT box shows monsters at the same relative size as on the board');
  // Regression: a second finger pressing Shake or Bomb while the first finger is aiming used to block every later drop.
  const cdp=await context.newCDPSession(page);const touch=(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y,id:0}]});
  for(const press of ['shake','bomb']){
