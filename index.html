@@ -123,7 +123,7 @@ const balls=[],particles=[],floaters=[],effects=[];
 let audioCtx=null;
 function audio(freq=420,dur=.07,type='sine',vol=.035){if(!soundOn)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 function randomFruit(){let r=Math.random();if(r<.36)return 0;if(r<.64)return 1;if(r<.83)return 2;if(r<.94)return 3;return 4}
-function advanceFruit(){currentLevel=nextLevel;nextLevel=randomFruit();drawNext()}
+function advanceFruit(){currentLevel=nextLevel;nextLevel=randomFruit();drawNext();saveGame()}
 function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.6);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY);staticScene=null;forceRedraw=true}addEventListener('resize',resize);resize();
 const box={l:20,r:400,t:190,b:665,danger:239};
 let bestAtStart=best;
@@ -168,7 +168,7 @@ for(let sub=0;sub<steps;sub++){
       let a=balls[i],b=balls[j],ar=pr(a),br=pr(b),sumR=ar+br,dx=b.x-a.x,dy=b.y-a.y;
       if(Math.abs(dx)>sumR*1.03||Math.abs(dy)>sumR*1.03)continue;
       let d2=dx*dx+dy*dy,mergeR=sumR*1.025;
-      if(a.level===b.level&&a.level<ballKinds.length-1&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){if(merge(a,b)){merged=true;break outer}}
+      if(a.level===b.level&&performance.now()>a.mergeLock&&performance.now()>b.mergeLock&&d2<=mergeR*mergeR){if(merge(a,b)){merged=true;break outer}}
       if(a.sleeping&&b.sleeping)continue;
       let rr=sumR*.995;
       if(d2<rr*rr){
