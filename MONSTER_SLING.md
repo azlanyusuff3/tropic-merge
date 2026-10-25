@@ -1,10 +1,10 @@
-# Monster Sling v17.1
+# Monster Sling v18.0
 
 A fullscreen 2D slingshot game that lives next to the original Monster Merge on Monster Island.
 
 ## Play
 
-Open Monster Sling from the island menu. The campaign is an adventure map of five islands, each with a winding route of six levels that ends in a boss fort. Tap a level for its card (best stars, best score, hero) and press Play.
+Open Monster Sling from the island menu to reach the title screen: big PLAY (continues the next level), Monsters (hero squad), Islands (campaign map) and Settings. The campaign is an adventure map of five islands, each with a winding route of six levels that ends in a boss fort. Tap a level for its card (best stars, best score, hero) and press Play.
 
 Each level opens with a short camera pan over the enemy fort before returning to the sling, where your hero hops into the pouch. Grab the monster, pull back and release. Dotted trails show the exact flight path. Tap anywhere (or the skill button, or Space) during flight to fire your hero's skill once. Defeat every shell bandit to rescue the crystal.
 
@@ -49,6 +49,10 @@ Rendering: the world is drawn on one canvas with a fixed 60 Hz simulation step. 
 ## Storage
 
 `monsterSlingSaveV1` keeps results, selected hero, sound, effects preference and whether the tutorial was seen; `monsterSlingBackupV1` keeps the previous valid copy. Existing saves load unchanged (new fields are optional). Results merge by maximum across tabs. Monster Merge keys are never written.
+
+## Art direction
+
+v18 restyles every Sling screen as a bright island mobile game: navy glass HUD panels with thick outlines (level badge with island avatar, defeated-bandit bar and reachable stars, score, objective panel, Next hero cards, skill card with a use badge), chunky glossy yellow/green/navy buttons, the Fredoka typeface (self-hosted, SIL OFL, `assets/fonts/`), sea cliffs with waterfalls and rocky islets, thick grass over a stone cliff face, soft-focus corner leaves, a thick wooden sling with red bands, crates with cross braces, bright glass and a dashed trajectory with a target reticle. There is no currency, shop or purchase.
 
 ## Artwork
 

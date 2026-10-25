@@ -1,4 +1,4 @@
-# Monster Island v17.1 verification — 25 October 2026
+# Monster Island v18.0 verification — 25 October 2026
 
 Baseline: `b5f39ee` from main. `merge.html` is unchanged byte-for-byte (SHA-256 `4a7dd28b2258f82222bff3a5d37319cebd9b81d7fe1fee411aedd121cfbe9441`), as are all eleven monster sprites, the Merge background, icons and the manifest (18 files checked by SHA-256 before and after).
 

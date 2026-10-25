@@ -5,7 +5,7 @@ import{GROUND,predict,step}from'./physics.js';
 import{prepareMonster,paintMonster,react,kick,mood}from'./renderer.js';
 import*as art from'./art.js';
 
-export const VERSION='17.1';
+export const VERSION='18.0';
 const $=(s,r=document)=>r.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>1-Math.pow(1-clamp(t,0,1),3);
 const app=$('#app');
@@ -65,6 +65,9 @@ const ICON={
  help:'<svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 115 2.2c-1.2.8-2 1.4-2 2.8M12 18h.01" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
  full:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
  rotate:'<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 13a9 9 0 009 9M21 11a9 9 0 00-9-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 2l2 0 0 2M14 22l-2 0 0-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+ swap:'<svg viewBox="0 0 24 24"><path d="M5 9a7 7 0 0112-3l2 2M19 4v4h-4M19 15a7 7 0 01-12 3l-2-2M5 20v-4h4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ gear:'<svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm8.6 5.1l-1.9-.4a7 7 0 01-.6 1.5l1.1 1.6-2.1 2.1-1.6-1.1a7 7 0 01-1.5.6l-.4 1.9h-3l-.4-1.9a7 7 0 01-1.5-.6l-1.6 1.1-2.1-2.1 1.1-1.6a7 7 0 01-.6-1.5l-1.9-.4v-3l1.9-.4a7 7 0 01.6-1.5L4.9 6.4 7 4.3l1.6 1.1a7 7 0 011.5-.6L10.5 3h3l.4 1.9a7 7 0 011.5.6L17 4.3l2.1 2.1-1.1 1.6a7 7 0 01.6 1.5l1.9.4z"/></svg>',
+ islands:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="18" rx="10" ry="3.5" fill="#3fc0ff"/><path d="M4 17q8-7 16 0z" fill="#f1cf7c"/><path d="M12 16V7" stroke="#7b4a20" stroke-width="1.6"/><path d="M12 7q-5-2-7 2q4-1 7-2zm0 0q5-2 7 2q-4-1-7-2zm0 0q-1-4-4-5q2 2 4 5zm0 0q1-4 4-5q-2 2-4 5z" fill="#3fb34a"/></svg>',
  sparkle:'<svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg>',
  lock:'<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>',
  crown:'<svg viewBox="0 0 24 24"><path d="M3 18l1.5-10 5 4.5L12 5l2.5 7.5 5-4.5L21 18z"/></svg>',
@@ -94,7 +97,8 @@ const rotateSeen=()=>{try{return sessionStorage.getItem('slingRotateTip')==='1'}
 const markRotateSeen=()=>{try{sessionStorage.setItem('slingRotateTip','1')}catch{}};
 
 // ───────────────────────────── Campaign map ─────────────────────────────
-const NODES=[[22,86],[56,76],[80,60],[50,47],[20,32],[60,15]];
+function islandAvatar(i){const th=art.THEMES[i];return`<svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" fill="${th.sky[0]}"/><rect y="34" width="60" height="26" fill="${th.sea[0]}"/><path d="M6 46q24-22 48 0z" fill="${th.soil[0]}"/><path d="M12 42q18-16 36 0q-18-6-36 0z" fill="${th.top}"/><path d="M30 40V22" stroke="${th.midDark}" stroke-width="2.4"/><path d="M30 22q-9-4-13 3q8-2 13-3zm0 0q9-4 13 3q-8-2-13-3zm0 0q-2-7-8-9q4 4 8 9zm0 0q2-7 8-9q-4 4-8 9z" fill="${th.mid}"/><circle cx="48" cy="12" r="5" fill="${th.sun}"/></svg>`}
+const NODES=[[22,87],[56,77],[80,62],[50,50],[22,37],[60,22]];
 function islandArt(i){const th=art.THEMES[i],props={palm:p=>`<g transform="translate(${p[0]} ${p[1]})"><path d="M0 0q4-22 2-44" stroke="${th.midDark}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M2-44q-18-6-26 4q14-4 26-4zM2-44q18-8 27 2q-14-4-27-2zM2-44q-4-16-16-18q8 8 16 18zM2-44q6-16 18-16q-10 6-18 16z" fill="${th.mid}"/></g>`,
  bamboo:p=>`<g transform="translate(${p[0]} ${p[1]})" stroke="${th.midDark}" stroke-width="3.5" stroke-linecap="round"><path d="M0 0v-52M7 0v-40"/><path d="M0-30q10-6 14-2M7-24q-10-4-13 0" fill="none" stroke-width="2"/></g>`,
  ice:p=>`<path transform="translate(${p[0]} ${p[1]})" d="M-9 0l7-36 4 8 4-20 6 48z" fill="${th.mid}" opacity=".85"/>`,
@@ -110,9 +114,9 @@ function mapScreen(){
  document.body.classList.remove('in-level');const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;
  const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,hero=SPECIES[state.selected];
  app.innerHTML=`<div class="map-screen">
- <header class="map-top"><a class="icon-btn" href="./index.html" aria-label="Back to Monster Island">${ICON.back}</a><div class="map-title"><small>ISLAND RESCUE</small><h1>Monster <em>Sling</em></h1></div><div class="star-total" aria-label="${stars} of 90 stars"><span>★</span>${stars}<small>/90</small></div><button class="icon-btn" id="sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}</button></header>
+ <header class="map-top"><a class="icon-btn" href="#" aria-label="Back to title">${ICON.back}</a><div class="map-title"><small>ISLAND RESCUE</small><h1>Monster <em>Sling</em></h1></div><div class="star-total navy" aria-label="${stars} of 90 stars"><span class="pill"><span class="coin">★</span></span>${stars}<small>/90</small></div><button class="icon-btn" id="sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}</button></header>
  <div class="sea" id="sea">${ISLANDS.map(([name,note],i)=>{const done=LEVELS.filter(l=>l.island===i&&state.results[l.id]).length,open=available(state,i*6);return`<section class="island ${open?'':'island-locked'}" style="--sea:${art.THEMES[i].sea[1]};--sea2:${art.THEMES[i].sea[0]}" id="island-${i}"><div class="island-label"><small>ISLAND ${i+1}</small><h2>${esc(name)}</h2><p>${esc(note)} · ${done}/6</p></div><div class="island-stage">${islandArt(i)}<svg class="route" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><path d="${routePath()}"/></svg>${LEVELS.filter(l=>l.island===i).map((l,k)=>{const ok=available(state,l.id),r=state.results[l.id],cur=l.id===next;return`<button class="level node ${l.boss?'boss':''} ${ok?'':'locked'} ${cur?'current':''} ${r?'done':''}" style="left:${NODES[k][0]}%;top:${NODES[k][1]}%" data-level="${l.id}" ${ok?'':'disabled'} aria-label="Level ${l.number}: ${esc(l.title)}${l.boss?' (boss)':''}${r?`, ${r.stars} stars`:ok?'':', locked'}">${cur?`<img class="node-hero" src="${hero.asset}" alt="">`:''}<span class="node-face">${ok?l.boss?ICON.crown:l.number:ICON.lock}</span><span class="node-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</span></button>`}).join('')}</div></section>`}).join('')}</div>
- <footer class="map-bar"><button class="squad-btn" id="squad" aria-label="Choose your hero. Current: ${esc(hero.name)}"><span class="hero-art" style="--hc:${hero.color}"><img src="${hero.asset}" alt=""></span><span><small>HERO</small><b>${esc(hero.name)}</b></span></button><button class="btn primary play-next" data-level="${next}">${ICON.play}<span>${wins?'Continue':'Play'} · ${LEVELS[next].number}</span></button></footer>
+ <footer class="map-bar"><button class="squad-btn navy" id="squad" aria-label="Choose your hero. Current: ${esc(hero.name)}"><span class="hero-art" style="--hc:${hero.color}"><img src="${hero.asset}" alt=""></span><span><small>HERO</small><b>${esc(hero.name)}</b></span></button><button class="btn primary play-next" data-level="${next}">${ICON.play}<span>${wins?'Continue':'Play'} · ${LEVELS[next].number}</span></button></footer>
  <p class="build">Monster Sling v${VERSION} · progress saved on this device</p></div>`;
  const host=$('.map-screen');
  $('#sound').onclick=()=>{state.sound=!state.sound;persist();Sound.play('ui');mapScreen()};
@@ -127,9 +131,42 @@ function squad(host,after){const heroes=unlocked(state,storage);Sound.play('ui')
  const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">YOUR SLING SQUAD · ${heroes.length}/11</small><h2>Choose a hero</h2><div class="hero-grid">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===state.selected?'selected':'')).join('')}</div><p class="muted small">Switch heroes between every launch. Discovering a monster in Monster Merge unlocks it here too.</p>`,'card wide');
  el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);after?.();return}const t=e.target.closest('[data-hero]');if(!t)return;const id=+t.dataset.hero;if(!heroes.includes(id)){Sound.play('hurt');t.classList.remove('nudge');void t.offsetWidth;t.classList.add('nudge');return}state.selected=id;persist();Sound.play('hop');if(after){closeOverlay(host);after()}else mapScreen()}}
 
+// ───────────────────────────── Title screen ─────────────────────────────
+function titleScreen(){
+ document.body.classList.remove('in-level');window.scrollTo(0,0);const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;
+ const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,hero=SPECIES[state.selected];
+ const side=[3,2,0,10,5].filter(id=>id!==state.selected),pos=[['8%','44%',30],['2%','12%',27],['16%','70%',23],['58%','2%',44],['70%','46%',30]];
+ app.innerHTML=`<div class="title-screen"><div class="title-bg" aria-hidden="true"></div>
+ <div class="title-top"><a class="icon-btn" href="./index.html" aria-label="Back to Monster Island">${ICON.back}</a><div class="player navy" aria-label="${stars} of 90 stars"><span class="avatar">★</span><div><b>${stars}<small style="font-size:12px;opacity:.75"> / 90</small></b><div class="bar"><i style="width:${stars/90*100}%"></i></div></div></div><span class="spacer"></span><div class="pill navy" aria-label="${wins} of 30 levels cleared"><span class="coin gem">${ICON.crown}</span>${wins}/30</div><button class="icon-btn" id="t-sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}">${state.sound?ICON.sound:ICON.mute}</button><button class="icon-btn" id="t-help" aria-label="How to play">${ICON.help}</button></div>
+ <h1 class="logo" aria-label="Monster Sling"><span class="logo-board" aria-hidden="true"></span><span class="w1" aria-hidden="true">M<span class="o"><img src="${SPECIES[0].asset}" alt=""></span>NSTER</span><span class="w2" aria-hidden="true">SLING</span><span class="ribbon" aria-hidden="true"></span></h1>
+ <div class="heroes-stage" aria-hidden="true">${side.slice(0,5).map((id,i)=>heroes.includes(id)||i<3?`<img src="${SPECIES[id].asset}" alt="" style="left:${pos[i][1]};top:${pos[i][0]};width:${pos[i][2]}%;animation-delay:${-i*.6}s;${heroes.includes(id)?'':'filter:brightness(0) opacity(.35)'}">`:'').join('')}<img class="h-main" src="${hero.asset}" alt="">${slingSVG()}</div>
+ <div class="play-pedestal"><button class="play-big" data-level="${next}" aria-label="Play level ${LEVELS[next].number}">${ICON.play}PLAY<small>${wins?`Continue · Level ${LEVELS[next].number} — ${esc(LEVELS[next].title)}`:'Rescue the first island!'}</small></button></div>
+ <div class="stone-row"><button class="stone-btn" id="t-squad"><span class="st-ico"><img src="${hero.asset}" alt=""></span>Monsters</button><button class="stone-btn" id="t-map"><span class="st-ico">${ICON.islands}</span>Islands</button><button class="stone-btn" id="t-settings"><span class="st-ico">${ICON.gear}</span>Settings</button></div>
+ <p class="title-foot">Monster Sling v${VERSION} · progress saved on this device</p></div>`;
+ const host=$('.title-screen');
+ $('.play-big').onclick=()=>{Sound.play('ui');go('#level-'+(next+1))};
+ $('#t-map').onclick=()=>{Sound.play('ui');go('#map')};
+ $('#t-squad').onclick=()=>squad(host,()=>titleScreen());
+ $('#t-help').onclick=()=>{Sound.play('ui');const el=overlay(host,helpHTML()+'<div class="actions"><button class="btn primary" data-back autofocus>Got it</button></div>','help');el.onclick=e=>{if(e.target===el||e.target.closest('[data-back]'))closeOverlay(host)}};
+ const soundBtn=()=>{state.sound=!state.sound;persist();Sound.play('ui')};
+ $('#t-sound').onclick=()=>{soundBtn();titleScreen()};
+ $('#t-settings').onclick=()=>settings(host);
+}
+function settings(host){Sound.play('ui');const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
+ const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">SETTINGS</small><h2>Settings</h2><div class="toggles"><button class="toggle ${state.sound?'on':''}" data-act="sound" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}<span>Sound ${state.sound?'on':'off'}</span></button><button class="toggle ${state.effects!=='reduced'?'on':''}" data-act="fx" aria-pressed="${state.effects!=='reduced'}">${ICON.sparkle}<span>${state.effects==='reduced'?'Calm effects':'Full effects'}</span></button>${fs}</div><p class="muted small">Progress is saved on this device. Clearing site data deletes it.</p><div class="actions"><button class="btn primary" data-close autofocus>Done</button></div>`,'card');
+ el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);titleScreen();return}const a=e.target.closest('[data-act]')?.dataset.act;if(a==='sound'){state.sound=!state.sound;persist();settings(host)}if(a==='fx'){state.effects=state.effects==='reduced'?'full':'reduced';persist();settings(host)}if(a==='full'){const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen({navigationUI:'hide'});Promise.resolve(p).catch(()=>notify('Full screen is not available here.')).finally(()=>settings(host))}}}
+// Wooden sling with a red band, drawn as SVG for the title screen.
+function slingSVG(){return`<svg class="slingY" viewBox="0 0 400 230" aria-hidden="true"><defs><linearGradient id="tw" x1="0" x2="1"><stop offset="0" stop-color="#8a4f22"/><stop offset=".45" stop-color="#d8954e"/><stop offset="1" stop-color="#7a431b"/></linearGradient></defs>
+ <path d="M40 30q30 20 60 60q30 40 100 60q70-20 100-60q30-40 60-60" fill="none" stroke="#a5231a" stroke-width="10" opacity=".0"/>
+ <path d="M200 240V150M200 150L84 46M200 150L316 46" fill="none" stroke="#3c1f0a" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M200 240V150M200 150L84 46M200 150L316 46" fill="none" stroke="url(#tw)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M188 230V160M92 58l90 84" stroke="#f3c07e" stroke-width="6" stroke-linecap="round" opacity=".6" fill="none"/>
+ <path d="M58 64q142 92 284 0" fill="none" stroke="#5c140c" stroke-width="26" stroke-linecap="round"/><path d="M58 64q142 92 284 0" fill="none" stroke="#e2402f" stroke-width="18" stroke-linecap="round"/><path d="M70 60q130 80 260 0" fill="none" stroke="#ff8a7a" stroke-width="4" stroke-linecap="round" opacity=".6"/>
+ <g fill="#4fb33a" stroke="#1d5c18" stroke-width="3"><path d="M120 200q-30-30 -6-50q10 30 6 50z"/><path d="M150 205q10-40 40-40q-16 26-40 40z"/><path d="M280 200q30-30 6-50q-10 30-6 50z"/><path d="M250 205q-10-40-40-40q16 26 40 40z"/></g><g fill="#fff"><circle cx="186" cy="196" r="6"/><circle cx="222" cy="200" r="5"/></g></svg>`}
+
 // ───────────────────────────── Routing ─────────────────────────────
 function go(hash){if(location.hash===hash)route();else location.hash=hash}
-function route(){game?.destroy();game=null;state=load(storage);const m=location.hash.match(/^#level-(\d+)$/);if(m){const id=+m[1]-1;if(LEVELS[id]&&available(state,id)){game=new Game(LEVELS[id]);return}}mapScreen()}
+function route(){game?.destroy();game=null;state=load(storage);const m=location.hash.match(/^#level-(\d+)$/);if(m){const id=+m[1]-1;if(LEVELS[id]&&available(state,id)){game=new Game(LEVELS[id]);return}}if(location.hash==='#map')mapScreen();else titleScreen()}
 addEventListener('hashchange',route);
 addEventListener('pageshow',e=>{if(e.persisted)route()});
 addEventListener('pagehide',()=>{game?.pause(true);Sound.suspend()});
@@ -163,17 +200,16 @@ class Game{
   <canvas id="field" tabindex="0" role="application" aria-label="Battlefield. Drag your monster back and release to launch. Tap during flight or press Space for the skill."></canvas>
   <div class="hud">
    <div class="hud-top">
+    <div class="hud-level"><span class="lvl-ava">${islandAvatar(l.island)}</span><div class="lvl-info navy"><b>Level ${l.number}</b><span>${esc(l.title)}</span><div class="lvl-bar"><i id="lvl-bar"></i></div><div class="lvl-stars" id="lvl-stars" aria-label="Stars you can still earn"><i>★</i><i>★</i><i>★</i></div></div></div>
+    <div class="hud-score navy" aria-label="Score"><span class="pill"><span class="coin">★</span></span><b id="score">0</b><small>SCORE</small></div>
     <button class="hud-btn" id="pause" aria-label="Pause">${ICON.pause}</button>
-    <div class="hud-level"><b>${l.island+1}-${l.number-l.island*6}</b><span>${esc(l.title)}</span></div>
-    <div class="hud-mid"><div class="hud-chip" id="bandits" aria-label="Bandits left">${ICON.bandit}<b>${this.world.remaining}</b></div><div class="hud-shots" id="shots" aria-label="Monsters left"></div></div>
-    <div class="hud-score"><small>SCORE</small><b id="score">0</b></div>
    </div>
+   <div class="hud-goal navy" id="bandits" aria-label="Defeat all bandits"><span class="g-ico">${ICON.bandit}</span><span class="g-txt"><small>Defeat all<br>bandits</small><b id="goal">0/${this.world.initialCount}</b></span></div>
    <p class="hud-toast" id="toast" role="status"></p>
    <button class="hud-btn cam-reset" id="cam-reset" aria-label="Recenter camera" hidden>${ICON.target}</button>
    <div class="hud-bottom">
-    <button class="hero-btn" id="hero-btn" aria-label="Change hero"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt=""></span><span class="hero-name">${esc(d.name)}</span></button>
-    <button class="next-btn" id="next" hidden aria-label="End this shot">${ICON.next}</button>
-    <button class="skill-btn" id="skill" aria-label="Use skill"><span class="skill-ring"></span><span class="skill-ico">${ICON.sparkle}</span><small id="skill-name">${esc(d.skill)}</small></button>
+    <div class="next-box navy"><span class="tab">Next</span><div class="hud-shots" id="shots" aria-label="Monsters left"></div><div id="picks" style="display:flex;gap:6px;align-items:flex-end"></div><button class="hero-btn" id="hero-btn" aria-label="All heroes">${ICON.swap}</button></div>
+    <div class="right-cards"><button class="card-btn next-btn" id="next" hidden aria-label="End this shot">${ICON.next}</button><button class="card-btn skill-btn" id="skill" aria-label="Use skill"><span class="skill-ring"></span><span class="skill-ico">${ICON.sparkle}</span><small id="skill-name">${esc(d.skill)}</small><span class="badge" id="skill-badge">1</span></button></div>
    </div>
   </div>
   <div class="hand" id="hand" aria-hidden="true"></div>
@@ -195,6 +231,7 @@ class Game{
   $('#skill').onclick=()=>this.useSkill();
   $('#next').onclick=()=>{if(this.world.next())this.afterShot()};
   $('#hero-btn').onclick=()=>this.trayOpen?this.closeTray():this.openTray();
+  $('#picks').onclick=e=>{const b=e.target.closest('[data-quick]');if(!b||b.disabled)return;const id=+b.dataset.quick;if(id!==this.world.species)this.pick(id)};
   $('#cam-reset').onclick=()=>{Sound.play('ui');this.cam.userZ=1;this.cam.mode=this.world.status==='flight'?'follow':this.result?'result':'aim';this.updateHud()};
  }
  destroy(){this.alive=false;cancelAnimationFrame(this.raf);clearTimeout(this.toastT);this.abort.abort();this.ro?.disconnect();this.pointers.clear();this.gesture=null;document.body.classList.remove('in-level')}
@@ -203,7 +240,7 @@ class Game{
   let dpr=Math.min(2,devicePixelRatio||1)*this.quality;if(w*h*dpr*dpr>2.4e6)dpr=Math.sqrt(2.4e6/(w*h));
   const changed=w!==this.w||h!==this.h||dpr!==this.dpr;this.w=w;this.h=h;this.dpr=dpr;if(changed){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr)}
   const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(!this.portrait&&this.stage.querySelector(':scope > .overlay.rotate.show'))closeOverlay(this.stage);if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
-  this.hudBottom=(document.querySelector('.hud-top')?.getBoundingClientRect().bottom||56)-r.top;this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
+  this.hudBottom=(document.querySelector('.hud-goal')?.getBoundingClientRect().bottom||document.querySelector('.hud-top')?.getBoundingClientRect().bottom||56)-r.top;this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
  get S(){return this.base*this.cam.z}
  cy0(z=this.cam.z){const S=this.base*z;return GROUND-(this.h*this.groundFrac-this.h/2)/S}
  toScreen(x,y){return{x:this.w/2+(x-this.cam.cx)*this.S,y:this.h/2+(y-this.cam.cy)*this.S}}
@@ -338,11 +375,15 @@ class Game{
  countUp(el,to){const t0=performance.now(),d=reduced()?200:900;const step=t=>{if(!this.alive||!el?.isConnected)return;const k=ease((t-t0)/d);el.textContent=Math.round(to*k).toLocaleString();if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
  // ── HUD ──
  toast(text,ms=1800){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(this.toastT);this.toastT=setTimeout(()=>t.classList.remove('show'),ms)}
- updateHud(full=false){if(!this.alive)return;const w=this.world,d=SPECIES[w.species];
-  $('#bandits b').textContent=w.remaining;
+ updateHud(full=false){if(!this.alive)return;const w=this.world,d=SPECIES[w.species],killed=w.initialCount-w.remaining;
+  $('#goal').textContent=killed+'/'+w.initialCount;$('#bandits').classList.toggle('cleared',!w.remaining);$('#lvl-bar').style.width=(killed/w.initialCount*100)+'%';
+  // stars still reachable: spare monsters you would keep if every bandit fell with the next shot
+  const spareIfNext=Math.max(0,w.shots-(w.status==='flight'||w.status==='settling'?0:1)),pot=w.status==='won'?(w.shots>=2?3:w.shots>=1?2:1):spareIfNext>=2?3:spareIfNext>=1?2:1;[...$('#lvl-stars').children].forEach((s,i)=>s.className=i<pot?'on':'');
   const shots=$('#shots');const used=w.level.shots-w.shots;if(full||shots.childElementCount!==w.level.shots)shots.innerHTML=Array.from({length:w.level.shots},()=>'<i></i>').join('');[...shots.children].forEach((p,i)=>p.className=i<used?'used':'');
-  const sk=$('#skill');sk.dataset.state=w.status==='flight'?(w.used?'used':'ready'):'idle';sk.style.setProperty('--hc',d.color);$('#skill-name').textContent=w.status==='flight'&&w.used?'Used':d.skill;sk.disabled=!(w.status==='flight'&&!w.used);
-  const hb=$('#hero-btn');hb.disabled=w.status!=='ready'||!!this.result;hb.setAttribute('aria-expanded',String(this.trayOpen));if(full){hb.querySelector('img').src=d.asset;hb.querySelector('.hero-art').style.setProperty('--hc',d.color);hb.querySelector('.hero-name').textContent=d.name}
+  const heroes=unlocked(state,storage),others=heroes.filter(id=>id!==w.species),q=[w.species,...others.slice(0,2)],key=q.join(',')+'|'+w.status;
+  if(full||this._picks!==key){this._picks=key;const off=w.status!=='ready'||!!this.result;$('#picks').innerHTML=q.map((id,i)=>`<button class="pick ${i?'small':'current'}" data-quick="${id}" ${off?'disabled':''} aria-label="${i?'Switch to ':'Current hero: '}${esc(SPECIES[id].name)}"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span></button>`).join('')}
+  const sk=$('#skill');sk.dataset.state=w.status==='flight'?(w.used?'used':'ready'):'idle';sk.style.setProperty('--hc',d.color);$('#skill-name').textContent=w.status==='flight'&&!w.used?'TAP!':d.skill;$('#skill-badge').textContent=w.status==='flight'&&w.used?'0':'1';sk.disabled=!(w.status==='flight'&&!w.used);
+  const hb=$('#hero-btn');hb.disabled=w.status!=='ready'||!!this.result;hb.setAttribute('aria-expanded',String(this.trayOpen));
   $('#next').hidden=!(w.status==='flight'&&w.age>=1);
   $('#cam-reset').hidden=!(this.cam.mode==='free'||Math.abs(this.cam.userZ-1)>.05);
   this.stage.dataset.status=w.status;
@@ -399,7 +440,7 @@ class Game{
  drawTargetView(c,now){const W=this.world;if(!this.portrait||this.result||W.status!=='ready'||!this.loaded||this.cam.mode==='intro'||this.cam.mode==='free'||this.trayOpen)return false;
   const alive=W.enemies.filter(e=>!e.dead);if(!alive.length)return false;const right=this.cam.cx+this.w/2/this.S;if(Math.min(...alive.map(e=>e.x-e.r))<right-20)return false;
   const r=this.targetRect(),f=this.fortBox,dpr=this.dpr,Sp=Math.min(r.w/(f.x1-f.x0+150),(r.h*.8)/(GROUND-f.top+70)),cx=(f.x0+f.x1)/2,gy=r.h*.86,cy=GROUND-(gy-r.h/2)/Sp;
-  c.save();c.setTransform(dpr,0,0,dpr,0,0);c.shadowColor='rgba(40,20,5,.35)';c.shadowBlur=12;c.shadowOffsetY=4;c.fillStyle='#fffaee';c.beginPath();c.roundRect(r.x-3,r.y-3,r.w+6,r.h+6,16);c.fill();c.shadowColor='transparent';
+  c.save();c.setTransform(dpr,0,0,dpr,0,0);c.shadowColor='rgba(10,25,55,.45)';c.shadowBlur=12;c.shadowOffsetY=4;c.fillStyle='#0f1f3d';c.beginPath();c.roundRect(r.x-3,r.y-3,r.w+6,r.h+6,16);c.fill();c.shadowColor='transparent';
   c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.clip();c.translate(r.x,r.y);
   this.scenery.back(c,{w:r.w,h:r.h,S:Sp,cx,cy,cy0:cy,horizon:gy-150*Sp,groundScreen:()=>gy},now);
   c.setTransform(dpr*Sp,0,0,dpr*Sp,dpr*(r.x+r.w/2-cx*Sp),dpr*(r.y+r.h/2-cy*Sp));
@@ -407,8 +448,8 @@ class Game{
   for(const b of W.blocks)if(!b.dead)art.drawBlock(c,b,W.time);
   for(const e of W.enemies)if(!e.dead)art.drawBandit(c,e,{now,time:W.time,look:{x:SLING.x,y:SLING.y},scared:this.gesture?.type==='aim'});
   if(this.gesture?.type==='aim')this.drawAim(c,1/Sp*.9);
-  c.restore();c.save();c.setTransform(dpr,0,0,dpr,0,0);c.strokeStyle='#fffaee';c.lineWidth=3;c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.stroke();
-  c.fillStyle='rgba(42,26,12,.62)';c.beginPath();c.roundRect(r.x+8,r.y+8,64,20,10);c.fill();c.fillStyle='#fff';c.font='900 11px ui-rounded,system-ui,sans-serif';c.textBaseline='middle';c.fillText('🎯 TARGET',r.x+14,r.y+18.5);c.restore();return true}
+  c.restore();c.save();c.setTransform(dpr,0,0,dpr,0,0);c.strokeStyle='#fff';c.lineWidth=3;c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.stroke();
+  c.fillStyle='rgba(42,26,12,.62)';c.beginPath();c.roundRect(r.x+8,r.y+8,64,20,10);c.fill();c.fillStyle='#fff';c.font='700 12px Fredoka,ui-rounded,system-ui,sans-serif';c.textBaseline='middle';c.fillText('🎯 TARGET',r.x+14,r.y+18.5);c.restore();return true}
  drawSling(c,now){const F=art.FORK,m=this.monsterPos(),aiming=this.gesture?.type==='aim';
   art.drawSlingBack(c);
   // The rest of the squad waits behind the sling, one per remaining launch.
@@ -432,13 +473,18 @@ class Game{
  drawSeed(c,b){c.save();c.translate(b.x,b.y);c.rotate(b.a);c.fillStyle='#e6d55a';c.strokeStyle='#8a7a24';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,b.r,b.r*.8,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#6fc048';c.beginPath();c.ellipse(-b.r*.2,-b.r*.85,b.r*.55,b.r*.25,-.5,0,Math.PI*2);c.fill();c.restore()}
  // Trajectory preview: the same integrator as the simulation, from the same release point.
  drawAim(c,k=1){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3),solids=this.world.bodies.filter(b=>!b.static&&!b.dead&&b.kind!=='monster');
-  c.save();let hit=null;pts.some((q,i)=>{if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){hit=q;return true}c.globalAlpha=clamp(1-i/pts.length,.18,.95);c.fillStyle='#fffbe6';c.strokeStyle='rgba(80,50,20,.35)';c.lineWidth=1;c.lineWidth=k;c.beginPath();c.arc(q.x,q.y,(i%4===0?4.2:2.8)*k,0,Math.PI*2);c.fill();c.stroke();return false});
-  if(hit){c.globalAlpha=.95;c.strokeStyle=k>1?'#ff5a3c':'#fffbe6';c.lineWidth=2.5*k;c.beginPath();c.arc(hit.x,hit.y,9*k,0,Math.PI*2);c.stroke()}c.restore()}
+  let end=pts.length;for(let i=0;i<pts.length;i++){const q=pts[i];if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){end=i;break}}
+  const path=[o,...pts.slice(0,end)],hit=end<pts.length?pts[end]:pts[pts.length-1];
+  c.save();c.lineCap='round';
+  // dashed white arc with a soft dark edge, fading with distance
+  for(let pass=0;pass<2;pass++){c.strokeStyle=pass?'#ffffff':'rgba(15,31,61,.35)';c.lineWidth=(pass?5:8)*k;for(let i=2;i+1<path.length;i+=3){c.globalAlpha=clamp(1.15-i/path.length,.25,1);c.beginPath();c.moveTo(path[i].x,path[i].y);c.lineTo(path[i+1].x,path[i+1].y);c.stroke()}}
+  if(hit){c.globalAlpha=1;const R=13*k;for(let pass=0;pass<2;pass++){c.strokeStyle=pass?(k>1?'#ff5a3c':'#ffffff'):'rgba(15,31,61,.4)';c.lineWidth=(pass?3.6:6.5)*k;c.beginPath();c.arc(hit.x,hit.y,R,0,Math.PI*2);c.stroke()}c.fillStyle=k>1?'#ff5a3c':'#fff';c.beginPath();c.arc(hit.x,hit.y,3.6*k,0,Math.PI*2);c.fill()}
+  c.restore()}
  // When the fort is off-screen, a small marker on the edge shows where the bandits are and how far.
  drawPointer(c,now){const w=this.world;if(this.result||w.status==='flight'||this.cam.mode==='intro')return;const alive=w.enemies.filter(e=>!e.dead);if(!alive.length)return;const right=this.cam.cx+this.w/2/this.S;const nearest=Math.min(...alive.map(e=>e.x-e.r));if(nearest<right-10)return;
   const ty=alive.reduce((a,e)=>a+e.y,0)/alive.length,s=this.toScreen(0,ty),y=clamp(s.y,90,this.h*this.groundFrac-20),x=this.w-14-(this.portrait?0:0),bob=reduced()?0:Math.sin(now/300)*3,dist=Math.round((nearest-right)/10)*10;
-  c.save();c.translate(x+bob,y);c.fillStyle='rgba(255,250,238,.92)';c.strokeStyle='#b9894c';c.lineWidth=2;c.beginPath();c.moveTo(0,0);c.lineTo(-16,-15);c.lineTo(-58,-15);c.quadraticCurveTo(-66,-15,-66,-7);c.lineTo(-66,7);c.quadraticCurveTo(-66,15,-58,15);c.lineTo(-16,15);c.closePath();c.fill();c.stroke();
-  c.fillStyle='#6fa83f';c.beginPath();c.arc(-48,0,8,0,Math.PI*2);c.fill();c.fillStyle='#b8323f';c.fillRect(-56,-3,12,3.5);c.fillStyle='#4a2e1b';c.font='900 12px ui-rounded,system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillText('×'+alive.length,-37,1);c.restore()}
+  c.save();c.translate(x+bob,y);c.fillStyle='#24457c';c.strokeStyle='#0f1f3d';c.lineWidth=3;c.beginPath();c.moveTo(0,0);c.lineTo(-16,-15);c.lineTo(-58,-15);c.quadraticCurveTo(-66,-15,-66,-7);c.lineTo(-66,7);c.quadraticCurveTo(-66,15,-58,15);c.lineTo(-16,15);c.closePath();c.fill();c.stroke();
+  c.fillStyle='#6fa83f';c.beginPath();c.arc(-48,0,8,0,Math.PI*2);c.fill();c.fillStyle='#b8323f';c.fillRect(-56,-3,12,3.5);c.fillStyle='#fff';c.font='700 13px Fredoka,ui-rounded,system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillText('×'+alive.length,-37,1);c.restore()}
  drawHand(){const h=$('#hand');if(!h||!h.classList.contains('show'))return;const m=this.monsterPos();if(!m)return;const s=this.toScreen(m.x,m.y);h.style.setProperty('--hx',s.x+'px');h.style.setProperty('--hy',s.y+'px');h.style.setProperty('--dx',-Math.round(70*this.S)+'px');h.style.setProperty('--dy',Math.round(32*this.S)+'px')}
 }
 
