@@ -17,6 +17,31 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:ui-rounded
 @keyframes pulse{to{box-shadow:0 0 23px #ffd446}}
 #hint{position:absolute;left:50%;top:15%;transform:translateX(-50%);padding:7px 12px;border-radius:20px;background:#fff6d9;border:2px solid #df9e49;font-size:clamp(9px,2.7cqw,13px);font-weight:800;opacity:0;transition:.18s;pointer-events:none;white-space:nowrap;z-index:4}#hint.show{opacity:1}
 #modal,#start{position:absolute;inset:0;display:grid;place-items:center;background:#103b5866;backdrop-filter:blur(5px);z-index:10}.panel{width:87%;padding:24px 20px;border-radius:26px;background:linear-gradient(#fff9e9,#ffe9bd);border:3px solid #dcac65;box-shadow:0 12px 0 #8e542b,0 25px 50px #234d6677;text-align:center}.panel h1{font-size:clamp(25px,7cqw,36px);margin:10px 0;color:#733a20;line-height:1.1}.panel p{font-size:clamp(12px,3.4cqw,17px);line-height:1.55}.primary{border:2px solid #fff3ba;border-radius:17px;padding:13px 24px;color:#593019;font-size:17px;font-weight:950;background:linear-gradient(#ffe568,#ffb63e);box-shadow:0 4px #c17b2c;cursor:pointer}.primary:disabled{opacity:.6;cursor:wait}.secondary{margin-top:15px;border:1px solid #c79352;background:#fff4da;color:#75431f;border-radius:13px;padding:10px 18px;font-weight:800;cursor:pointer}#modal{display:none}.bigscore{font-size:44px;font-weight:950;margin:10px;color:#a45e1b}.tag{display:inline-block;padding:6px 10px;border-radius:30px;background:#209fb2;color:white;font-size:10px;font-weight:900;letter-spacing:1px}#modal .tag{background:#e34954}.welcome-monster{width:85px;height:85px;object-fit:contain;display:block;margin:auto}#loadStatus{font-size:11px;min-height:17px;margin:12px 0 0}
+
+/* Progression controls: fit above the drop zone without changing its physics. */
+#quickNav{position:absolute;top:12.1%;left:9%;right:9%;height:4.8%;z-index:5;display:flex;gap:7px;justify-content:center}
+.quick-btn{flex:1;min-width:0;border:2px solid #fff2c4;border-radius:13px;background:linear-gradient(#fff9e6,#f5dbad);color:#684120;box-shadow:0 3px #a67442;font-size:clamp(9px,2.7cqw,12px);font-weight:950;cursor:pointer}
+.quick-btn:active{transform:translateY(2px)}.quick-btn:focus-visible,.start-link:focus-visible,.info-close:focus-visible{outline:3px solid #4331a8;outline-offset:2px}
+.tool-count{position:absolute;top:-9px;right:-5px;min-width:23px;height:23px;border-radius:12px;border:2px solid #fff9dd;background:#ec6542;color:white;font:950 12px/19px system-ui;text-align:center;box-shadow:0 2px 3px #5a302c55}
+.tool.empty{opacity:.5;cursor:not-allowed}
+#infoModal{position:absolute;inset:0;display:none;place-items:center;background:#103b58a8;backdrop-filter:blur(6px);z-index:30}
+#infoModal .panel{width:91%;max-height:86%;overflow-y:auto;text-align:left;padding:17px 14px}
+#infoModal h1{margin:4px 0 5px;text-align:center;font-size:clamp(20px,6cqw,27px)}
+#infoSubtitle{margin:0 0 12px;text-align:center;font-size:12px;color:#74543d}
+#infoGrid.collection-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.codex-item{min-width:0;padding:5px 3px 7px;border:2px solid #f1ca88;background:#fff6e3;border-radius:13px;text-align:center}
+.codex-item img{display:block;width:100%;height:64px;object-fit:contain;margin:0 auto 3px}
+.codex-item b{display:block;font-size:clamp(8px,2.5cqw,12px);overflow-wrap:anywhere}
+.codex-item span{font-size:10px;color:#85624b}.codex-item.locked img{filter:brightness(0) saturate(0);opacity:.38}
+#infoGrid.goal-list{display:grid;gap:8px}
+.goal-item{padding:11px;border:2px solid #eac58c;border-radius:13px;background:#fff6df}
+.goal-item.done{border-color:#6bbd8e;background:#ecffe9}
+.goal-item b{display:block;font-size:14px}.goal-item span{font-size:12px;color:#795a43}
+.info-close{display:block;margin:12px auto 3px;position:sticky;bottom:0;font-size:13px;padding:9px 18px}
+.startLinks{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.start-link{font:900 10px system-ui;color:#744623;border:1px solid #d7a76a;border-radius:12px;background:#fff3cf;padding:8px 10px;cursor:pointer}
+#startNew{font-size:12px;padding:8px 12px;margin-top:8px}
+#start .panel{max-height:94%;overflow-y:auto}
 @media(max-height:500px){#wrap{width:min(100%,calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))*.8));aspect-ratio:420/780;height:100%}#top{top:1%;height:12%}.brand{padding:3px}.brand b{font-size:17px}.card{padding:3px}.card b{font-size:14px}#bottomBar{height:14%}.tool{min-height:32px}#nextIcon{width:26px;height:26px}.panel{padding:10px}.panel p{font-size:11px}.welcome-monster{display:none}}
 @media(prefers-reduced-motion:reduce){#bomb.active{animation:none}}
 #ver{margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.5px;opacity:.62}
@@ -35,15 +60,17 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:ui-rounded
 <body><div id="app"><div id="wrap">
 <canvas id="game" aria-label="Monster Merge game board. Drag to aim and release to drop."></canvas>
 <div id="top"><div class="card" id="scoreCard"><span>SCORE</span><b id="score">0</b></div><div class="brand" aria-label="Monster Merge"><b>MONSTER <em>MERGE</em></b></div><div class="card" id="bestCard"><span>BEST</span><b id="best">0</b></div></div>
+<div id="quickNav"><button class="quick-btn" id="collectionBtn" aria-label="Open Monster Collection">📚 COLLECTION</button><button class="quick-btn" id="achievementsBtn" aria-label="Open Achievements">🏆 GOALS</button></div>
 <div id="hint" role="status"></div>
 <div id="bottomBar"><div id="nextMini"><span>NEXT</span><canvas id="nextIcon" width="100" height="100" aria-label="Next monster"></canvas></div><div id="toolbar">
-<button class="tool" id="bomb" data-label="BOMB" aria-label="Bomb: select one monster" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M25 13q0-10 8-7" fill="none" stroke="#754120" stroke-width="4"/><path d="m33 1 2 4 5 1-4 3 1 5-4-3-4 2 1-5-3-3 5-1" fill="#fff5ad"/><circle cx="18" cy="25" r="13" fill="#39304e"/><path d="m23 10 7 4-3 6-7-4" fill="#61516d"/><path d="M9 23q1-7 7-7" fill="none" stroke="#c3b1d5" stroke-width="3" stroke-linecap="round"/></svg></button>
+<button class="tool" id="bomb" data-label="BOMB" aria-label="Bomb: select one monster" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M25 13q0-10 8-7" fill="none" stroke="#754120" stroke-width="4"/><path d="m33 1 2 4 5 1-4 3 1 5-4-3-4 2 1-5-3-3 5-1" fill="#fff5ad"/><circle cx="18" cy="25" r="13" fill="#39304e"/><path d="m23 10 7 4-3 6-7-4" fill="#61516d"/><path d="M9 23q1-7 7-7" fill="none" stroke="#c3b1d5" stroke-width="3" stroke-linecap="round"/></svg><span id="bombCount" class="tool-count" aria-label="3 bombs remaining">3</span></button>
 <button class="tool" id="shakeBtn" data-label="SHAKE" aria-label="Shake container"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 15a13 13 0 0 1 24-3M32 25a13 13 0 0 1-24 3" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="m4 7 0 12 12-1M36 33V21l-12 1" fill="currentColor"/></svg></button>
 <button class="tool" id="new" data-label="RESTART" aria-label="Restart game"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M30 12a13 13 0 1 0 2 16" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M32 3v14H18Z" fill="currentColor"/></svg></button>
 <button class="tool" id="sound" data-label="SOUND" aria-label="Mute sound" aria-pressed="true"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M4 15h7l11-9v28l-11-9H4Z" fill="currentColor"/><path id="soundWaves" d="M27 13q7 7 0 14m5-19q12 12 0 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
 </div></div>
-<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><p id="loadStatus" role="status">Preparing your island…</p><p id="ver">v13.3.0 · build 20261025-6</p></div></div>
+<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><button class="secondary" id="startNew" hidden>START NEW GAME</button><p id="loadStatus" role="status">Preparing your island…</p><div class="startLinks"><button class="start-link" id="startCollection">📚 COLLECTION</button><button class="start-link" id="startAchievements">🏆 ACHIEVEMENTS</button></div><p id="ver">v13.3.0 · build 20261025-6</p></div></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="overTitle"><div class="panel"><div class="tag">GAME OVER</div><h1 id="overTitle">An island full of friends!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
+<div id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoTitle"><div class="panel"><h1 id="infoTitle">Monster Collection</h1><p id="infoSubtitle"></p><div id="infoGrid"></div><button class="primary info-close" id="closeInfo">BACK TO GAME</button></div></div>
 </div></div>
 <script>
 (()=>{
