@@ -1,7 +1,9 @@
-const CACHE='monster-island-v18-3-match-identity-20261025';
+const CACHE='monster-island-v18-4-casual-duo-20261025';
 const CORE=[
- './','./index.html','./merge.html','./sling.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/app.js','./match/engine.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp','./sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
+ './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
+ './match/style.css','./match/app.js','./match/engine.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
+ './assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2',
+ './sling/menu.css','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
  ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
 ];
@@ -18,6 +20,6 @@ self.addEventListener('fetch',event=>{
  const req=event.request,url=new URL(req.url);
  if(req.method!=='GET'||url.origin!==self.location.origin||!url.href.startsWith(self.registration.scope))return;
  // Installed older menus may still have this retired link open during an update.
- if(req.mode==='navigate'&&url.pathname===new URL('./care.html',self.registration.scope).pathname){event.respondWith(Response.redirect(new URL('./sling.html',self.registration.scope).href,302));return;}
+ if(req.mode==='navigate'&&url.pathname===new URL('./care.html',self.registration.scope).pathname){event.respondWith(Response.redirect(new URL('./index.html',self.registration.scope).href,302));return;}
  event.respondWith(caches.open(CACHE).then(async c=>{const hit=await c.match(req,{ignoreSearch:true});if(hit)return hit;try{return await fetch(req)}catch(err){if(req.mode==='navigate')return c.match('./index.html');throw err}}));
 });

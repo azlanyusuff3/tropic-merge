@@ -30,8 +30,9 @@ const server = http.createServer((req, res) => {
       page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
       await page.goto(base + '/');
       assert.equal(await page.locator('a[href="./merge.html"]').count(), 1);
-      assert.equal(await page.locator('a[href="./sling.html"]').count(), 1);
+      assert.equal(await page.locator('a[href="./sling.html"]').count(), 0);
       assert.equal(await page.locator('a[href="./match.html"]').count(), 1);
+      assert.equal(await page.locator('.mode-card').count(), 2, 'Home screen has exactly two games');
       assert.equal(await page.locator('.match-preview img[src="./match/assets/tidalon-match.webp"]').count(), 1);
       assert.equal(await page.locator('.match-preview img[src="./match/assets/frostbop-match.webp"]').count(), 1);
       await page.locator('a[href="./match.html"]').click();

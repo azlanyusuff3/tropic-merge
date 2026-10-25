@@ -25,12 +25,12 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
  const dragLaunch=async(p,dx=-80,dy=34,steps=10)=>{await waitAim(p);const m=await monsterScreen(p);await p.mouse.move(m.x,m.y);await p.mouse.down();for(let i=1;i<=steps;i++)await p.mouse.move(m.x+dx*i/steps,m.y+dy*i/steps);await p.mouse.up()};
 
  // ── 1. Menu and campaign map ──
- {const {ctx,p}=await newPage();await p.goto(BASE+'/');assert.equal(await p.locator('body').textContent().then(t=>t.includes('Monster Care')),false);assert.ok(await p.locator('a[href="./merge.html"]').count());await p.screenshot({path:OUT+'/sling-menu.png'});
-  await p.locator('a[href="./sling.html"]').click();await p.waitForSelector('.title-screen .play-big');await p.screenshot({path:OUT+'/sling-title.png'});assert.match(await p.locator('.play-big').textContent(),/PLAY/);await p.locator('#t-map').click();await p.waitForSelector('.node');assert.equal(await p.locator('.node').count(),30);assert.equal(await p.locator('.node.boss').count(),5);assert.equal(await p.locator('.node[data-level="1"]').isDisabled(),true);assert.equal(await p.locator('.node.current').getAttribute('data-level'),'0');
+ {const {ctx,p}=await newPage();await p.goto(BASE+'/');assert.equal(await p.locator('body').textContent().then(t=>t.includes('Monster Care')),false);assert.ok(await p.locator('a[href="./merge.html"]').count());assert.ok(await p.locator('a[href="./match.html"]').count());assert.equal(await p.locator('a[href="./sling.html"]').count(),0);await p.screenshot({path:OUT+'/sling-menu.png'});
+  await p.goto(BASE+'/sling.html');await p.waitForSelector('.title-screen .play-big');await p.screenshot({path:OUT+'/sling-title.png'});assert.match(await p.locator('.play-big').textContent(),/PLAY/);await p.locator('#t-map').click();await p.waitForSelector('.node');assert.equal(await p.locator('.node').count(),30);assert.equal(await p.locator('.node.boss').count(),5);assert.equal(await p.locator('.node[data-level="1"]').isDisabled(),true);assert.equal(await p.locator('.node.current').getAttribute('data-level'),'0');
   await p.screenshot({path:OUT+'/sling-map.png'});await p.locator('.node[data-level="0"]').click({force:true});await p.waitForSelector('.overlay.show [data-play]');await p.screenshot({path:OUT+'/sling-level-card.png'});await p.locator('[data-squad]').click();await p.waitForSelector('.hero-grid');assert.equal(await p.locator('.hero-grid .hero-tile:not(.locked)').count(),3);await p.screenshot({path:OUT+'/sling-squad.png'});
   await p.locator('.hero-grid [data-hero="1"]').click();await p.waitForSelector('[data-play]');await p.locator('[data-play]').click();await p.waitForFunction(()=>document.body.classList.contains('in-level'));
   assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('monsterSlingSaveV1')).selected),1);await ctx.close();
-  pass('Island menu keeps Merge and Sling; title screen with PLAY; adventure map shows 30 route nodes, 5 boss destinations, locks, level card and squad picker')}
+  pass('Island menu shows Merge and Match; hidden Sling route works directly; title screen with PLAY; adventure map shows 30 route nodes, 5 boss destinations, locks, level card and squad picker')}
 
  // ── 2. Fullscreen stage and readable scale at every size ──
  for(const [w,h] of SIZES){const {ctx,p}=await newPage(w,h);await openLevel(p,8,save(allClear(7)));await p.waitForTimeout(500);await p.screenshot({path:OUT+`/sling-${w}x${h}-intro.png`});await waitAim(p);await p.waitForTimeout(300);await p.screenshot({path:OUT+`/sling-${w}x${h}-aim.png`});
@@ -161,15 +161,19 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await p.goto(BASE+'/');await p.evaluate(async()=>{await navigator.serviceWorker.ready;const c=await caches.open('another-game-test');await c.put('/another-game/x',new Response('x'));localStorage.setItem('monsterSlingSaveV1',JSON.stringify({version:1,results:[{score:4242,stars:3},{score:10,stars:1}],selected:4,sound:true,revision:3}))});
   await poll(p,async()=>(await caches.keys()).some(k=>k.startsWith('monster-merge-v16')));
   siteRoot=ROOT;await p.goto(BASE+'/');await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
-  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v18-1-pilefix-20261025-2')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v18-1-pilefix-20261025-2')});
+  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-island-v18-4-casual-duo-20261025')&&!k.some(x=>x.startsWith('monster-merge-'))});
   // the page that was open during the update reloads itself once (it is not in a level)
   await p.waitForLoadState('load');await poll(p,async()=>{const r=await navigator.serviceWorker.getRegistration();return !!r?.active&&r.active.state==='activated'&&!r.waiting&&!r.installing});
   const keys=await p.evaluate(()=>caches.keys());assert.ok(keys.includes('another-game-test'),'unrelated caches survive');
   await p.waitForFunction(()=>navigator.serviceWorker.controller&&navigator.serviceWorker.controller.scriptURL.includes('sw.js'));await ctx.setOffline(true);
-  await p.goto(BASE+'/sling.html#map');await p.waitForSelector('.node');assert.equal(await p.locator('.node.done').count(),2,'old progress kept after upgrade');assert.match(await p.locator('.star-total').textContent(),/4/);
-  await p.goto(BASE+'/sling.html#level-2');await p.waitForSelector('#field');await p.waitForTimeout(3000);await p.screenshot({path:OUT+'/sling-offline.png'});assert.equal(await p.evaluate(()=>document.body.classList.contains('in-level')),true);
+  const precached=await p.evaluate(async()=>{const c=await caches.open('monster-island-v18-4-casual-duo-20261025');return (await c.keys()).map(k=>new URL(k.url).pathname)});
+  assert.ok(precached.some(p=>p.endsWith('/match.html')),'Match cached offline');
+  assert.ok(precached.some(p=>p.endsWith('/merge.html')),'Merge cached offline');
+  assert.equal(precached.some(p=>p.endsWith('/sling.html')),false,'Sling not precached');
+  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('monsterSlingSaveV1')).results[0].score),4242,'Saved Sling progress still preserved');
+  await p.goto(BASE+'/match.html');await p.waitForSelector('.tile');assert.equal(await p.locator('.tile').count(),64);
   await p.goto(BASE+'/merge.html');await p.waitForTimeout(800);assert.equal(await p.evaluate(()=>document.querySelector('canvas')!==null),true);
-  await ctx.close();pass(`Upgrade from the previous release (${prevRef||'n/a'}) keeps progress, replaces only this game's caches, then menu, Sling level and Merge run offline`)}
+  await ctx.close();pass(`Upgrade from the previous release (${prevRef||'n/a'}) keeps progress, replaces only this game's caches, then Merge and Match run offline while Sling remains hidden`)}
 
  // ── 15. Monster Merge is byte-for-byte unchanged ──
  {const sha=crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,'merge.html'))).digest('hex');assert.equal(sha,MERGE_SHA);pass('merge.html SHA-256 unchanged ('+sha.slice(0,12)+'…)')}
