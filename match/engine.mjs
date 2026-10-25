@@ -81,10 +81,28 @@ function groupedRuns(runs) {
   return groups;
 }
 function powerFor(group) {
-  if (group.runs.some(run => run.keys.length >= 5)) return 'evolved';
-  if (group.runs.some(run => run.axis === 'row') && group.runs.some(run => run.axis === 'col')) return 'bomb';
+  // Five matched monsters evolve regardless of shape (straight, T, L or +).
+  // Previously an intersecting 3+3 (= five unique tiles) became a star/bomb
+  // instead; players reasonably expect a real evolved monster from Match 5.
+  if (group.keys.size >= 5) return 'evolved';
   const four = group.runs.find(run => run.keys.length >= 4);
   return four ? four.axis : null;
+}
+function centerAnchor(group) {
+  // A cascade has no player-directed swap. Spawn its special at an actual
+  // matched tile nearest the middle of the group, never at the old swap cell.
+  const keys = [...group.keys];
+  return keys.reduce((best, key) => {
+    const [r, c] = position(key);
+    const sum = keys.reduce((n, other) => {
+      const [y, x] = position(other);
+      return n + Math.abs(r - y) + Math.abs(c - x);
+    }, 0);
+    const [br, bc] = position(best.key);
+    const oldSum = best.score;
+    return sum < oldSum || (sum === oldSum && (r > br || (r === br && c > bc)))
+      ? { key, score: sum } : best;
+  }, { key: keys[0], score: Infinity }).key;
 }
 function swap(board, a, b) {
   const next = cloneBoard(board);
@@ -296,8 +314,10 @@ export function makeMove(board, from, to, rng = Math.random) {
     for (const group of groups) {
       const special = powerFor(group);
       if (!special) continue;
-      const preferred = [posKey(...to), posKey(...from)];
-      const anchor = preferred.find(k => group.keys.has(k)) ?? [...group.keys][0];
+      // Only the first cascade belongs to the player's swipe. Later chains
+      // must not reuse the previous swipe coordinates as an arbitrary anchor.
+      const preferred = chain === 1 ? [posKey(...to), posKey(...from)] : [];
+      const anchor = preferred.find(k => group.keys.has(k)) ?? centerAnchor(group);
       // Specials spawned by a matched group must not survive a simultaneous blast.
       if (!blockedAnchors.has(anchor)) {
         upgrades.push({ key: anchor, special });

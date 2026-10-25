@@ -107,3 +107,11 @@
   .tile.element-charged .tile-well{animation:none!important}
   .elemental-cast,.elemental-ring,.elemental-core,.elemental-particle,.elemental-title{animation-duration:.01ms!important}
 }
+
+/* Match-5 clarity: evolved monsters ARE the reward; no distracting star badge. */
+.tile.is-evolved .tile-well{outline:2px solid #fff3ae;outline-offset:-1px}
+.tile.is-evolved img{width:138%;height:138%;filter:drop-shadow(0 2px 2px #263b6688) saturate(1.16)}
+.tile.is-evolved .evolution-spark{display:none!important}
+
+.tile.is-evolved .power-icon{display:none!important}
+.tile.is-evolved .tile-well::after{content:none!important}

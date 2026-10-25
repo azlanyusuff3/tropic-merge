@@ -1,4 +1,4 @@
-import { SIZE, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
+import { SIZE, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 import { castElementalMatches, clearElementalCharge } from './effects.mjs';
 
 const SPRITES = [
@@ -43,7 +43,15 @@ try {
   if (old && old.version === 1 && isValidBoard(old.board) &&
     [old.score, old.best, old.matches, old.moves].every(n => Number.isSafeInteger(n) && n >= 0)) {
     restoreIds(old.board);
-    game = { board: cloneBoard(old.board), score: old.score, best: Math.max(old.best, initialBest, old.score), matches: old.matches, moves: old.moves };
+    const restored = cloneBoard(old.board);
+    // Older Match-5 shapes saved star/bomb or rainbow badges instead of the
+    // promised evolution creature. Upgrade those badges without losing scores.
+    for (const row of restored) for (const tile of row) {
+      if (tile.special === 'bomb' || tile.special === 'rainbow') {
+        tile.special = 'evolved'; tile.evolution = EVOLUTIONS[tile.kind];
+      }
+    }
+    game = { board: restored, score: old.score, best: Math.max(old.best, initialBest, old.score), matches: old.matches, moves: old.moves };
   }
 } catch {}
 soundOn = read(AUDIO_KEY) === '1';
@@ -86,7 +94,10 @@ function artwork(cell) {
 function faceHTML(cell) {
   const icon = { row: '&#8596;', col: '&#8597;', bomb: '&#10022;', rainbow: '&#9733;' }[cell.special] || '';
   const evolved = cell.special === 'evolved';
-  return `<span class="tile-well"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager">${evolved ? '<span class="evolution-spark" aria-hidden="true">&#10022;</span>' : ''}<span class="power-icon" aria-hidden="true">${icon}</span></span>`;
+  // Keep the evolved sprite unobstructed. Only legacy/non-evolved powers
+  // need a small power symbol; evolved monsters communicate via their face.
+  const powerBadge = !evolved && icon ? `<span class="power-icon" aria-hidden="true">${icon}</span>` : '';
+  return `<span class="tile-well"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager">${powerBadge}</span>`;
 }
 function render(board) {
   const used = new Set();
@@ -193,7 +204,7 @@ function showEvolution(created) {
     const tile = boardEl.querySelector(`.tile[data-r="${item.r}"][data-c="${item.c}"]`);
     tile?.classList.add('evolve-born');
     setTimeout(() => tile?.classList.remove('evolve-born'), 950);
-    popup('EVOLVE!', [item.r, item.c]);
+    popup(`${artwork({ special: 'evolved', evolution: item.evolution })[0]} EVOLVED!`, [item.r, item.c]);
     tone(720, .15);
   }
 }
@@ -228,11 +239,15 @@ async function playMove(from, to) {
     const blast = powers.length > 0;
     const evolution = stage.created.some(item => item.special === 'evolved');
     if (mega || blast || evolution || stage.chain > 1) {
-      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? `${powers[0].ability.toUpperCase()}!` : evolution ? 'EVOLUTION!' : `COMBO x${stage.chain}!`;
+      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? `${powers[0].ability.toUpperCase()}!` : evolution ? 'EVOLUTION!' : `CHAIN x${stage.chain}!`;
       el('chain-badge').classList.add('combo-live');
     }
     for (const effect of stage.effects) showBlast(effect);
-    popup(`+${stage.points.toLocaleString()}`, stage.clear[Math.floor(stage.clear.length / 2)] || [3, 3]);
+    // Keep feedback on the ACTUAL matched area. The middle of stage.clear
+    // could belong to an unrelated simultaneous cascade or a wide power blast.
+    const mainMatch = stage.matches.find(group => group.tier === 5) || stage.matches[0];
+    const center = mainMatch?.cells[Math.floor(mainMatch.cells.length / 2)] || stage.effects[0]?.cells?.[0] || stage.clear[0] || [3, 3];
+    popup(evolution ? 'MATCH 5!' : `+${stage.points.toLocaleString()}`, center);
     if (!cast) tone(400 + stage.chain * 95, .12);
     await delay(cast ? (stage.chain > 2 ? 155 : 175) : 210);
     render(stage.afterClear);
@@ -246,12 +261,12 @@ async function playMove(from, to) {
   const powerBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'evolved'));
   if (result.reshuffled) { render(game.board); showMessage('Fresh board! No more available moves.'); }
   else if (megaBlast) showMessage('MEGA BLAST! Two evolved monsters combined!');
-  else if (newEvolution) showMessage(`${EVOLVED_SPRITES[newEvolution.evolution][0]} evolved! Swap it to blast 3×3.`, 3100);
+  else if (newEvolution) showMessage(`${EVOLVED_SPRITES[newEvolution.evolution][0]} evolved! Swipe it to unleash its unique power.`, 3100);
   else if (powerBlast) {
     const power = result.stages.flatMap(stage => stage.effects).find(effect => effect.type === 'evolved');
     showMessage(`${power.ability}! Keep the combo going.`);
   }
-  else if (result.chains > 1) showMessage(`Amazing! ${result.chains} chain combos!`);
+  else if (result.chains > 1) showMessage(`CHAIN x${result.chains}! Extra monsters matched automatically as they fell.`);
   else if (result.stages[0]?.matches?.length) {
     const kind = result.stages[0].matches[0].kind;
     showMessage(['Slime Splash!', 'Water Splash!', 'Puff Burst!', 'Leaf Storm!', 'Rock Smash!', 'Ice Shatter!'][kind] + ' Keep going.');

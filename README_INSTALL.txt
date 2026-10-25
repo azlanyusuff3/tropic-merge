@@ -1,4 +1,4 @@
-MONSTER ISLAND v18.5 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
+MONSTER ISLAND v18.6 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
 
 Play: https://azlanyusuff3.github.io/tropic-merge/
 
@@ -27,3 +27,16 @@ NEVER clear site/app data to update, as this erases locally saved progress.
 
 Development: npm install; npx playwright install chromium; npm test.
 Monster Match: npm run test:match.
+
+MATCH 5 EVOLUTION FIX (v18.6):
+- All five connected matching monsters evolve, including T, L and + shapes;
+  no more confusing star/bomb in place of the expected evolved character.
+- A matching move creates the special at a genuinely matched tile. Cascade
+  specials are anchored within their own match, not the previous swipe.
+- Evolved monster artwork is unobstructed: the decorative star badge is gone.
+- Legacy saved bomb/rainbow stars are upgraded to the matching evolved monster
+  when the saved game is loaded, without resetting score or best score.
+- Cascades are automatic follow-up matches triggered by falling monsters;
+  feedback is now anchored on the actual matched area.
+
+Run: npm run test:match (includes tests/match5-evolution.mjs).

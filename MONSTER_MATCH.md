@@ -1,4 +1,4 @@
-# Monster Match — Elemental FX v18.5
+# Monster Match — Elemental FX + Match-5 Clarity v18.6
 
 This release improves **every ordinary match** without adding gameplay complexity.
 The 8x8 Classic Endless board, six normal monster types, five evolved characters,
@@ -52,3 +52,31 @@ against the previous engine (identical score, board, clears, specials and combos
 34x elemental and power checks; mobile browser at 320x568, 390x844,
 430x932 and 768x1024, including all six elements and enhanced tier effects.
 Physical Android/PWA visual performance still needs on-device confirmation.
+
+## Match-5 evolution and confusing star fix (v18.6)
+
+A five-piece match formed by two intersecting lines (T, L, or +) used to
+spawn a generic star/bomb because the engine checked for a straight run of
+five before checking the size of the connected group. Now ALL connected
+groups of five or more matching pieces spawn the appropriate evolved sprite.
+
+A special produced by cascading pieces is anchored within its own matching
+group, instead of reusing unrelated earlier swipe coordinates. Popup feedback
+is also placed on the actual matched group; secondary matches are identified
+as automatic chain reactions.
+
+The small star badge previously drawn over evolved artwork is removed, and
+the evolved sprite is shown larger. Older saved `bomb`/`rainbow` star pieces
+are promoted to the corresponding evolved character on load without erasing
+board progress, score or best score. Underlying legacy special abilities
+remain supported by the engine if explicitly present in a test/setup board.
+
+The save format and storage keys remain identical. The 8×8 board, six base
+match kinds, five unique evolved abilities, 3/4/5 elemental FX, and Mega Blast
+remain. Monster Merge and hidden Monster Sling game files remain untouched.
+
+Regression: `tests/match5-evolution.mjs` verifies straight, L and + five-piece
+matches, all six base kinds, correct placement and evolution identity, power
+activation, 1,464 cases total and 448 automatic cascade stages. Additional
+mobile Chromium tests validated the UI at 320, 390, 430 and 768 px wide and
+checked that saved star pieces upgrade with scores preserved.
