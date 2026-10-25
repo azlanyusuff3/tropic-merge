@@ -60,17 +60,17 @@ let physicsAccumulator=0,lastRender=0,forceRedraw=true,pageVisible=!document.hid
 let currentLevel=0,nextLevel=1,dragging=false,pointerId=null;
 bestEl.textContent=best;
 const ballKinds=[
-{name:'Ping Pong',r:17,c1:'#ffe0b0',c2:'#ff8f1f',c3:'#b84a08',value:2,type:'pingpong'},
-{name:'Marble',r:23,c1:'#8fd8ff',c2:'#2563e0',c3:'#0b1f6b',value:4,type:'marble'},
-{name:'Golf',r:30,c1:'#ffffff',c2:'#e6ebef',c3:'#a3adb6',value:8,type:'golf'},
-{name:'8-Ball',r:38,c1:'#8a8a99',c2:'#26262d',c3:'#050507',value:16,type:'eightball'},
-{name:'Tennis',r:47,c1:'#f4ff6a',c2:'#c3d91c',c3:'#6f8a0a',value:32,type:'tennis'},
-{name:'Baseball',r:57,c1:'#ffffff',c2:'#f1ebdf',c3:'#b9ae9a',value:64,type:'baseball'},
-{name:'Volleyball',r:68,c1:'#ffe27a',c2:'#f2b61c',c3:'#a87408',value:128,type:'volleyball'},
-{name:'Bowling',r:80,c1:'#c27bff',c2:'#6a2bc0',c3:'#1d0a47',value:256,type:'bowling'},
-{name:'Soccer',r:93,c1:'#ffffff',c2:'#eef0f2',c3:'#aab1b8',value:512,type:'soccer'},
-{name:'Basketball',r:108,c1:'#ffa94a',c2:'#e5681b',c3:'#8c3508',value:1024,type:'basketball'},
-{name:'Beach Ball',r:120,c1:'#ff6b6b',c2:'#ffd21f',c3:'#2a7fff',value:2048,type:'beachball'}
+{name:'Ping Pong',r:15,c1:'#ffe0b0',c2:'#ff8f1f',c3:'#b84a08',value:2,type:'pingpong'},
+{name:'Marble',r:20,c1:'#8fd8ff',c2:'#2563e0',c3:'#0b1f6b',value:4,type:'marble'},
+{name:'Golf',r:26,c1:'#ffffff',c2:'#e6ebef',c3:'#a3adb6',value:8,type:'golf'},
+{name:'8-Ball',r:33,c1:'#8a8a99',c2:'#26262d',c3:'#050507',value:16,type:'eightball'},
+{name:'Tennis',r:41,c1:'#f4ff6a',c2:'#c3d91c',c3:'#6f8a0a',value:32,type:'tennis'},
+{name:'Baseball',r:50,c1:'#ffffff',c2:'#f1ebdf',c3:'#b9ae9a',value:64,type:'baseball'},
+{name:'Volleyball',r:60,c1:'#ffe27a',c2:'#f2b61c',c3:'#a87408',value:128,type:'volleyball'},
+{name:'Bowling',r:70,c1:'#c27bff',c2:'#6a2bc0',c3:'#1d0a47',value:256,type:'bowling'},
+{name:'Soccer',r:82,c1:'#ffffff',c2:'#eef0f2',c3:'#aab1b8',value:512,type:'soccer'},
+{name:'Basketball',r:95,c1:'#ffa94a',c2:'#e5681b',c3:'#8c3508',value:1024,type:'basketball'},
+{name:'Beach Ball',r:106,c1:'#ff6b6b',c2:'#ffd21f',c3:'#2a7fff',value:2048,type:'beachball'}
 ];
 // Balls are perfect circles, so the physical contact radius is just slightly under the drawn radius.
 function pr(b){return b.r*.985}
