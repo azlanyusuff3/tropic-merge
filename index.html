@@ -19,6 +19,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:ui-rounded
 #modal,#start{position:absolute;inset:0;display:grid;place-items:center;background:#103b5866;backdrop-filter:blur(5px);z-index:10}.panel{width:87%;padding:24px 20px;border-radius:26px;background:linear-gradient(#fff9e9,#ffe9bd);border:3px solid #dcac65;box-shadow:0 12px 0 #8e542b,0 25px 50px #234d6677;text-align:center}.panel h1{font-size:clamp(25px,7cqw,36px);margin:10px 0;color:#733a20;line-height:1.1}.panel p{font-size:clamp(12px,3.4cqw,17px);line-height:1.55}.primary{border:2px solid #fff3ba;border-radius:17px;padding:13px 24px;color:#593019;font-size:17px;font-weight:950;background:linear-gradient(#ffe568,#ffb63e);box-shadow:0 4px #c17b2c;cursor:pointer}.primary:disabled{opacity:.6;cursor:wait}.secondary{margin-top:15px;border:1px solid #c79352;background:#fff4da;color:#75431f;border-radius:13px;padding:10px 18px;font-weight:800;cursor:pointer}#modal{display:none}.bigscore{font-size:44px;font-weight:950;margin:10px;color:#a45e1b}.tag{display:inline-block;padding:6px 10px;border-radius:30px;background:#209fb2;color:white;font-size:10px;font-weight:900;letter-spacing:1px}#modal .tag{background:#e34954}.welcome-monster{width:85px;height:85px;object-fit:contain;display:block;margin:auto}#loadStatus{font-size:11px;min-height:17px;margin:12px 0 0}
 @media(max-height:500px){#wrap{width:min(100%,calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))*.8));aspect-ratio:420/780;height:100%}#top{top:1%;height:12%}.brand{padding:3px}.brand b{font-size:17px}.card{padding:3px}.card b{font-size:14px}#bottomBar{height:14%}.tool{min-height:32px}#nextIcon{width:26px;height:26px}.panel{padding:10px}.panel p{font-size:11px}.welcome-monster{display:none}}
 @media(prefers-reduced-motion:reduce){#bomb.active{animation:none}}
+#ver{margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.5px;opacity:.62}
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#53c8ee">
@@ -41,7 +42,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:ui-rounded
 <button class="tool" id="new" data-label="RESTART" aria-label="Restart game"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M30 12a13 13 0 1 0 2 16" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M32 3v14H18Z" fill="currentColor"/></svg></button>
 <button class="tool" id="sound" data-label="SOUND" aria-label="Mute sound" aria-pressed="true"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M4 15h7l11-9v28l-11-9H4Z" fill="currentColor"/><path id="soundWaves" d="M27 13q7 7 0 14m5-19q12 12 0 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
 </div></div>
-<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><p id="loadStatus" role="status">Preparing your island…</p></div></div>
+<div id="start"><div class="panel"><img class="welcome-monster" src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><div class="tag">A LITTLE DROP. A BIG ADVENTURE.</div><h1>Monster Merge</h1><p>Drag to aim. Release to drop.<br>Match two monsters to discover the next!</p><p><b>Bomb</b> removes one monster.<br><b>Shake</b> gives the pile a gentle nudge.<br>Keep your monsters below the red line.</p><button class="primary" id="play" disabled>LOADING…</button><p id="loadStatus" role="status">Preparing your island…</p><p id="ver">v13.0.2 · build 20261025-3</p></div></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="overTitle"><div class="panel"><div class="tag">GAME OVER</div><h1 id="overTitle">An island full of friends!</h1><div class="bigscore" id="finalScore">0</div><p id="finalBest"></p><button class="primary" id="again">PLAY AGAIN</button><br><button class="secondary" id="closeModal">VIEW BOARD</button></div></div>
 </div></div>
 <script>
@@ -258,19 +259,19 @@ const danger=balls.reduce((m,b)=>Math.max(m,b.danger||0),0),near=balls.some(b=>b
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();for(let j=0;j<8;j++){let a=j*Math.PI/4,r=j%2?p.size*.32:p.size;let x=p.x+Math.cos(a)*r,y=p.y+Math.sin(a)*r;j?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill()}ctx.globalAlpha=1;for(const f of floaters){ctx.globalAlpha=Math.max(0,f.life);ctx.fillStyle=f.color;ctx.font='900 17px system-ui';ctx.textAlign='center';ctx.strokeStyle='#8f4b38';ctx.lineWidth=3;ctx.strokeText(f.text,f.x,f.y);ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;ctx.textAlign='left';ctx.restore()}
 function sceneBusy(){if(dragging||bombMode||shake>.25||particles.length||floaters.length||effects.length)return true;for(const b of balls){if(!b.sleeping||Math.hypot(b.vx,b.vy)>10)return true}return false}
 function loop(t){
-  if(!pageVisible){last=t;requestAnimationFrame(loop);return}
+  requestAnimationFrame(loop); // schedule first: an error below must never be able to stop the game loop
+  if(!pageVisible){last=t;return}
   let frameDt=Math.min(.05,(t-last)/1000);last=t;const busy=running&&sceneBusy();
   if(running){
     animateParticles(frameDt);
     const hz=busy?45:10,step=1/hz;physicsAccumulator+=frameDt;let n=0,maxTicks=busy?2:1;
-    while(physicsAccumulator>=step&&n<maxTicks){physics(step);physicsAccumulator-=step;n++}
+    try{while(physicsAccumulator>=step&&n<maxTicks){physics(step);physicsAccumulator-=step;n++}}catch(e){physicsAccumulator=0;console.error('physics error',e)}
     if(n===maxTicks&&physicsAccumulator>step*2)physicsAccumulator=0;
   }
   // Idle monsters keep breathing, so keep a gentle 30fps while playing (was 15fps when the board was still).
   const alive=running&&!gameOver&&!reducedMotion;
   const renderMs=(busy||dragging)?1000/60:(alive?1000/30:1000/15);
-  if(forceRedraw||t-lastRender>=renderMs){draw();lastRender=t;forceRedraw=false}
-  requestAnimationFrame(loop)
+  if(forceRedraw||t-lastRender>=renderMs){try{draw()}catch(e){console.error('draw error',e)}lastRender=t;forceRedraw=false}
 }
 document.addEventListener('visibilitychange',()=>{pageVisible=!document.hidden;last=performance.now();physicsAccumulator=0;if(pageVisible){forceRedraw=true;requestAnimationFrame(()=>draw())}else if(audioCtx&&audioCtx.state==='running'){audioCtx.suspend().catch(()=>{})}});
 window.addEventListener('pagehide',()=>{pageVisible=false;if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{})});
@@ -291,6 +292,13 @@ reset();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
+  // If this page was opened by an older version, switch to the new one as soon as it takes over,
+  // but only while the start screen is still showing so a running game is never interrupted.
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const start = document.getElementById('start');
+    if (hadController && start && start.style.display !== 'none') location.reload();
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
