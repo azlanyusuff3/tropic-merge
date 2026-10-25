@@ -29,3 +29,9 @@ Background prompt: Recreate only the bright tropical fantasy beach/island settin
 PWA icons use the new Slimelet sprite over an opaque turquoise background; the maskable version uses a smaller central composition. UI, glass, aiming guide, effects and toolbar are live DOM/Canvas/vector graphics, not baked into screenshots.
 
 The reference's dimensional painted logo is approximated with responsive text and CSS wood styling. Monster silhouettes and decorative details are practical recreations, not pixel-identical copies.
+
+## Living faces and slime (v13.3)
+
+The sprites are unchanged. At load, `buildFaceAssets()` cuts each monster's eyes and mouth out using the ellipses in `faceRig` (index.html, 512 px sprite coordinates, verified by overlay) and paints the skin back underneath with a smooth push-pull fill. The eyes and mouth are then drawn back on top every frame so they can blink, glance (at the monster being aimed, a merge, a blast or a passing monster), widen, squint (`> <`), smile (`^ ^`), sweat near the red line and open the mouth. Monsters with painted closed eyes (Puffling, Frostbop, Groveling, Lumiorb) peek open now and then and pop their eyes open when startled. Shadebub and Infernodon use light line colours so closed eyes read on dark bodies.
+
+Slimelet and Bubblo (`slimeKinds`) are drawn in horizontal strips that ripple, sway at the top and ooze at the feet, with a moving shine, inner bubbles (Bubblo) and drips. Everything is visual only: physics radii and hit areas are untouched, and reduced-motion users get the original static sprites.

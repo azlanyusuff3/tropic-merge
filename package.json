@@ -1,6 +1,6 @@
 {
   "name": "monster-merge",
-  "version": "13.2.0",
+  "version": "13.3.0",
   "private": true,
   "scripts": {
     "test": "node tests/playable.cjs"

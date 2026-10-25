@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 const hook=`
-window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,nextIconR,
+window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,nextIconR,faceAssets,faceState,faceEvent,
  state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel,dragging,pointerId}),
  pause:()=>{running=false},resume:()=>{running=true},
  seed:(level,x,y)=>{spawn(level,x);let b=balls[balls.length-1];Object.assign(b,{y,vx:0,vy:0,born:performance.now()-2000,mergeLock:0,entered:true,sleeping:false});return b},
@@ -50,6 +50,15 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
   const before=g.balls.map(b=>[b.x,b.y,b.r]);g.draw();g.draw();const same=g.balls.every((b,i)=>b.x===before[i][0]&&b.y===before[i][1]&&b.r===before[i][2]);
   return {...out,hit,calm,small,same}});
  assert.ok(alive.finite);assert.equal(alive.moves,11);assert.ok(alive.hit<alive.calm-.05);assert.ok(alive.small<.8);assert.ok(alive.same);results.push('Monster animation: all 11 move, impact squash settles, merge pop-in, physics untouched');
+ const faces=await page.evaluate(()=>{const g=__game;g.reset();g.pause();const ok=g.faceAssets.map(a=>!!a&&a.feats.length===3&&a.bare.width===512);
+  const b=g.seed(0,200,500);b.sleeping=true;b.contact=true;const t=performance.now();const st0=g.faceState(b,t);
+  g.faceEvent(b,'hurt',400);const hurt=g.faceState(b,t+16).mood;g.faceEvent(b,'surprise',300);const keep=g.faceState(b,t+32).mood;
+  const p=g.seed(2,300,500);p.sleeping=true;p.contact=true;g.faceEvent(p,'surprise',500);let o=0;for(let i=1;i<=20;i++)o=g.faceState(p,t+i*16).open;
+  let blinked=false;for(let i=0;i<400&&!blinked;i++)if(g.faceState(b,t+1000+i*16).lid>.5)blinked=true;
+  const fin=[st0.lx,st0.ly,st0.lid,st0.msx,st0.msy].every(Number.isFinite);g.draw();return{ok,hurt,keep,o,blinked,fin}});
+ assert.ok(faces.ok.every(Boolean),'face rig for all 11');assert.equal(faces.hurt,'hurt');assert.equal(faces.keep,'hurt','lower-priority mood must not override');
+ assert.ok(faces.o>.9,'closed-eye monster pops its eyes open when startled');assert.ok(faces.blinked,'monsters blink');assert.ok(faces.fin);
+ results.push('Living faces: rigs for all 11, blinking, reactions with priority, closed eyes pop open');
  fs.mkdirSync(path.join(root,'test-output'),{recursive:true});
  await page.evaluate(()=>__game.gallery());await page.screenshot({path:path.join(root,'test-output/monsters.png')});
  for(const [width,height] of [[320,568],[390,844],[430,932],[768,1024],[1440,900]]){await page.setViewportSize({width,height});await page.waitForTimeout(100);const layout=await page.evaluate(()=>{const ids=['top','bottomBar','scoreCard','bestCard','bomb','shakeBtn','new','sound'];const boxes=ids.map(id=>({id,...JSON.parse(JSON.stringify(document.getElementById(id).getBoundingClientRect()))}));return {boxes,overflow:document.documentElement.scrollHeight>innerHeight||document.documentElement.scrollWidth>innerWidth}});assert.equal(layout.overflow,false);for(const b of layout.boxes){assert.ok(b.left>=0&&b.right<=width+.5&&b.top>=0&&b.bottom<=height+.5,`${width} ${b.id} bounds`)}const tools=layout.boxes.slice(4);for(let i=1;i<tools.length;i++)assert.ok(tools[i].left>=tools[i-1].right);await page.screenshot({path:path.join(root,`test-output/viewport-${width}.png`)});}results.push('No page overflow or overlapping controls at 5 phone/tablet/desktop sizes');
