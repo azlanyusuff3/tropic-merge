@@ -1,9 +1,11 @@
 {
   "name": "monster-merge",
-  "version": "14.0.0",
+  "version": "15.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/playable.cjs"
+    "test": "node tests/model.cjs && node tests/playable.cjs && node tests/care.cjs && node tests/lifecycle.cjs",
+    "test:merge": "node tests/playable.cjs",
+    "test:care": "node tests/model.cjs && node tests/care.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

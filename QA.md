@@ -1,43 +1,28 @@
-# Monster Merge verification — 25 October 2026
+# Monster Island v15 — verification, 25 October 2026
 
-Tested the actual application in headless Chromium 153 using Playwright 1.62.1. The suite serves this repository locally. Test-only state inspection is injected by the test runner; the shipped page exposes no debug controls. Offline checks run against the unmodified page with a real service worker and network disabled.
+Baseline: main commit `b3afe4155a2ded41473806f4e789fdebb92d8b34` (Monster Merge v14).
 
-## Passed
+## Preservation
 
-- 11 decoded sprites and legacy best-score preservation
-- Real touch drop and gravity
-- All 10 merge transitions, radius progression and scoring
-- Coincident unequal objects separate without NaN
-- Legendary level cap stays at 11
-- Consecutive merge multiplier: 4 + 8 = 12
-- Bomb button, touch selection and one-monster removal
-- Shake applies impulses without merging unlike monsters
-- 10-second mixed pile simulation: finite positions, wall/floor containment
-- Original danger timing, Game Over modal and Play Again
-- Sound toggle state
-- Restart confirmation clears board
-- No page overflow or overlapping controls at 5 phone/tablet/desktop sizes
-- Drag-and-release world coordinate mapping
-- Actual running board after 19 interactive drops
-- Drops keep working after Shake/Bomb pressed mid-aim (two-finger regression)
-- View Board: tapping the board brings Game Over back; zero score is not a personal best
-- No browser JavaScript errors
-- Real offline reload, play and 19 cached resources
+`merge.html` contains the baseline's exact original engine scripts and CSS. The regression runner asserts their SHA-256 fingerprints before testing. Only a return-to-menu anchor was added to the original document. Original sprite/background/icon binaries are unchanged. The new `index.html` is the menu; Care runs in its own document and modules.
 
-Phone/tablet/desktop viewport sizes: 320×568, 390×844, 430×932, 768×1024 and 1440×900. Screenshots of all 11 sprites and the board after interactive drops were visually reviewed. All sprite files have alpha transparency and are 512×512. Artwork and icons total approximately 1 MB. Syntax and `git diff --check` also pass.
+Engine SHA-256: `1386508f6affd0af53c2b1bc9b6097037e9d14086b60fd0f364b6036bfe62fc0`.
 
-## Update delivery (v13.1.0)
+## Automated coverage
 
-The service worker installs every file with `cache: 'reload'`. Verified against a server sending GitHub Pages' `Cache-Control: max-age=600`: the previous worker re-cached the old `index.html` after an update, the new one picks up the new build. The start screen shows the running version.
+Headless Chromium with Playwright, real touch/pointer events, the actual Canvas game engine and production service worker. Model tests use simulated timestamps. Mini-game tests inject state inspection and accelerated simulation ticks into the HTTP response only; production modules ship without test/debug hooks. Scoring is earned through the actual pointer handlers and physics, rather than directly assigning scores.
 
-## Changes to the original engine
-
-The custom Canvas/JavaScript circle solver, radii, gravity, bounce, sleeping, random generation probabilities, merge values, combo window and danger timing are retained. Exact-center collision separation now uses a valid normal. Particle lifetimes continue after Game Over. Audio resumes after app suspension. The glass top and danger line move down 32 logical pixels together to reserve space for the new header and the largest preview; the floor and all monster radii remain unchanged.
+- Model: starter; read-only species unlocking; independent adoption; food preferences; action cooldowns; XP/bond/energy; bathing; offline sleeping; long absences/backwards clocks; all growth thresholds; purchases/placement; daily and score milestone claim deduplication; all mini-game rewards; achievements; anniversaries; validated save and backup recovery; invalid-value rejection; unchanged legacy keys.
+- Original Merge regression: sprites, touch drop, dragging, all ten merges, collision separation, Infernodon explosion/disappearance, scoring/combo, bomb charges, Shake, ten seconds of pile physics, danger/game-over/restart, Collection, achievements, sound toggle, every living-face rig, jelly/body animation, NEXT sizing, multi-touch input regression, offline reload and unrelated-cache preservation.
+- Care browser: menu launch, unlocks/adoption/switching, favorite feeding, play, pointer-stroke affection, interactive soap/rinse bath, sleep/wake plus simulated closed-app recovery, all four mini-games with nonzero earned scores/end/reward/records, cancelled-game cleanup, daily/achievement persistence, all eleven sprites/rigs, Adult Infernodon, shop and furniture slots, garden groups and selecting a friend, legacy storage immutability, independent mode navigation and actual Merge save/resume after visiting Care.
+- Responsive browser checks: all six Care screens and menu at 320×568, 390×844, 430×932 and 768×1024. Merge also tested at 1440×900. No horizontal overflow, offscreen navigation or overlapping navigation buttons. Smaller phones intentionally scroll vertically to retain readable controls.
+- Lifecycle/upgrade: install the actual v14 service worker under `/tropic-merge/`, update to v15, retain all Merge keys, resume the old board, retain an unrelated cache even when it shares a legacy name prefix, remove only this scope’s old cache, verify zero pending RAF callbacks outside active scenes, simulate app backgrounding during a mini-game, and exercise normal Back navigation.
+- Offline checks use unmodified production modules, a real installed service worker and disabled browser networking. Menu, Care, mini-game launch and original Merge all work. No JavaScript exceptions, console errors or broken runtime artwork.
 
 ## Reproduce
 
-Run `npm install`, `npx playwright install chromium`, then `npm test`. A local test server starts automatically. Alternatively set `CHROMIUM_PATH` to an installed compatible Chromium executable. Screenshots and JSON results are written to ignored `test-output/`.
+`npm install` then `npx playwright install chromium` and `npm test`. `CHROMIUM_PATH` can select another installed Chromium executable. Output screenshots and JSON summaries go to ignored `test-output/`.
 
 ## Limits
 
-No physical iPhone, Android phone or iPad was available; real-device Safari/audio behavior and device-specific frame rates have not been measured. Responsive tests use Chromium viewport/touch emulation. Visual assets are faithful practical recreations of the references, not pixel-identical copies; the logo and wooden/glass framing are responsive CSS/Canvas approximations. Offline play requires one successful initial online cache installation. Very short landscape screens use a compact layout; portrait is the primary game orientation.
+No physical Android/iPhone/iPad tests were performed. Add to Home Screen installation UI, hardware-specific audio behavior and actual budget-phone frame rates remain unverified. Growth/elapsed-time scenarios use controlled timestamps rather than waiting multiple days. Mini-game timing is accelerated in automated gameplay checks, and the real offline smoke test uses the unchanged runtime. No cross-device/cloud saves; browser storage must be retained. There is no claim of measured 60fps on physical hardware. Android Back uses normal document/hash history and native dialog dismissal; OS-specific gesture behavior still needs a physical-device check.

@@ -33,3 +33,11 @@ C: bomb selection/explosion, physical shake, merge sparkles and danger line.
 Artwork is a practical recreation, not pixel-identical to the references.
 Sprites are generated individually with alpha, normalized and optimized;
 references are never used as gameplay screenshots or directly cropped sprites.
+
+MONSTER ISLAND v15
+The existing install now opens a menu with Monster Merge and Monster Care.
+Monster Merge is preserved in merge.html. Monster Care is an independent game.
+Your old Merge progress stays in the same browser storage. Do not clear site data
+or uninstall/delete browser storage to refresh the game. Close and reopen while
+online to let the service worker finish downloading the new offline bundle.
+See MONSTER_CARE.md and QA.md for gameplay, architecture and test details.

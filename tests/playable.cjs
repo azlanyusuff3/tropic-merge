@@ -4,6 +4,11 @@ const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
+// Exact original b3afe41 engine and visual stylesheet; the only Merge addition is navigation.
+const crypto=require('node:crypto'),original=fs.readFileSync(path.join(root,'merge.html'),'utf8');
+assert.equal(crypto.createHash('sha256').update(original.match(/<script>([\s\S]*?)<\/script>/)[1]).digest('hex'),'1386508f6affd0af53c2b1bc9b6097037e9d14086b60fd0f364b6036bfe62fc0');
+assert.equal(crypto.createHash('sha256').update(original.match(/<style>([\s\S]*?)<\/style>/)[1]).digest('hex'),'35b6793b61469c990492c096571a96de37c5b9f93caac85b2a953046c58ca569');
+
 const hook=`
 window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,nextIconR,faceAssets,faceState,faceEvent,
  state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel,dragging,pointerId}),
@@ -16,14 +21,14 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
 `;
 (async()=>{
  let server;
- if(!base){server=require('node:http').createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=path.join(root,pathname==='/'?'index.html':pathname);if(!file.startsWith(root+path.sep)){res.writeHead(403);return res.end()}fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);return res.end('Not found')}res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.webp':'image/webp','.png':'image/png','.webmanifest':'application/manifest+json'})[path.extname(file)]||'text/plain');res.end(data)})});await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;}
+ if(!base){server=require('node:http').createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=path.join(root,pathname==='/'?'merge.html':pathname);if(!file.startsWith(root+path.sep)){res.writeHead(403);return res.end()}fs.readFile(file,(err,data)=>{if(err){res.writeHead(404);return res.end('Not found')}res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.webp':'image/webp','.png':'image/png','.webmanifest':'application/manifest+json'})[path.extname(file)]||'text/plain');res.end(data)})});await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;}
  const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
  const results=[],errors=[];
  const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,serviceWorkers:'block'});
  await context.addInitScript(()=>localStorage.setItem('tropicBest','4321'));
- await context.route('**/index.html',async route=>{let html=fs.readFileSync(path.join(root,'index.html'),'utf8');html=html.replace('reset();\n})();',hook+'reset();\n})();');await route.fulfill({contentType:'text/html',body:html})});
+ await context.route('**/merge.html',async route=>{let html=fs.readFileSync(path.join(root,'merge.html'),'utf8');html=html.replace('reset();\n})();',hook+'reset();\n})();');await route.fulfill({contentType:'text/html',body:html})});
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
- await page.goto(base+'/index.html');await page.waitForFunction(()=>!document.getElementById('play').disabled);
+ await page.goto(base+'/merge.html');await page.waitForFunction(()=>!document.getElementById('play').disabled);
  assert.equal(await page.locator('#best').textContent(),'4321');
  await page.locator('#play').tap();await page.waitForTimeout(150);
  assert.equal(await page.evaluate(()=>__game.monsterImages.filter(i=>i.complete&&i.naturalWidth).length),11);results.push('11 decoded sprites and legacy best-score preservation');
@@ -94,7 +99,7 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
  assert.deepEqual(errors,[]);results.push('No browser JavaScript errors');await context.close();
  // Real unmodified page, real service worker, real offline network failure.
  const offline=await browser.newContext({viewport:{width:390,height:844}}),op=await offline.newPage();op.on('pageerror',e=>errors.push(e.message));
- await op.goto(base+'/index.html');await op.waitForFunction(()=>!document.getElementById('play').disabled);await op.evaluate(()=>navigator.serviceWorker.ready);await op.waitForFunction(()=>navigator.serviceWorker.controller!==null);
+ await op.goto(base+'/merge.html');await op.waitForFunction(()=>!document.getElementById('play').disabled);await op.evaluate(()=>navigator.serviceWorker.ready);await op.waitForFunction(()=>navigator.serviceWorker.controller!==null);
  await op.evaluate(()=>caches.open('another-game-test').then(c=>c.put('/unrelated',new Response('keep'))));
  await offline.setOffline(true);await op.reload();await op.waitForFunction(()=>!document.getElementById('play').disabled);await op.locator('#play').click();const cached=await op.evaluate(async()=>{const names=await caches.keys(),name=names.find(x=>x.startsWith('monster-merge-'));return {count:(await (await caches.open(name)).keys()).length,other:names.includes('another-game-test')}});assert.ok(cached.count>=19);assert.ok(cached.other);assert.deepEqual(errors,[]);results.push(`Real offline reload, play and ${cached.count} cached resources`);
  await browser.close();if(server)await new Promise(r=>server.close(r));fs.writeFileSync(path.join(root,'test-output/results.json'),JSON.stringify({passed:results},null,2));console.log(results.map(x=>'PASS '+x).join('\n'));

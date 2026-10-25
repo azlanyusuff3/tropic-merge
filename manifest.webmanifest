@@ -1,7 +1,7 @@
 {
   "name": "Monster Merge",
   "short_name": "Monster Merge",
-  "description": "Drop, bounce and merge 11 magical monsters on a sunny tropical island. Play offline.",
+  "description": "Two offline island adventures: Monster Merge and Monster Care. Adopt, play, grow and discover.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
