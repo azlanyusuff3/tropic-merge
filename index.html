@@ -84,7 +84,7 @@ function reset(){balls.length=0;particles.length=0;floaters.length=0;effects.len
 function spawn(level,x){let f=ballKinds[level],r=f.r;x=Math.max(box.l+r+3,Math.min(box.r-r-3,x));balls.push({id:idSeq++,level,r,x,y:box.t-r-8,vx:(Math.random()-.5)*10,vy:25,born:performance.now(),danger:0,mergeLock:0,rot:(Math.random()-.5)*.12,spinKick:(Math.random()-.5)*.22,contact:false,entered:false,sleeping:false,sleepT:0});lastDrop=performance.now();forceRedraw=true;audio(320+level*40,.055,'sine',.028)}
 function burst(x,y,color,count=15,power=150){count=Math.min(count,Math.max(0,220-particles.length));if(reducedMotion)count=Math.ceil(count*.35);for(let i=0;i<count;i++){let a=Math.random()*Math.PI*2,s=Math.random()*power+30;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:1,size:Math.random()*5+2,color})}}
 function bombAt(x,y){let hit=null,md=1e9;for(const b of balls){let d=Math.hypot(x-b.x,y-b.y);if(d<=b.r+13&&d<md){hit=b;md=d}}if(hit){effects.push({kind:'bomb',x:hit.x,y:hit.y,r:hit.r,level:hit.level,color:'#ffdb70',born:performance.now(),duration:420});balls.splice(balls.indexOf(hit),1);for(const q of balls){q.sleeping=false;q.sleepT=0}forceRedraw=true;burst(hit.x,hit.y,'#ff6b3b',38,270);burst(hit.x,hit.y,'#ffd75b',22,185);floaters.push({x:hit.x,y:hit.y,text:'BOOM!',life:1,color:'#ffe46e'});shake=14;audio(82,.22,'sawtooth',.08);setTimeout(()=>audio(52,.2,'square',.04),30)}bombMode=false;targetId=null;bombBtn.classList.remove('active');bombBtn.setAttribute('aria-pressed','false');hint.classList.remove('show')}
-function merge(a,b){if(a.level!==b.level||a.level>=ballKinds.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=ballKinds[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),danger:0,mergeLock:performance.now()+170,rot:((a.rot||0)+(b.rot||0))*.5,spinKick:Math.max(-.55,Math.min(.55,((a.spinKick||0)+(b.spinKick||0))*.25)),contact:false,entered:y+nf.r>=box.t+6,sleeping:false,sleepT:0});for(const q of balls){q.sleeping=false;q.sleepT=0}forceRedraw=true;let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;scoreEl.classList.toggle('compact',score>=100000);if(score>best){best=score;bestEl.textContent=best;bestEl.classList.toggle('compact',best>=100000);saveBest(best)}effects.push({kind:'merge',x,y,r:nf.r,level:nl,color:nl>=7?'#ffed88':nf.c1,born:now,duration:nl>=7?850:500});burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
+function merge(a,b){if(a.level!==b.level||a.level>=ballKinds.length-1)return false;let ia=balls.indexOf(a),ib=balls.indexOf(b);if(ia<0||ib<0)return false;let nl=a.level+1,nf=ballKinds[nl],x=(a.x+b.x)/2,y=(a.y+b.y)/2,vx=(a.vx+b.vx)/2,vy=Math.min((a.vy+b.vy)/2-120,20);balls.splice(Math.max(ia,ib),1);balls.splice(Math.min(ia,ib),1);balls.push({id:idSeq++,level:nl,r:nf.r,x,y,vx,vy,born:performance.now(),popT:performance.now(),danger:0,mergeLock:performance.now()+170,rot:((a.rot||0)+(b.rot||0))*.5,spinKick:Math.max(-.55,Math.min(.55,((a.spinKick||0)+(b.spinKick||0))*.25)),contact:false,entered:y+nf.r>=box.t+6,sleeping:false,sleepT:0});for(const q of balls){q.sleeping=false;q.sleepT=0}forceRedraw=true;let now=performance.now();combo=(now-lastMerge<1150)?combo+1:1;lastMerge=now;let pts=nf.value*combo;score+=pts;scoreEl.textContent=score;scoreEl.classList.toggle('compact',score>=100000);if(score>best){best=score;bestEl.textContent=best;bestEl.classList.toggle('compact',best>=100000);saveBest(best)}effects.push({kind:'merge',x,y,r:nf.r,level:nl,color:nl>=7?'#ffed88':nf.c1,born:now,duration:nl>=7?850:500});burst(x,y,nf.c1,20+nl*2,175+nl*10);floaters.push({x,y:y-nf.r*.35,text:`+${pts}${combo>1?'  x'+combo:''}`,life:1,color:'#fff0a1'});shake=Math.min(12,3+nl*.75);audio(460+nl*55,.08,'sine',.04);setTimeout(()=>audio(700+nl*45,.06,'sine',.025),40);return true}
 // Resting contact with a sleeping ball: keep it asleep and treat it as static, unless the other ball hits hard or presses deep.
 function restOnSleeper(a,b,nx,ny,over){
   if(a.sleeping===b.sleeping)return false;
@@ -109,7 +109,7 @@ for(let sub=0;sub<steps;sub++){
     let wallE=.25-Math.min(.08,b.level*.008),floorE=.27-Math.min(.13,b.level*.013);
     if(b.x-br<box.l){b.x=box.l+br;b.vx=Math.abs(b.vx)*wallE;b.spinKick=Math.min(.5,(b.spinKick||0)+.12)}
     if(b.x+br>box.r){b.x=box.r-br;b.vx=-Math.abs(b.vx)*wallE;b.spinKick=Math.max(-.5,(b.spinKick||0)-.12)}
-    if(b.y+br>box.b){b.y=box.b-br;b.contact=true;let impact=Math.abs(b.vy);if(impact<38)b.vy=0;else b.vy=-impact*floorE;b.vx*=impact>90?.965:.935;if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0}
+    if(b.y+br>box.b){b.y=box.b-br;b.contact=true;let impact=Math.abs(b.vy);if(impact>=60)kick(b,Math.min(.3,impact/2400));if(impact<38)b.vy=0;else b.vy=-impact*floorE;b.vx*=impact>90?.965:.935;if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0}
   }
 
   // Adaptive solver: fewer passes when most fruit are asleep; enough passes while the board is moving.
@@ -130,7 +130,7 @@ for(let sub=0;sub<steps;sub++){
         let tx=-ny,ty=nx,ma=ar*ar,mb=br*br,sum=ma+mb;
         a.contact=b.contact=true;a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
         let rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
-        if(vn<0){let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;let vt=rvx*tx+rvy*ty;a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick))}
+        if(vn<0){const kj=Math.min(.28,-vn/2200);if(kj>.02){kick(a,kj);kick(b,kj)}let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;let vt=rvx*tx+rvy*ty;a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick))}
       }
     }
     if(merged)continue;
@@ -171,8 +171,56 @@ function getBallSprite(level){
  const c=sc.getContext('2d');c.imageSmoothingQuality='high';c.drawImage(im,0,0,side,side);
  const sp={body:sc,logical,r:k.r};ballSprites.set(level,sp);return sp;
 }
-function drawRealFruit(c,b,alpha=1){const sp=getBallSprite(b.level);if(!sp)return;
- const size=sp.logical*b.r/sp.r;c.save();c.globalAlpha*=alpha;c.translate(b.x,b.y);c.rotate(b.rot||0);c.drawImage(sp.body,-size/2,-size/2,size,size);c.restore();}
+// ---- Living monsters: purely visual animation. Physics, radii and hit areas are never touched. ----
+// Set MONSTER_UPRIGHT=false to bring back the old "rolling ball" look (full rotation).
+const MONSTER_UPRIGHT=true;
+let frameNow=0;
+// Personality per level. br/sp = breathing size/speed, sw = idle sway, jel = jelly on impact,
+// fl/fs = wing-flutter size/speed, glow = pulsing light.
+const monsterMoves=[
+ {br:.050,sp:2.6,sw:.050,jel:1.25,fl:0,fs:0,glow:0},      // Slimelet: wobbly jelly
+ {br:.042,sp:3.2,sw:.040,jel:1.15,fl:0,fs:0,glow:0},      // Bubblo: bubbly bob
+ {br:.045,sp:2.2,sw:.080,jel:1.0,fl:0,fs:0,glow:0},       // Puffling: fluffy sway
+ {br:.040,sp:2.9,sw:.090,jel:.9,fl:0,fs:0,glow:0},        // Sproutiball: perky bounce
+ {br:.016,sp:1.6,sw:.025,jel:.45,fl:0,fs:0,glow:0},       // Rockro: sturdy, barely squashes
+ {br:.022,sp:1.4,sw:.035,jel:.55,fl:0,fs:0,glow:0},       // Frostbop: slow and chilly
+ {br:.034,sp:2.0,sw:.050,jel:.8,fl:.022,fs:11,glow:0},    // Shadebub: fluttering wings
+ {br:.030,sp:1.5,sw:.045,jel:.7,fl:0,fs:0,glow:0},        // Groveling: calm forest sway
+ {br:.032,sp:1.3,sw:.040,jel:.8,fl:0,fs:0,glow:0},        // Tidalon: slow swimming sway
+ {br:.030,sp:1.8,sw:.040,jel:.8,fl:.024,fs:9,glow:.16},   // Lumiorb: floaty, glowing
+ {br:.028,sp:1.2,sw:.030,jel:.6,fl:.016,fs:7,glow:.18}    // Infernodon: slow menacing, glowing
+];
+// Impact "wobble": remembers the strongest recent hit; draw time turns it into a decaying jelly spring.
+function kick(b,j){const n=performance.now(),cur=(b.jig||0)*Math.exp(-(n-(b.jigT||0))/260);if(j>cur){b.jig=j;b.jigT=n}}
+function monsterPose(b,now){
+ const m=monsterMoves[b.level]||monsterMoves[0],t=now/1000;
+ const ph=b.ph??(b.ph=(((b.id??b.level)||0)*2.399)%6.2832);
+ const vx=b.vx||0,vy=b.vy||0;
+ // idle breathing (squash and stretch, anchored at the monster's feet)
+ const br=Math.sin(t*m.sp*Math.PI+ph)*m.br;
+ let sy=1+br,sx=1-br*.7;
+ // stretch along motion: taller when falling, wider when sliding sideways
+ const sv=Math.min(.16,Math.abs(vy)/2600)*m.jel,sh=Math.min(.10,Math.abs(vx)/3600)*m.jel;
+ sy+=sv-sh*.5;sx+=sh-sv*.7;
+ // jelly spring after hits and landings
+ if(b.jig){const dt=now-(b.jigT||0),amp=b.jig*Math.exp(-dt/260)*Math.cos(dt/1000*19);sy-=amp*m.jel*.8;sx+=amp*m.jel*.64}
+ // wing flutter
+ if(m.fl){const f=Math.sin(t*m.fs+ph*2)*m.fl;sx*=1+f;sy*=1-f*.6}
+ // pop-in when born from a merge
+ if(b.popT){const dt=(now-b.popT)/1000;if(dt<.7){const s=1-Math.exp(-dt*9)*Math.cos(dt*20)*.35;sx*=s;sy*=s}}
+ // lean into the direction of travel plus a lazy sway
+ const lean=Math.max(-.3,Math.min(.3,vx*.0016)),tilt=lean+Math.sin(t*m.sp*Math.PI*.5+ph*1.3)*m.sw;
+ return{sx,sy,tilt,glow:m.glow,ph};
+}
+function drawRealFruit(c,b,alpha=1,live=false){const sp=getBallSprite(b.level);if(!sp)return;
+ const size=sp.logical*b.r/sp.r;c.save();c.globalAlpha*=alpha;
+ if(live&&!reducedMotion){
+  const p=monsterPose(b,frameNow||performance.now()),foot=b.r*.985;
+  c.translate(b.x,b.y+foot);c.rotate(MONSTER_UPRIGHT?p.tilt:(b.rot||0)+p.tilt);c.scale(p.sx,p.sy);c.translate(0,-foot);
+  c.drawImage(sp.body,-size/2,-size/2,size,size);
+  if(p.glow){c.globalCompositeOperation='lighter';c.globalAlpha*=p.glow*(.6+.4*Math.sin((frameNow||0)/1000*2.2+p.ph));c.drawImage(sp.body,-size/2,-size/2,size,size)}
+ }else{c.translate(b.x,b.y);c.rotate(b.rot||0);c.drawImage(sp.body,-size/2,-size/2,size,size)}
+ c.restore();}
 function drawNext(){nctx.clearRect(0,0,100,100);drawRealFruit(nctx,{x:50,y:51,r:Math.min(33,88/ballKinds[nextLevel].artScale),level:nextLevel,rot:0});nextCanvas.setAttribute('aria-label','Next: '+ballKinds[nextLevel].name)}
 async function prepareAssets(){const play=document.getElementById('play'),status=document.getElementById('loadStatus');play.disabled=true;
  try{const images=await Promise.all(ballKinds.map(k=>loadImage(k.asset)));images.forEach((im,i)=>monsterImages[i]=im);const bg=await loadImage('./assets/tropical.webp');backgroundImage.src=bg.src;await backgroundImage.decode();ballSprites.clear();ballKinds.forEach((_,i)=>getBallSprite(i));staticScene=null;drawNext();forceRedraw=true;play.disabled=false;play.onclick=startGame;play.textContent='LET’S PLAY';status.textContent='Ready to play offline after the first full load.';}
@@ -199,13 +247,13 @@ function drawEffects(){
  if(e.level>=7){ctx.rotate(t);for(let j=0;j<10;j++){ctx.rotate(Math.PI/5);ctx.fillStyle=e.color;ctx.beginPath();ctx.moveTo(e.r*.6,0);ctx.lineTo(e.r*(1.5+t),-3);ctx.lineTo(e.r*(1.5+t),3);ctx.fill()}}
  ctx.restore();}
 }
-function draw(){ctx.clearRect(-100,-100,W+200,H+200);let sx=shake&&!reducedMotion?(Math.random()-.5)*shake:0,sy=shake&&!reducedMotion?(Math.random()-.5)*shake*.6:0;shake*=.86;if(shake<.2)shake=0;ctx.save();ctx.translate(sx,sy);if(!staticScene)buildStaticScene();ctx.drawImage(staticScene.canvas,0,0,staticScene.canvas.width,staticScene.canvas.height,0,0,W,H);
+function draw(){frameNow=performance.now();ctx.clearRect(-100,-100,W+200,H+200);let sx=shake&&!reducedMotion?(Math.random()-.5)*shake:0,sy=shake&&!reducedMotion?(Math.random()-.5)*shake*.6:0;shake*=.86;if(shake<.2)shake=0;ctx.save();ctx.translate(sx,sy);if(!staticScene)buildStaticScene();ctx.drawImage(staticScene.canvas,0,0,staticScene.canvas.width,staticScene.canvas.height,0,0,W,H);
 if(!gameOver&&!bombMode&&running){let r=ballKinds[currentLevel].r,x=Math.max(box.l+r+3,Math.min(box.r-r-3,aimX));ctx.strokeStyle=dragging?'#ffe992a8':'#ffffff43';ctx.lineWidth=dragging?2:1;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(x,box.t-3);ctx.lineTo(x,box.b-10);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#fff5c7b5';ctx.font='900 18px system-ui';ctx.textAlign='center';ctx.fillText('‹',x-r-14,box.t-r*.7);ctx.fillText('›',x+r+14,box.t-r*.7);ctx.textAlign='left';drawRealFruit(ctx,{x,y:box.t-r-8,r,level:currentLevel,rot:0},dragging?1:.82,true)}
 const danger=balls.reduce((m,b)=>Math.max(m,b.danger||0),0),near=balls.some(b=>b.entered&&b.y-b.r<box.danger+24);
  ctx.save();ctx.strokeStyle=near?'#ff354c':'#ff695caa';ctx.lineWidth=near?3:1.5;ctx.shadowColor='#ff1744';ctx.shadowBlur=near?10+5*Math.sin(performance.now()/120):0;ctx.globalAlpha=near?.8+.2*Math.sin(performance.now()/140):.7;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(box.l+5,box.danger);ctx.lineTo(box.r-5,box.danger);ctx.stroke();ctx.restore();
  if(danger>.15){ctx.fillStyle='#d52c3c';ctx.font='900 11px system-ui';ctx.textAlign='center';ctx.fillText('PILE TOO HIGH!',W/2,box.danger-12);ctx.textAlign='left'}
  ctx.save();ctx.beginPath();ctx.rect(box.l,box.t-80,box.r-box.l,box.b-box.t+80);ctx.clip();
- for(const b of balls){drawRealFruit(ctx,b);if(bombMode){ctx.save();ctx.strokeStyle=b.id===targetId?'#fff8b0':'#fff6bd99';ctx.lineWidth=b.id===targetId?3:1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(b.x,b.y,b.r+3,0,Math.PI*2);ctx.stroke();ctx.restore()}}
+ for(const b of balls){drawRealFruit(ctx,b,1,true);if(bombMode){ctx.save();ctx.strokeStyle=b.id===targetId?'#fff8b0':'#fff6bd99';ctx.lineWidth=b.id===targetId?3:1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(b.x,b.y,b.r+3,0,Math.PI*2);ctx.stroke();ctx.restore()}}
  ctx.restore();drawEffects();
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();for(let j=0;j<8;j++){let a=j*Math.PI/4,r=j%2?p.size*.32:p.size;let x=p.x+Math.cos(a)*r,y=p.y+Math.sin(a)*r;j?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill()}ctx.globalAlpha=1;for(const f of floaters){ctx.globalAlpha=Math.max(0,f.life);ctx.fillStyle=f.color;ctx.font='900 17px system-ui';ctx.textAlign='center';ctx.strokeStyle='#8f4b38';ctx.lineWidth=3;ctx.strokeText(f.text,f.x,f.y);ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;ctx.textAlign='left';ctx.restore()}
 function sceneBusy(){if(dragging||bombMode||shake>.25||particles.length||floaters.length||effects.length)return true;for(const b of balls){if(!b.sleeping||Math.hypot(b.vx,b.vy)>10)return true}return false}
@@ -218,7 +266,9 @@ function loop(t){
     while(physicsAccumulator>=step&&n<maxTicks){physics(step);physicsAccumulator-=step;n++}
     if(n===maxTicks&&physicsAccumulator>step*2)physicsAccumulator=0;
   }
-  const renderMs=(busy||dragging)?1000/60:1000/15;
+  // Idle monsters keep breathing, so keep a gentle 30fps while playing (was 15fps when the board was still).
+  const alive=running&&!gameOver&&!reducedMotion;
+  const renderMs=(busy||dragging)?1000/60:(alive?1000/30:1000/15);
   if(forceRedraw||t-lastRender>=renderMs){draw();lastRender=t;forceRedraw=false}
   requestAnimationFrame(loop)
 }

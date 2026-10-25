@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 const hook=`
-window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,
+window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,kick,
  state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel}),
  pause:()=>{running=false},resume:()=>{running=true},
  seed:(level,x,y)=>{spawn(level,x);let b=balls[balls.length-1];Object.assign(b,{y,vx:0,vy:0,born:performance.now()-2000,mergeLock:0,entered:true,sleeping:false});return b},
@@ -40,6 +40,16 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
  await page.evaluate(()=>{const g=__game;g.reset();g.pause();const b=g.seed(0,100,190);b.sleeping=true;for(let i=0;i<90;i++)g.physics(1/60)});assert.equal(await page.evaluate(()=>__game.state().gameOver),true);assert.equal(await page.locator('#modal').isVisible(),true);await page.locator('#again').tap();assert.equal(await page.evaluate(()=>__game.state().gameOver),false);results.push('Original danger timing, Game Over modal and Play Again');
  await page.locator('#sound').tap();assert.equal(await page.evaluate(()=>__game.state().soundOn),false);await page.locator('#sound').tap();assert.equal(await page.evaluate(()=>__game.state().soundOn),true);results.push('Sound toggle state');
  page.on('dialog',d=>d.accept());await page.locator('#new').tap();assert.equal(await page.evaluate(()=>__game.state().score),0);assert.equal(await page.evaluate(()=>__game.balls.length),0);results.push('Restart confirmation clears board');
+ const alive=await page.evaluate(()=>{const g=__game;g.reset();g.pause();const out={finite:true,moves:0};
+  for(let l=0;l<g.ballKinds.length;l++){const b=g.seed(l,200,500);b.sleeping=true;b.vx=0;b.vy=0;
+   const a=g.monsterPose(b,1000),c=g.monsterPose(b,1400);
+   for(const p of [a,c])for(const k of ['sx','sy','tilt'])if(!Number.isFinite(p[k]))out.finite=false;
+   if(Math.abs(a.sy-c.sy)>1e-4||Math.abs(a.tilt-c.tilt)>1e-4)out.moves++}
+  const j=g.seed(0,200,400);j.sleeping=true;g.kick(j,.25);const hit=g.monsterPose(j,performance.now()+10).sy,calm=g.monsterPose(j,performance.now()+4000).sy;
+  const m=g.seed(3,100,400);m.sleeping=true;m.popT=1000;const small=g.monsterPose(m,1000).sx;
+  const before=g.balls.map(b=>[b.x,b.y,b.r]);g.draw();g.draw();const same=g.balls.every((b,i)=>b.x===before[i][0]&&b.y===before[i][1]&&b.r===before[i][2]);
+  return {...out,hit,calm,small,same}});
+ assert.ok(alive.finite);assert.equal(alive.moves,11);assert.ok(alive.hit<alive.calm-.05);assert.ok(alive.small<.8);assert.ok(alive.same);results.push('Monster animation: all 11 move, impact squash settles, merge pop-in, physics untouched');
  fs.mkdirSync(path.join(root,'test-output'),{recursive:true});
  await page.evaluate(()=>__game.gallery());await page.screenshot({path:path.join(root,'test-output/monsters.png')});
  for(const [width,height] of [[320,568],[390,844],[430,932],[768,1024],[1440,900]]){await page.setViewportSize({width,height});await page.waitForTimeout(100);const layout=await page.evaluate(()=>{const ids=['top','bottomBar','scoreCard','bestCard','bomb','shakeBtn','new','sound'];const boxes=ids.map(id=>({id,...JSON.parse(JSON.stringify(document.getElementById(id).getBoundingClientRect()))}));return {boxes,overflow:document.documentElement.scrollHeight>innerHeight||document.documentElement.scrollWidth>innerWidth}});assert.equal(layout.overflow,false);for(const b of layout.boxes){assert.ok(b.left>=0&&b.right<=width+.5&&b.top>=0&&b.bottom<=height+.5,`${width} ${b.id} bounds`)}const tools=layout.boxes.slice(4);for(let i=1;i<tools.length;i++)assert.ok(tools[i].left>=tools[i-1].right);await page.screenshot({path:path.join(root,`test-output/viewport-${width}.png`)});}results.push('No page overflow or overlapping controls at 5 phone/tablet/desktop sizes');
