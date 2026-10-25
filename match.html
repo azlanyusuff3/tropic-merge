@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#63cabe">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Monster Match: a relaxing, endless monster match-three puzzle game.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./match/style.css">
+  <title>Monster Match | Monster Island</title>
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <a class="back-btn" href="./index.html" aria-label="Back to Monster Island"><span aria-hidden="true">&#8592;</span></a>
+      <div class="game-title"><div class="eyebrow">MONSTER ISLAND PRESENTS</div><h1>MONSTER <span>MATCH!</span></h1></div>
+      <button type="button" id="sound-btn" class="icon-btn" aria-label="Toggle sound" aria-pressed="false"><span aria-hidden="true">&#9835;</span></button>
+    </header>
+
+    <section class="hud" aria-label="Game scores">
+      <div class="stat-card stat-score"><span class="stat-label">SCORE</span><strong id="score">0</strong></div>
+      <div class="stat-card stat-best"><span class="stat-label">BEST</span><strong id="best">0</strong></div>
+      <div class="stat-card stat-moves"><span class="stat-label">CLEARED</span><strong id="matches">0</strong></div>
+    </section>
+
+    <section class="game-stage" aria-label="Endless Monster Match game">
+      <div class="stage-top"><div class="mode-pill"><span aria-hidden="true">&#8734;</span> CLASSIC ENDLESS</div><div id="chain-badge" class="chain-badge" aria-live="polite">NO MOVE LIMIT</div></div>
+      <div class="board-frame"><div id="board" class="board" role="group" aria-label="8 by 8 monster matching board. Swipe a tile or tap two adjacent monsters." tabindex="0"></div><div class="board-gloss" aria-hidden="true"></div></div>
+      <p class="game-message" id="game-message" aria-live="polite">Swipe to match 3 or more monsters!</p>
+    </section>
+
+    <nav class="toolbar" aria-label="Game actions">
+      <button id="hint-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">&#10024;</span><span>Hint</span></button>
+      <button id="shuffle-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">&#8635;</span><span>Shuffle</span></button>
+      <button id="help-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">?</span><span>How to Play</span></button>
+      <button id="new-btn" class="tool-btn" type="button"><span class="tool-emoji" aria-hidden="true">&#10227;</span><span>New Game</span></button>
+    </nav>
+    <p class="bottom-note">Match 4 for a line blast &nbsp;&bull;&nbsp; Match 5 for a rainbow blast</p>
+  </main>
+
+  <div class="modal-screen" id="help-modal" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title"><button class="modal-x" type="button" data-close aria-label="Close">&#10005;</button><h2 id="help-title">How to Play</h2><p>Swap two neighbouring monsters. Match <b>3 or more</b> of the same monster in a row or column to earn points.</p>
+      <div class="rule"><span>&#9733;</span><p><b>Match 4</b> creates a line-blast monster. Swap it to clear a whole row or column.</p></div>
+      <div class="rule"><span>&#10024;</span><p><b>Match 5</b> creates a rainbow monster. Swap it with any monster to clear that type.</p></div>
+      <div class="rule"><span>&#10022;</span><p><b>T or L combo</b> creates a nearby blast. Chain reactions earn bonus points.</p></div>
+      <p class="muted">No timer. No lives. No move limit. Progress is saved automatically on this device.</p><button class="primary-btn" type="button" data-close>Let's Play!</button>
+    </section>
+  </div>
+  <div class="modal-screen" id="reset-modal" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-title"><h2 id="reset-title">Start fresh?</h2><p>Your current board and score will reset. Your best score stays safe.</p><div class="modal-actions"><button class="secondary-btn" type="button" id="cancel-reset">Keep Playing</button><button class="primary-btn" type="button" id="confirm-reset">New Game</button></div></section>
+  </div>
+  <script type="module" src="./match/app.js"></script>
+  <script src="./sling/pwa.js"></script>
+</body>
+</html>

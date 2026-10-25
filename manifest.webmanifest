@@ -1,7 +1,7 @@
 {
   "name": "Monster Merge",
   "short_name": "Monster Merge",
-  "description": "Two offline island adventures: Monster Merge and Monster Sling. Drop, discover, launch and rescue.",
+  "description": "Three offline island adventures: Monster Merge, Monster Sling and Monster Match. Drop, launch, swap and match.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
