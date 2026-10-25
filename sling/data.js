@@ -1,21 +1,21 @@
 import{LAYOUTS}from'./levels.js';
 export const SPECIES=[
- ['Slimelet','Jelly bounce','Bounces harder; tap for a forward jelly dash.','#81dc43',1,0.78],
- ['Bubblo','Bubble blast','Tap to push nearby structures apart.','#62d9ff',0.9,0.35],
- ['Puffling','Feather gust','Tap to create a wide, gentle shockwave.','#f892ca',0.85,0.3],
- ['Sproutiball','Vine burst','Tap to scatter three seed projectiles.','#dfdf6c',1,0.35],
- ['Rockro','Boulder smash','Heavy hitter. Tap for a powerful downward smash.','#fa9753',2.6,0.15],
- ['Frostbop','Frost burst','Tap to weaken and freeze nearby building pieces.','#a9ecff',1.2,0.25],
- ['Shadebub','Shadow slip','Tap to phase through obstacles briefly.','#b575ec',0.9,0.3],
- ['Groveling','Root quake','Tap to shake the foundations below.','#a4cc65',1.7,0.25],
- ['Tidalon','Tidal wave','Tap to sweep nearby enemies and blocks sideways.','#5bc9ec',1.5,0.3],
- ['Lumiorb','Star seeker','Tap to curve toward the nearest enemy.','#f7de87',1,0.4],
- ['Infernodon','Inferno blast','Tap for a powerful fiery explosion.','#fb9842',2,0.2]
+ ['Slimelet','Jelly bounce','Balanced and extra bouncy. Tap for a forward jelly dash.','#81dc43',1,0.78],
+ ['Bubblo','Water burst','Tap to burst water that pushes everything nearby and shorts out machines.','#62d9ff',0.9,0.35],
+ ['Puffling','Puff up','Tap to inflate mid-air, knocking structures back and blowing ink away.','#f892ca',0.85,0.3],
+ ['Sproutiball','Vine pull','Tap to lash out vines that drag nearby blocks and enemies toward you.','#dfdf6c',1,0.2],
+ ['Rockro','Boulder smash','Very heavy. Tap to slam straight down and break reinforced stone and armour.','#fa9753',2.6,0.15],
+ ['Frostbop','Deep freeze','Tap to freeze nearby blocks, making them brittle enough to shatter.','#a9ecff',1.2,0.25],
+ ['Shadebub','Shadow slip','Tap to slip through obstacles and ink for a moment.','#b575ec',0.9,0.3],
+ ['Groveling','Root quake','Tap to send a shockwave through the ground below.','#a4cc65',1.7,0.25],
+ ['Tidalon','Tidal wave','Tap for a huge wave that sweeps enemies and blocks sideways.','#5bc9ec',1.5,0.3],
+ ['Lumiorb','Light burst','Tap to explode in light that reveals and burns shadow enemies.','#f7de87',1,0.4],
+ ['Infernodon','Volcano blast','Heavy. Tap for a fiery eruption with a huge blast area.','#fb9842',2,0.2]
 ].map(([name,skill,description,color,mass,bounce],id)=>({id,name,skill,description,color,mass,bounce,asset:`./assets/monsters/${String(id+1).padStart(2,'0')}-${name.toLowerCase()}.webp`}));
-export const ISLANDS=[['Sunlit Shores','Learn the sling','#7bd9df','#e9e9a8'],['Bamboo Bluffs','Tall towers & tricky angles','#9ed6aa','#e8cf8e'],['Frost Lagoon','Glass bridges & icy ruins','#a5ddec','#daeced'],['Twilight Grove','Hidden supports & shadow tricks','#b4b2df','#c3bdce'],['Ember Summit','Bosses & volcanic strongholds','#e9ae83','#e5ba85']];
-export const LEVELS=Array.from({length:30},(_,i)=>({id:i,island:Math.floor(i/6),number:i+1,title:LAYOUTS[i][0],pattern:i%6,rank:Math.floor(i/6),shots:i%6===5?5:4,boss:i%6===5}));
-export const HERO_UNLOCK_LEVELS=Object.freeze([1,4,9,15,22,31,40,50,61,74,86]);
-// Activate this schedule with the new campaign content, not the legacy puzzles.
+export const ISLANDS=[['Sunlit Shores','Learn the sling','#7bd9df','#e9e9a8'],['Bamboo Bluffs','Wind, flyers & bamboo','#9ed6aa','#e8cf8e'],['Coral Coves','Sharks, rafts & pirates','#7fdcd8','#f2e2b4'],['Stormcliff Heights','Golems, steel & storms','#9db6cf','#c8c4bc'],['Emberfall Isle','Shadows, lava & the Magma Lord','#e9ae83','#e5ba85']];
+export const LEVELS=Array.from({length:30},(_,i)=>({id:i,island:Math.floor(i/6),number:i+1,title:LAYOUTS[i][0],pattern:i%6,rank:Math.floor(i/6),shots:LAYOUTS[i][1],boss:i%6===5}));
+// Each hero joins when its level is reached (the level before it is cleared).
+export const HERO_UNLOCK_LEVELS=Object.freeze([1,3,5,8,11,14,17,20,23,26,29]);
 export function campaignHeroes(s){let reached=1;while(s.results[reached-1])reached++;return SPECIES.filter(h=>HERO_UNLOCK_LEVELS[h.id]<=reached).map(h=>h.id)}
 export const SAVE='monsterSlingSaveV1',BACKUP='monsterSlingBackupV1';
 function parse(storage,key){try{return JSON.parse(storage.getItem(key))}catch{return null}}
@@ -31,7 +31,7 @@ export function unlocked(s,storage){
   const imported=Array.isArray(previous)?previous.filter(i=>Number.isInteger(i)&&i>=0&&i<SPECIES.length):[];
   s.legacyHeroes=wins>0?[...new Set([...imported,s.selected,...SPECIES.filter(d=>wins>=[0,0,2,4,0,7,10,13,16,20,25][d.id]).map(d=>d.id)])]:[];
  }
- return [...new Set([0,1,4,...SPECIES.filter(d=>wins>=[0,0,2,4,0,7,10,13,16,20,25][d.id]).map(d=>d.id),...s.legacyHeroes.filter(i=>Number.isInteger(i)&&i>=0&&i<SPECIES.length)])];
+ return [...new Set([...campaignHeroes(s),...s.legacyHeroes.filter(i=>Number.isInteger(i)&&i>=0&&i<SPECIES.length)])].sort((a,b)=>a-b);
 }
 export function available(s,id){return Number.isInteger(id)&&id>=0&&id<LEVELS.length&&(id===0||!!s.results[id-1])}
 export function record(s,id,score,shotsLeft){if(!Number.isInteger(id)||id<0||id>=LEVELS.length||!Number.isFinite(score)||score<0||!Number.isInteger(shotsLeft)||shotsLeft<0||shotsLeft>LEVELS[id].shots)throw new RangeError('Invalid campaign result');const stars=shotsLeft>=2?3:shotsLeft>=1?2:1;const old=s.results[id];s.results[id]={score:Math.max(old?.score||0,score),stars:Math.max(old?.stars||0,stars)};return stars}

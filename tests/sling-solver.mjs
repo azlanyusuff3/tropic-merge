@@ -10,7 +10,7 @@ function clone(w){
  const c=Object.create(Battle.prototype);Object.assign(c,w);
  const map=new Map();c.bodies=w.bodies.map(b=>{const n={...b};map.set(b,n);return n});
  for(const n of c.bodies)if(n.seeking)n.seeking=map.get(n.seeking)||null;
- c.blocks=w.blocks.map(b=>map.get(b)||{...b,dead:true});c.enemies=w.enemies.map(b=>map.get(b)||{...b,dead:true});
+ c.blocks=w.blocks.map(b=>map.get(b)||{...b,dead:true});c.enemies=w.enemies.map(b=>map.get(b)||{...b,dead:true});c.movers=w.movers.map(b=>map.get(b)||b);c.inks=w.inks.map(k=>({...k}));
  c.projectile=w.projectile?map.get(w.projectile):null;c.impacts=new Map(w.impacts);c.effects=[];c.events=[];c.focus=w.focus&&{...w.focus};return c;
 }
 const value=w=>(w.status==='won'?1e6+w.shots*1e4:0)+(w.initialCount-w.remaining)*1000+w.score/50;
@@ -21,11 +21,12 @@ function solve(level){
  for(let k=0;k<level.shots&&w.status==='ready';k++){
   const alive=w.enemies.filter(e=>!e.dead).map(e=>e.x).sort((a,b)=>a-b);
   // Coarse sweep with two contrasting heroes, no skill.
-  const sweep=[];for(const sp of[strong[0],1,4].filter((v,i,a)=>heroes.includes(v)&&a.indexOf(v)===i))for(let ang=6;ang<=66;ang+=4)for(const pw of[.86,1])sweep.push([sp,ang,pw,null]);
+  const moving=w.enemies.some(e=>!e.dead&&(e.fly||e.type===9||e.type===10)),delays=moving?[0,30,60,95,130]:[0];
+  const sweep=[];for(const sp of[strong[0],0,4].filter((v,i,a)=>heroes.includes(v)&&a.indexOf(v)===i))for(let ang=6;ang<=66;ang+=4)for(const pw of[.86,1])for(const dl of delays)sweep.push([sp,ang,pw,null,dl]);
   let scored=sweep.map(c=>({c,w:trial(w,c)})).sort((a,b)=>value(b.w)-value(a.w));
   // Refine the best few: every hero, nearby angles, skill timings ahead of each live bandit.
   const top=scored.slice(0,5),fine=[];
-  for(const t of top)for(const sp of heroes)for(const da of[-2,0,2])for(const skillAt of[null,...alive.slice(0,3).map(x=>Math.round(x-150)),...alive.slice(0,2).map(x=>Math.round(x-60))])fine.push([sp,t.c[1]+da,t.c[2],skillAt]);
+  for(const t of top)for(const sp of heroes)for(const da of[-2,0,2])for(const skillAt of[null,...alive.slice(0,3).map(x=>Math.round(x-150)),...alive.slice(0,2).map(x=>Math.round(x-60))])fine.push([sp,t.c[1]+da,t.c[2],skillAt,t.c[4]||0]);
   scored=[...scored.slice(0,5),...fine.map(c=>({c,w:trial(w,c)}))].sort((a,b)=>value(b.w)-value(a.w));
   const best=scored[0];shots.push(best.c);w=best.w;
   if(w.status==='won')break;

@@ -1,8 +1,9 @@
-const CACHE='monster-merge-v18-1-pilefix-20261025-2';
+const CACHE='monster-merge-v19-0-sling-20261025-1';
 const CORE=[
  './','./index.html','./merge.html','./sling.html','./manifest.webmanifest',
- './sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
+ './sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/enemies.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
+ ...['shellkin','clawbite','inkster','skybeak','prickfin','razorfin','inkbeard','stoneguard','ironclaw','voidraith','magmalord'].map((n,i)=>`./assets/enemies/${String(i+1).padStart(2,'0')}-${n}.webp`),
  ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
 ];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting())));

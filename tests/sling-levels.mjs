@@ -3,21 +3,20 @@
 // winning shot sequences and writes tests/sling-solutions.json; without arguments the stored
 // solutions are replayed exactly as a player would fire them.
 import fs from'node:fs';
-import{LEVELS,SPECIES}from'../sling/data.js';
+import{LEVELS,SPECIES,HERO_UNLOCK_LEVELS}from'../sling/data.js';
 import{Battle,SLING}from'../sling/battle.js';
 import{GROUND}from'../sling/physics.js';
 
-const BASE=[0,1,4],GATE=[0,0,2,4,0,7,10,13,16,20,25];
-// Heroes guaranteed for level n: the starters plus everything unlocked by clearing the n levels before it.
-export const heroesFor=id=>[...new Set([...BASE,...SPECIES.filter(d=>id>=GATE[d.id]).map(d=>d.id)])];
+// Heroes a new player has on reaching level id+1 (Sling progress only, no legacy or Merge grants).
+export const heroesFor=id=>SPECIES.filter(d=>HERO_UNLOCK_LEVELS[d.id]<=id+1).map(d=>d.id);
 
 export function stability(){
  const report=[];
  for(const level of LEVELS){
-  const w=new Battle(level),start=w.blocks.map(b=>({x:b.x,y:b.y,a:b.a}));
+  const w=new Battle(level),fixed=w.blocks.filter(b=>!b.static&&!(b.density<1)),start=fixed.map(b=>({x:b.x,y:b.y,a:b.a}));
   for(let i=0;i<240;i++)w.tick(1/60);
-  let moved=0,turned=0;w.blocks.forEach((b,i)=>{moved=Math.max(moved,Math.hypot(b.x-start[i].x,b.y-start[i].y));turned=Math.max(turned,Math.abs(b.a-start[i].a))});
-  const ok=w.remaining===w.initialCount&&moved<6&&turned<.08&&w.bodies.every(b=>[b.x,b.y,b.a,b.vx,b.vy].every(Number.isFinite))&&Math.max(...w.blocks.map(b=>b.y))<GROUND+5;
+  let moved=0,turned=0;fixed.forEach((b,i)=>{moved=Math.max(moved,Math.hypot(b.x-start[i].x,b.y-start[i].y));turned=Math.max(turned,Math.abs(b.a-start[i].a))});
+  const ok=w.remaining===w.initialCount&&moved<6&&turned<.08&&w.bodies.every(b=>[b.x,b.y,b.a,b.vx,b.vy].every(Number.isFinite))&&Math.max(...fixed.map(b=>b.y))<GROUND+5;
   report.push({level:level.number,ok,moved:+moved.toFixed(2),turned:+turned.toFixed(3),enemies:w.initialCount,blocks:w.blocks.length});
  }
  return report;
@@ -25,7 +24,7 @@ export function stability(){
 
 // Fire one shot: angle in degrees above horizontal, power 0..1, optional skill when the monster passes x=skillAt.
 export function fire(w,shot){
- const [species,angle,power,skillAt]=shot;w.species=species;
+ const [species,angle,power,skillAt,delay=0]=shot;w.species=species;for(let i=0;i<delay;i++)w.tick(1/60);
  const a=angle*Math.PI/180,n=100*power;w.launch(Math.cos(a)*n,-Math.sin(a)*n);
  let skill=skillAt==null;
  for(let i=0;i<1400&&w.status==='flight';i++){if(!skill&&w.projectile&&w.projectile.x>=skillAt){w.skill();skill=true}w.tick(1/60)}

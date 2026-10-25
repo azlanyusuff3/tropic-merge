@@ -1,11 +1,13 @@
 // Monster Sling: campaign map, fullscreen battle stage, camera, gestures, HUD, overlays and audio.
-import{SPECIES,ISLANDS,LEVELS,load,save,unlocked,available,record}from'./data.js';
+import{SPECIES,ISLANDS,LEVELS,HERO_UNLOCK_LEVELS,load,save,unlocked,available,record}from'./data.js';
 import{Battle,SLING,launchVelocity,launchOrigin}from'./battle.js';
 import{GROUND,predict,step}from'./physics.js';
 import{prepareMonster,paintMonster,react,kick,mood}from'./renderer.js';
 import*as art from'./art.js';
+import{ENEMY}from'./enemies.js';
+art.preloadEnemies();
 
-export const VERSION='18.0';
+export const VERSION='19.0';
 const $=(s,r=document)=>r.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>1-Math.pow(1-clamp(t,0,1),3);
 const app=$('#app');
@@ -46,6 +48,15 @@ const Sound={ctx:null,noise:null,last:new Map(),master:null,
    case'lose':[440,370,311,262].forEach((f,i)=>this.tone(f,.32,'triangle',.09,f*.98,i*.14));break;
    case'unlock':[660,880,990,1320].forEach((f,i)=>this.tone(f,.35,'sine',.1,f,i*.09));break;
    case'hop':this.tone(380,.1,'sine',.08,620);break;
+   case'ink':this.hiss(.35,'lowpass',500,.18,.8,0,200);this.tone(200,.25,'sine',.06,90);break;
+   case'squawk':this.tone(900,.12,'sawtooth',.05,1300);this.tone(1200,.1,'sawtooth',.04,700,.1);break;
+   case'prick':this.tone(1400,.08,'square',.04,900);break;
+   case'splash':k=clamp(k,.3,1);this.hiss(.4,'bandpass',900,.22*k,.7,0,300);this.tone(320,.18,'sine',.06*k,120);break;
+   case'burn':this.hiss(.5,'lowpass',1200,.2,.6,0,300);break;
+   case'light':[880,1320,1760].forEach((f,i)=>this.tone(f,.3,'sine',.07,f*1.2,i*.04));break;
+   case'short':for(let i=0;i<4;i++)this.tone(120+i*40,.06,'square',.05,90,i*.05);break;
+   case'steam':this.hiss(.7,'highpass',2400,.16,.6,0,800);break;
+   case'erupt':this.tone(60,.6,'sawtooth',.14,30);this.hiss(.7,'lowpass',500,.3);break;
   }},
  suspend(){this.ctx?.suspend().catch(()=>{})},
  resume(){if(state.sound&&this.ctx)this.ctx.resume().catch(()=>{})}
@@ -88,7 +99,7 @@ function helpHTML(){return`<h2>How to sling</h2><div class="help-grid">
  <div><i class="help-ico release"></i><b>Let go</b><span>A longer pull flies further. Drag back to the sling to cancel.</span></div>
  <div><i class="help-ico tap"></i><b>Tap in flight</b><span>Use your hero's skill once per launch. Timing is everything.</span></div>
  <div><i class="help-ico look"></i><b>Look around</b><span>Drag the sky to pan, pinch to zoom, then tap ${ICON.target.replace('<svg','<svg class="inline"')} to recenter.</span></div>
- </div><p class="help-foot">Defeat every shell bandit to rescue the crystal. Spare monsters earn stars: 2 spare = ★★★, 1 spare = ★★.</p>`}
+ </div><p class="help-foot">Defeat every enemy to rescue the crystal. Spare monsters earn stars: 2 spare = ★★★, 1 spare = ★★.</p>`}
 
 // Try to switch to landscape: works in installed apps and in Chrome full screen on Android.
 async function goLandscape(){const o=screen.orientation;if(!o?.lock)return false;try{await o.lock('landscape');return true}catch{}
@@ -96,73 +107,107 @@ async function goLandscape(){const o=screen.orientation;if(!o?.lock)return false
 const rotateSeen=()=>{try{return sessionStorage.getItem('slingRotateTip')==='1'}catch{return true}};
 const markRotateSeen=()=>{try{sessionStorage.setItem('slingRotateTip','1')}catch{}};
 
+// ───────────────────────────── Loadout ─────────────────────────────
+// One hero per launch. Saved per level; defaults favour the hero a level introduces.
+function defaultLoadout(level,heroes){const fresh=SPECIES.find(d=>HERO_UNLOCK_LEVELS[d.id]===level.number&&heroes.includes(d.id));const order=[...heroes].sort((a,b)=>b-a);const first=[fresh?.id,state.selected].filter(x=>x!=null&&heroes.includes(x));const pool=[...new Set([...first,...order])];return Array.from({length:level.shots},(_,i)=>pool[i%pool.length])}
+function loadoutFor(level){const heroes=unlocked(state,storage),saved=state.loadouts?.[level.id];if(Array.isArray(saved)&&saved.length===level.shots&&saved.every(id=>heroes.includes(id)))return[...saved];return defaultLoadout(level,heroes)}
+function saveLoadout(level,lo){state.loadouts={...(state.loadouts||{}),[level.id]:[...lo]};persist()}
+
 // ───────────────────────────── Campaign map ─────────────────────────────
 function islandAvatar(i){const th=art.THEMES[i];return`<svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" fill="${th.sky[0]}"/><rect y="34" width="60" height="26" fill="${th.sea[0]}"/><path d="M6 46q24-22 48 0z" fill="${th.soil[0]}"/><path d="M12 42q18-16 36 0q-18-6-36 0z" fill="${th.top}"/><path d="M30 40V22" stroke="${th.midDark}" stroke-width="2.4"/><path d="M30 22q-9-4-13 3q8-2 13-3zm0 0q9-4 13 3q-8-2-13-3zm0 0q-2-7-8-9q4 4 8 9zm0 0q2-7 8-9q-4 4-8 9z" fill="${th.mid}"/><circle cx="48" cy="12" r="5" fill="${th.sun}"/></svg>`}
 const NODES=[[22,87],[56,77],[80,62],[50,50],[22,37],[60,22]];
-function islandArt(i){const th=art.THEMES[i],props={palm:p=>`<g transform="translate(${p[0]} ${p[1]})"><path d="M0 0q4-22 2-44" stroke="${th.midDark}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M2-44q-18-6-26 4q14-4 26-4zM2-44q18-8 27 2q-14-4-27-2zM2-44q-4-16-16-18q8 8 16 18zM2-44q6-16 18-16q-10 6-18 16z" fill="${th.mid}"/></g>`,
- bamboo:p=>`<g transform="translate(${p[0]} ${p[1]})" stroke="${th.midDark}" stroke-width="3.5" stroke-linecap="round"><path d="M0 0v-52M7 0v-40"/><path d="M0-30q10-6 14-2M7-24q-10-4-13 0" fill="none" stroke-width="2"/></g>`,
- ice:p=>`<path transform="translate(${p[0]} ${p[1]})" d="M-9 0l7-36 4 8 4-20 6 48z" fill="${th.mid}" opacity=".85"/>`,
- grove:p=>`<g transform="translate(${p[0]} ${p[1]})"><rect x="-2" y="-18" width="4" height="18" fill="${th.midDark}"/><circle cy="-26" r="14" fill="${th.mid}"/><circle cx="-5" cy="-28" r="2" fill="#ffe9a0"/><circle cx="6" cy="-22" r="1.6" fill="#ffe9a0"/></g>`,
- ember:p=>`<path transform="translate(${p[0]} ${p[1]})" d="M-26 0l18-34h12l20 34z" fill="${th.mid}"/><path transform="translate(${p[0]} ${p[1]})" d="M-8-34h12l-3 8h-6z" fill="#ffb36b"/>`}[th.props];
- const deco=[[30,250],[318,180],[300,382],[42,118],[200,410]].map(props).join('');
- return`<svg class="island-art" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="sand${i}" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="${th.soil[0]}"/><stop offset="1" stop-color="${th.soil[1]}"/></radialGradient></defs>
-  <path d="M30 400C-10 330 10 240 30 170S70 40 150 22s170 0 190 70-10 140 10 200-40 120-120 128-190 40-200-20z" fill="${th.sea[2]}" opacity=".5"/>
+function islandArt(i){const th=art.THEMES[i],R=(n=>()=>(n=(n*16807)%2147483647)/2147483647)(97+i*31);
+ const palm=(x,y,h,lean=0)=>{const tx=x+lean*h,ty=y-h;let f='';for(const [a,l] of[[-2.6,.62],[-2.0,.7],[-1.35,.6],[-.75,.66],[-.25,.58],[-3.1,.5]]){const ex=tx+Math.cos(a)*h*l,ey=ty+Math.sin(a)*h*l*.7+h*.2;f+=`<path d="M${tx} ${ty}Q${(tx+ex)/2} ${ty-h*.18} ${ex} ${ey}Q${(tx+ex)/2} ${ty-h*.02} ${tx} ${ty}" fill="${a<-1.6?th.mid:th.top}" stroke="${th.midDark}" stroke-width="2"/>`}return`<path d="M${x} ${y}Q${x+lean*h*.2} ${y-h*.5} ${tx} ${ty}" stroke="#7a4a20" stroke-width="${h*.09}" fill="none" stroke-linecap="round"/><path d="M${x} ${y}Q${x+lean*h*.2} ${y-h*.5} ${tx} ${ty}" stroke="#b07440" stroke-width="${h*.04}" fill="none" stroke-dasharray="3 5"/>${f}<circle cx="${tx}" cy="${ty+3}" r="${h*.07}" fill="#6b3d12"/>`};
+ const bush=(x,y,r)=>`<g><circle cx="${x-r*.7}" cy="${y}" r="${r*.75}" fill="${th.midDark}"/><circle cx="${x+r*.7}" cy="${y+1}" r="${r*.7}" fill="${th.midDark}"/><circle cx="${x}" cy="${y-r*.35}" r="${r}" fill="${th.mid}"/><circle cx="${x-r*.3}" cy="${y-r*.6}" r="${r*.35}" fill="${th.top}" opacity=".8"/>${th.props==='storm'||th.props==='ember'?'':`<circle cx="${x+r*.3}" cy="${y-r*.2}" r="2.6" fill="#fff"/><circle cx="${x+r*.3}" cy="${y-r*.2}" r="1" fill="#ffd13b"/>`}</g>`;
+ const rock=(x,y,w)=>`<g><path d="M${x-w} ${y}Q${x-w} ${y-w*.9} ${x-w*.1} ${y-w}Q${x+w} ${y-w*.9} ${x+w} ${y}z" fill="${th.rock}" stroke="#4d3a2a" stroke-width="2"/><path d="M${x-w*.6} ${y-w*.55}Q${x-w*.2} ${y-w*.85} ${x+w*.2} ${y-w*.75}" stroke="#fff" stroke-opacity=".45" stroke-width="2.5" fill="none"/></g>`;
+ const shore=Array.from({length:12},(_,k)=>{const a=k/12*Math.PI*2+R()*.3,rx=170+R()*14,ry=205+R()*10;return rock(180+Math.cos(a)*rx,215+Math.sin(a)*ry,8+R()*10)}).join('');
+ let props='';
+ if(th.props==='bamboo')for(const [x,y] of[[52,170],[300,150],[70,330],[290,310]])props+=`<g stroke="${th.midDark}" stroke-width="5" stroke-linecap="round"><path d="M${x} ${y}v-60M${x+9} ${y}v-46M${x-8} ${y}v-38"/></g><g fill="${th.mid}"><path d="M${x} ${y-40}q14-8 20-2q-12 0-20 2zM${x+9} ${y-30}q-14-6-18 0q10-2 18 0z"/></g>`;
+ else if(th.props==='ember')props+=`<path d="M120 120L170 40h22l52 80z" fill="#5e3a36" stroke="#2e1c18" stroke-width="3"/><path d="M170 40h22l-6 18h-10z" fill="#ffb36b"/><path d="M178 58q-6 30 6 60q8-30-2-60z" fill="#ff7a1a" opacity=".85"/><circle cx="180" cy="30" r="10" fill="#8a7a78" opacity=".6"/><circle cx="192" cy="16" r="13" fill="#8a7a78" opacity=".45"/>`;
+ else if(th.props==='storm')for(const [x,y] of[[56,180],[300,160],[80,320]])props+=`<path d="M${x} ${y}l14-44l14 44z" fill="${th.midDark}" stroke="#16261e" stroke-width="2"/><path d="M${x+4} ${y-18}l10-34l10 34z" fill="${th.mid}"/>`;
+ if(th.props!=='bamboo'&&th.props!=='ember')for(const [x,y,h,l] of[[48,200,62,-.25],[306,180,58,.25],[62,330,50,-.2],[296,318,54,.22]])props+=palm(x,y,h,l);
+ if(th.props==='ember')for(const [x,y,h,l] of[[56,320,40,-.3],[300,300,44,.3]])props+=`<path d="M${x} ${y}q${l*20} ${-h*.6} ${l*h} ${-h}" stroke="#3a2620" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+ if(th.props==='coral')props+=`<g transform="translate(300 392)"><path d="M0 0v-46" stroke="#6b3d12" stroke-width="5"/><path d="M2 -44l26 10l-26 10z" fill="#1b1b22"/><circle cx="12" cy="-34" r="3" fill="#fff"/></g>`+[0,1,2,3].map(k=>`<path d="M${30+k*12} ${360+k*12}q-6-16 2-24q4 12 6 24z" fill="${['#ff7aa8','#ffb04a','#c47aff','#ff5a7a'][k]}"/>`).join('');
+ let bushes='';for(const [x,y,r] of[[110,150,13],[250,120,12],[150,250,11],[240,280,13],[110,380,12],[200,190,9],[300,250,10]])bushes+=bush(x,y,r);
+ const pier=`<g><path d="M262 396l46 30" stroke="#6b3d12" stroke-width="16" stroke-linecap="butt"/><path d="M262 396l46 30" stroke="#b07440" stroke-width="10" stroke-dasharray="6 3"/>${[[270,396],[290,410],[306,420]].map(([x,y])=>`<rect x="${x-3}" y="${y}" width="6" height="16" rx="2" fill="#5a3214"/>`).join('')}<path d="M318 416q18 4 30 0q-4 12-14 13q-12 0-16-13z" fill="#a8642c" stroke="#5a3214" stroke-width="2"/></g>`;
+ return`<svg class="island-art" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="sand${i}" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="${th.soil[0]}"/><stop offset="1" stop-color="${th.soil[1]}"/></radialGradient><radialGradient id="grass${i}" cx="45%" cy="40%" r="65%"><stop offset="0" stop-color="${th.top}"/><stop offset="1" stop-color="${th.lip}"/></radialGradient></defs>
+  <path d="M24 404C-16 330 4 236 24 166S64 30 150 12s180 2 200 76-8 144 12 206-40 128-126 134-198 44-212-24z" fill="${th.sea[2]}" opacity=".75"/>
+  <path d="M30 400C-10 330 10 240 30 170S70 40 150 22s170 0 190 70-10 140 10 200-40 120-120 128-190 40-200-20z" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="14 8" opacity=".8"/>
+  ${shore}
   <path d="M42 388C8 322 26 240 44 176S84 54 156 36s156 4 174 68-8 134 8 190-34 108-110 114-176 34-186-20z" fill="url(#sand${i})"/>
-  <path d="M60 360C34 300 50 236 64 186S100 76 160 62s132 8 146 60-6 120 6 168-28 86-92 90-150 30-160-20z" fill="${th.top}" opacity=".85"/>${deco}</svg>`}
+  <path d="M60 360C34 300 50 236 64 186S100 76 160 62s132 8 146 60-6 120 6 168-28 86-92 90-150 30-160-20z" fill="url(#grass${i})"/>
+  <path d="M300 130q14 50 4 110q-6 30 4 60" stroke="${th.cliff[2]}" stroke-width="10" fill="none" opacity=".55" stroke-linecap="round"/>
+  ${bushes}${props}${th.props==='ember'?'':pier}</svg>`}
 function routePath(){const p=NODES.map(([x,y])=>[x*3.6,y*4.3]);let d=`M${p[0][0]} ${p[0][1]}`;for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i];d+=` C${x0} ${(y0+y1)/2} ${x1} ${(y0+y1)/2} ${x1} ${y1}`}return d}
 function mapScreen(){
  document.body.classList.remove('in-level');const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;
  const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,hero=SPECIES[state.selected];
  app.innerHTML=`<div class="map-screen">
- <header class="map-top"><a class="icon-btn" href="#" aria-label="Back to title">${ICON.back}</a><div class="map-title"><small>ISLAND RESCUE</small><h1>Monster <em>Sling</em></h1></div><div class="star-total navy" aria-label="${stars} of 90 stars"><span class="pill"><span class="coin">★</span></span>${stars}<small>/90</small></div><button class="icon-btn" id="sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}</button></header>
+ <header class="map-top"><a class="icon-btn" href="#" aria-label="Back to title">${ICON.back}</a><div class="map-title mini-logo"><span class="w1">MONSTER</span><span class="w2">SLING</span></div><div class="star-total navy" aria-label="${stars} of 90 stars"><span class="pill"><span class="coin">★</span></span>${stars}<small>/90</small></div><button class="icon-btn" id="sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}</button></header>
  <div class="sea" id="sea">${ISLANDS.map(([name,note],i)=>{const done=LEVELS.filter(l=>l.island===i&&state.results[l.id]).length,open=available(state,i*6);return`<section class="island ${open?'':'island-locked'}" style="--sea:${art.THEMES[i].sea[1]};--sea2:${art.THEMES[i].sea[0]}" id="island-${i}"><div class="island-label"><small>ISLAND ${i+1}</small><h2>${esc(name)}</h2><p>${esc(note)} · ${done}/6</p></div><div class="island-stage">${islandArt(i)}<svg class="route" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><path d="${routePath()}"/></svg>${LEVELS.filter(l=>l.island===i).map((l,k)=>{const ok=available(state,l.id),r=state.results[l.id],cur=l.id===next;return`<button class="level node ${l.boss?'boss':''} ${ok?'':'locked'} ${cur?'current':''} ${r?'done':''}" style="left:${NODES[k][0]}%;top:${NODES[k][1]}%" data-level="${l.id}" ${ok?'':'disabled'} aria-label="Level ${l.number}: ${esc(l.title)}${l.boss?' (boss)':''}${r?`, ${r.stars} stars`:ok?'':', locked'}">${cur?`<img class="node-hero" src="${hero.asset}" alt="">`:''}<span class="node-face">${ok?l.boss?ICON.crown:l.number:ICON.lock}</span><span class="node-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</span></button>`}).join('')}</div></section>`}).join('')}</div>
  <footer class="map-bar"><button class="squad-btn navy" id="squad" aria-label="Choose your hero. Current: ${esc(hero.name)}"><span class="hero-art" style="--hc:${hero.color}"><img src="${hero.asset}" alt=""></span><span><small>HERO</small><b>${esc(hero.name)}</b></span></button><button class="btn primary play-next" data-level="${next}">${ICON.play}<span>${wins?'Continue':'Play'} · ${LEVELS[next].number}</span></button></footer>
  <p class="build">Monster Sling v${VERSION} · progress saved on this device</p></div>`;
  const host=$('.map-screen');
  $('#sound').onclick=()=>{state.sound=!state.sound;persist();Sound.play('ui');mapScreen()};
- $('#squad').onclick=()=>squad(host);
+ $('#squad').onclick=()=>squad(host,()=>mapScreen());
  host.addEventListener('click',e=>{const b=e.target.closest('[data-level]');if(!b||b.disabled)return;const id=+b.dataset.level;if(b.classList.contains('play-next'))return go('#level-'+(id+1));levelCard(host,LEVELS[id])});
  requestAnimationFrame(()=>{const cur=$('.node.current');if(cur){const r=cur.getBoundingClientRect();window.scrollTo({top:Math.max(0,scrollY+r.top-innerHeight*.55),behavior:'instant'})}});
 }
-function levelCard(host,l){const r=state.results[l.id],d=SPECIES[state.selected];Sound.play('ui');
- const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">${esc(ISLANDS[l.island][0])} · ${l.boss?'Boss level':'Level '+l.number}</small><h2>${esc(l.title)}</h2><div class="card-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</div><p class="muted">${r?`Best score ${r.score.toLocaleString()}`:'Not rescued yet'} · ${l.shots} monsters</p><div class="card-hero"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt=""></span><div><b>${esc(d.name)} · ${esc(d.skill)}</b><span>${esc(d.description)}</span></div></div><div class="actions"><button class="btn ghost" data-squad>Change hero</button><button class="btn primary" data-play autofocus>${ICON.play} Play</button></div>`,'card');
- el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]'))closeOverlay(host);else if(e.target.closest('[data-play]'))go('#level-'+l.number);else if(e.target.closest('[data-squad]'))squad(host,()=>levelCard(host,l))}}
-function squad(host,after){const heroes=unlocked(state,storage);Sound.play('ui');
- const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">YOUR SLING SQUAD · ${heroes.length}/11</small><h2>Choose a hero</h2><div class="hero-grid">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===state.selected?'selected':'')).join('')}</div><p class="muted small">Switch heroes between every launch. Discovering a monster in Monster Merge unlocks it here too.</p>`,'card wide');
- el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);after?.();return}const t=e.target.closest('[data-hero]');if(!t)return;const id=+t.dataset.hero;if(!heroes.includes(id)){Sound.play('hurt');t.classList.remove('nudge');void t.offsetWidth;t.classList.add('nudge');return}state.selected=id;persist();Sound.play('hop');if(after){closeOverlay(host);after()}else mapScreen()}}
-
+function levelCard(host,l,slot=0){const r=state.results[l.id],heroes=unlocked(state,storage),lo=loadoutFor(l);Sound.play('ui');
+ const enemies=[...new Set(new Battle(l).enemies.map(e=>e.type))],fresh=SPECIES.find(d=>HERO_UNLOCK_LEVELS[d.id]===l.number);
+ const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">${esc(ISLANDS[l.island][0])} · ${l.boss?(l.number===30?'Final boss':'Island finale'):'Level '+l.number}</small><h2>${esc(l.title)}</h2><div class="card-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</div><p class="muted">${r?`Best score ${r.score.toLocaleString()}`:'Not rescued yet'} · ${l.shots} launches</p>
+ <div class="foes" aria-label="Enemies in this level">${enemies.map(t=>`<span class="foe" title="${esc(ENEMY[t].name)}"><img src="${ENEMY[t].sprite}" alt="${esc(ENEMY[t].name)}"></span>`).join('')}</div>
+ ${fresh?`<p class="new-hero">New hero: <b>${esc(fresh.name)}</b> · ${esc(fresh.skill)}</p>`:''}
+ <div class="lo-head"><b>Your launch order</b><small>Tap a slot, then a hero</small></div>
+ <div class="lo-row">${lo.map((id,i)=>`<button class="lo-slot ${i===slot?'on':''}" data-slot="${i}" aria-label="Launch ${i+1}: ${esc(SPECIES[id].name)}"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span><i>${i+1}</i></button>`).join('')}</div>
+ <div class="lo-pick">${heroes.map(id=>`<button class="lo-hero ${lo[slot]===id?'on':''}" data-pick="${id}" aria-label="${esc(SPECIES[id].name)}: ${esc(SPECIES[id].skill)}"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span><small>${esc(SPECIES[id].name)}</small></button>`).join('')}</div>
+ <p class="muted small">${esc(SPECIES[lo[slot]].name)} · ${esc(SPECIES[lo[slot]].description)}</p>
+ <div class="actions"><button class="btn primary big" data-play autofocus>${ICON.play} Play</button></div>`,'card wide');
+ el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]'))return closeOverlay(host);if(e.target.closest('[data-play]'))return go('#level-'+l.number);
+  const sb=e.target.closest('[data-slot]');if(sb)return levelCard(host,l,+sb.dataset.slot);
+  const hb=e.target.closest('[data-pick]');if(hb){const n=[...lo];n[slot]=+hb.dataset.pick;saveLoadout(l,n);Sound.play('hop');return levelCard(host,l,Math.min(slot+1,l.shots-1))}}}
+// Monster collection: all heroes with unlock levels and abilities, plus the enemies met so far.
+function squad(host,after,tab='heroes'){const heroes=unlocked(state,storage);Sound.play('ui');let reached=1;while(state.results[reached-1]&&reached<30)reached++;
+ const heroHTML=`<div class="hero-grid big">${SPECIES.map(d=>{const open=heroes.includes(d.id);return`<button class="hero-tile ${open?'':'locked'} ${d.id===state.selected?'selected':''}" data-hero="${d.id}" aria-label="${esc(d.name)}${open?'':' (locked)'}"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt=""></span><b>${esc(d.name)}</b><small>${open?esc(d.skill):'Unlocks at level '+HERO_UNLOCK_LEVELS[d.id]}</small><span class="desc">${esc(d.description)}</span>${d.id===state.selected?'<em class="fav">Leader</em>':''}</button>`}).join('')}</div><p class="muted small">Tap an unlocked hero to make it your leader. It goes first in new loadouts.</p>`;
+ const foeHTML=`<div class="hero-grid big">${ENEMY.map(d=>{const met=reached>=d.level;return`<div class="hero-tile foe-tile ${met?'':'locked'}"><span class="hero-art foe-art"><img src="${d.sprite}" alt=""></span><b>${met?esc(d.name):'???'}</b><small>${met?'From level '+d.level:'Appears in level '+d.level}</small><span class="desc">${met?esc(d.tip):'Keep rescuing islands to meet this enemy.'}</span></div>`}).join('')}</div>`;
+ const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">MONSTER COLLECTION</small><h2>${tab==='heroes'?'Heroes':'Enemies'}</h2><div class="tabs"><button class="tab ${tab==='heroes'?'on':''}" data-tab="heroes">Heroes ${heroes.length}/11</button><button class="tab ${tab==='foes'?'on':''}" data-tab="foes">Enemies ${ENEMY.filter(d=>reached>=d.level).length}/11</button></div>${tab==='heroes'?heroHTML:foeHTML}`,'card wide collection');
+ el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);after?.();return}const tb=e.target.closest('[data-tab]');if(tb)return squad(host,after,tb.dataset.tab);const t=e.target.closest('[data-hero]');if(!t)return;const id=+t.dataset.hero;if(!heroes.includes(id)){Sound.play('hurt');t.classList.remove('nudge');void t.offsetWidth;t.classList.add('nudge');return}state.selected=id;persist();Sound.play('hop');squad(host,after,'heroes')}}
 // ───────────────────────────── Title screen ─────────────────────────────
 function titleScreen(){
  document.body.classList.remove('in-level');window.scrollTo(0,0);const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;
- const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,hero=SPECIES[state.selected];
- const side=[3,2,0,10,5].filter(id=>id!==state.selected),pos=[['8%','44%',30],['2%','12%',27],['16%','70%',23],['58%','2%',44],['70%','46%',30]];
- app.innerHTML=`<div class="title-screen"><div class="title-bg" aria-hidden="true"></div>
- <div class="title-top"><a class="icon-btn" href="./index.html" aria-label="Back to Monster Island">${ICON.back}</a><div class="player navy" aria-label="${stars} of 90 stars"><span class="avatar">★</span><div><b>${stars}<small style="font-size:12px;opacity:.75"> / 90</small></b><div class="bar"><i style="width:${stars/90*100}%"></i></div></div></div><span class="spacer"></span><div class="pill navy" aria-label="${wins} of 30 levels cleared"><span class="coin gem">${ICON.crown}</span>${wins}/30</div><button class="icon-btn" id="t-sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}">${state.sound?ICON.sound:ICON.mute}</button><button class="icon-btn" id="t-help" aria-label="How to play">${ICON.help}</button></div>
- <h1 class="logo" aria-label="Monster Sling"><span class="logo-board" aria-hidden="true"></span><span class="w1" aria-hidden="true">M<span class="o"><img src="${SPECIES[0].asset}" alt=""></span>NSTER</span><span class="w2" aria-hidden="true">SLING</span><span class="ribbon" aria-hidden="true"></span></h1>
- <div class="heroes-stage" aria-hidden="true">${side.slice(0,5).map((id,i)=>heroes.includes(id)||i<3?`<img src="${SPECIES[id].asset}" alt="" style="left:${pos[i][1]};top:${pos[i][0]};width:${pos[i][2]}%;animation-delay:${-i*.6}s;${heroes.includes(id)?'':'filter:brightness(0) opacity(.35)'}">`:'').join('')}<img class="h-main" src="${hero.asset}" alt="">${slingSVG()}</div>
- <div class="play-pedestal"><button class="play-big" data-level="${next}" aria-label="Play level ${LEVELS[next].number}">${ICON.play}PLAY<small>${wins?`Continue · Level ${LEVELS[next].number} — ${esc(LEVELS[next].title)}`:'Rescue the first island!'}</small></button></div>
- <div class="stone-row"><button class="stone-btn" id="t-squad"><span class="st-ico"><img src="${hero.asset}" alt=""></span>Monsters</button><button class="stone-btn" id="t-map"><span class="st-ico">${ICON.islands}</span>Islands</button><button class="stone-btn" id="t-settings"><span class="st-ico">${ICON.gear}</span>Settings</button></div>
+ const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,wins=state.results.filter(Boolean).length;
+ // Slimelet sits in the sling; the rest of the starring cast bounce around it (as in the key art).
+ const cast=[[2,'6%','30%',30,0],[3,'64%','26%',28,1],[5,'2%','58%',31,2],[4,'66%','56%',30,3]];
+ app.innerHTML=`<div class="title-screen"><canvas class="title-bg" aria-hidden="true"></canvas><div class="title-leaves" aria-hidden="true"></div>
+ <div class="title-top"><a class="icon-btn" href="./index.html" aria-label="Back to Monster Island">${ICON.back}</a><div class="player navy" aria-label="${stars} of 90 stars"><span class="avatar">★</span><div><b>${stars}<small style="font-size:12px;opacity:.75"> / 90</small></b><div class="bar"><i style="width:${stars/90*100}%"></i></div></div></div><span class="spacer"></span><button class="icon-btn" id="t-sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}">${state.sound?ICON.sound:ICON.mute}</button><button class="icon-btn" id="t-help" aria-label="How to play">${ICON.help}</button></div>
+ <h1 class="logo" aria-label="Monster Sling"><span class="logo-board" aria-hidden="true"><i class="fl a"></i><i class="fl b"></i></span><span class="w1" aria-hidden="true">M<span class="o"><img src="${SPECIES[0].asset}" alt=""></span>NSTER</span><span class="w2" aria-hidden="true">SLING</span></h1>
+ <div class="heroes-stage" aria-hidden="true">${cast.map(([id,l,t,w,i])=>`<img class="cast" src="${SPECIES[id].asset}" alt="" style="left:${l};top:${t};width:${w}%;animation-delay:${-i*.7}s">`).join('')}${slingSVG(SPECIES[0].asset)}</div>
+ <div class="play-pedestal"><button class="play-big" data-level="${next}" aria-label="Play level ${LEVELS[next].number}">${ICON.play}PLAY</button><small class="continue">${wins?`Continue · Level ${LEVELS[next].number} — ${esc(LEVELS[next].title)}`:'Rescue the first island!'}</small></div>
+ <div class="stone-row"><button class="stone-btn" id="t-squad"><span class="st-ico"><img src="${SPECIES[state.selected].asset}" alt=""></span>Monsters</button><button class="stone-btn" id="t-map"><span class="st-ico">${ICON.islands}</span>Islands</button><button class="stone-btn" id="t-settings"><span class="st-ico">${ICON.gear}</span>Settings</button></div>
  <p class="title-foot">Monster Sling v${VERSION} · progress saved on this device</p></div>`;
- const host=$('.title-screen');
+ const host=$('.title-screen');paintTitleBackdrop($('.title-bg'));
  $('.play-big').onclick=()=>{Sound.play('ui');go('#level-'+(next+1))};
  $('#t-map').onclick=()=>{Sound.play('ui');go('#map')};
  $('#t-squad').onclick=()=>squad(host,()=>titleScreen());
  $('#t-help').onclick=()=>{Sound.play('ui');const el=overlay(host,helpHTML()+'<div class="actions"><button class="btn primary" data-back autofocus>Got it</button></div>','help');el.onclick=e=>{if(e.target===el||e.target.closest('[data-back]'))closeOverlay(host)}};
- const soundBtn=()=>{state.sound=!state.sound;persist();Sound.play('ui')};
- $('#t-sound').onclick=()=>{soundBtn();titleScreen()};
+ $('#t-sound').onclick=()=>{state.sound=!state.sound;persist();Sound.play('ui');titleScreen()};
  $('#t-settings').onclick=()=>settings(host);
 }
+// The title backdrop is drawn by the game's own scenery renderer: cliffs, waterfalls and the lagoon.
+function paintTitleBackdrop(cv){try{const r=cv.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1),w=Math.max(1,r.width),h=Math.max(1,r.height);cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);const sc=new art.Scenery(0),S=Math.max(.7,Math.min(1.6,h/620)),gy=h*.93;
+  sc.back(c,{w,h,S,cx:600,cy:600,cy0:600,horizon:gy-150*S*1.35,groundScreen:()=>gy},2000);
+  const g=c.createLinearGradient(0,gy-30,0,h);g.addColorStop(0,'#f6e3b0');g.addColorStop(1,'#e2c487');c.fillStyle=g;c.fillRect(0,gy-8,w,h);}catch{}}
 function settings(host){Sound.play('ui');const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
  const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">SETTINGS</small><h2>Settings</h2><div class="toggles"><button class="toggle ${state.sound?'on':''}" data-act="sound" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}<span>Sound ${state.sound?'on':'off'}</span></button><button class="toggle ${state.effects!=='reduced'?'on':''}" data-act="fx" aria-pressed="${state.effects!=='reduced'}">${ICON.sparkle}<span>${state.effects==='reduced'?'Calm effects':'Full effects'}</span></button>${fs}</div><p class="muted small">Progress is saved on this device. Clearing site data deletes it.</p><div class="actions"><button class="btn primary" data-close autofocus>Done</button></div>`,'card');
  el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);titleScreen();return}const a=e.target.closest('[data-act]')?.dataset.act;if(a==='sound'){state.sound=!state.sound;persist();settings(host)}if(a==='fx'){state.effects=state.effects==='reduced'?'full':'reduced';persist();settings(host)}if(a==='full'){const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen({navigationUI:'hide'});Promise.resolve(p).catch(()=>notify('Full screen is not available here.')).finally(()=>settings(host))}}}
 // Wooden sling with a red band, drawn as SVG for the title screen.
-function slingSVG(){return`<svg class="slingY" viewBox="0 0 400 230" aria-hidden="true"><defs><linearGradient id="tw" x1="0" x2="1"><stop offset="0" stop-color="#8a4f22"/><stop offset=".45" stop-color="#d8954e"/><stop offset="1" stop-color="#7a431b"/></linearGradient></defs>
- <path d="M40 30q30 20 60 60q30 40 100 60q70-20 100-60q30-40 60-60" fill="none" stroke="#a5231a" stroke-width="10" opacity=".0"/>
- <path d="M200 240V150M200 150L84 46M200 150L316 46" fill="none" stroke="#3c1f0a" stroke-width="50" stroke-linecap="round" stroke-linejoin="round"/>
- <path d="M200 240V150M200 150L84 46M200 150L316 46" fill="none" stroke="url(#tw)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
- <path d="M188 230V160M92 58l90 84" stroke="#f3c07e" stroke-width="6" stroke-linecap="round" opacity=".6" fill="none"/>
- <path d="M58 64q142 92 284 0" fill="none" stroke="#5c140c" stroke-width="26" stroke-linecap="round"/><path d="M58 64q142 92 284 0" fill="none" stroke="#e2402f" stroke-width="18" stroke-linecap="round"/><path d="M70 60q130 80 260 0" fill="none" stroke="#ff8a7a" stroke-width="4" stroke-linecap="round" opacity=".6"/>
- <g fill="#4fb33a" stroke="#1d5c18" stroke-width="3"><path d="M120 200q-30-30 -6-50q10 30 6 50z"/><path d="M150 205q10-40 40-40q-16 26-40 40z"/><path d="M280 200q30-30 6-50q-10 30-6 50z"/><path d="M250 205q-10-40-40-40q16 26 40 40z"/></g><g fill="#fff"><circle cx="186" cy="196" r="6"/><circle cx="222" cy="200" r="5"/></g></svg>`}
+function slingSVG(hero){return`<svg class="slingY" viewBox="0 0 400 300" aria-hidden="true"><defs><linearGradient id="tw" x1="0" x2="1"><stop offset="0" stop-color="#8a4f22"/><stop offset=".45" stop-color="#d8954e"/><stop offset="1" stop-color="#7a431b"/></linearGradient></defs>
+ <path d="M200 300V170M200 170L96 40M200 170L304 40" fill="none" stroke="#3c1f0a" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M200 300V170M200 170L96 40M200 170L304 40" fill="none" stroke="url(#tw)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M188 290V180M104 52l88 104" stroke="#f3c07e" stroke-width="6" stroke-linecap="round" opacity=".55" fill="none"/>
+ <g fill="#c22d22" stroke="#4a0d07" stroke-width="4"><rect x="70" y="50" width="52" height="30" rx="8" transform="rotate(38 96 65)"/><rect x="278" y="50" width="52" height="30" rx="8" transform="rotate(-38 304 65)"/></g>
+ ${hero?`<image href="${hero}" x="118" y="-6" width="164" height="164"/>`:''}<path d="M84 70Q200 190 316 70" fill="none" stroke="#4a0d07" stroke-width="34" stroke-linecap="round"/><path d="M84 70Q200 190 316 70" fill="none" stroke="#e2402f" stroke-width="26" stroke-linecap="round"/><path d="M100 76Q200 168 300 76" fill="none" stroke="#ff8a7a" stroke-width="5" stroke-linecap="round" opacity=".6"/>
+ <g fill="#4fb33a" stroke="#1d5c18" stroke-width="3"><path d="M150 292q-36-30-10-58q14 34 10 58z"/><path d="M168 296q14-48 50-48q-20 32-50 48z"/><path d="M250 292q36-30 10-58q-14 34-10 58z"/><path d="M232 296q-14-48-50-48q20 32 50 48z"/></g><g fill="#fff"><circle cx="186" cy="282" r="7"/><circle cx="222" cy="288" r="6"/></g></svg>`}
 
 // ───────────────────────────── Routing ─────────────────────────────
 function go(hash){if(location.hash===hash)route();else location.hash=hash}
@@ -177,7 +222,7 @@ class Game{
  constructor(level){
   this.level=level;this.abort=new AbortController();this.alive=true;
   const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;this.heroesBefore=heroes;
-  this.world=new Battle(level,state.selected);this.scenery=new art.Scenery(level.island);this.fx=new art.Particles();
+  this.loadout=loadoutFor(level);this.world=new Battle(level,this.loadout[0]);this.scenery=new art.Scenery(level.island);this.fx=new art.Particles();
   this.fortBox=this.bounds();
   this.cam={cx:0,cy:0,z:1,userZ:1,mode:'intro',t:0,shake:0,minZ:.4,maxZ:2};
   this.pointers=new Map();this.gesture=null;this.pull={x:0,y:0};this.pouch={x:0,y:0,vx:0,vy:0};
@@ -187,11 +232,16 @@ class Game{
   this.build();this.resize();this.camToIntro();this.prepare(this.world.species);this.fx.setBudget(this.budget());this.syncSquad();
   this.raf=requestAnimationFrame(t=>this.frame(t));
   this.updateHud(true);
-  if(this.portrait&&!rotateSeen())this.rotateCard();
+  this.cards=[];if(this.portrait&&!rotateSeen())this.cards.push(()=>this.rotateCard());
+  const newEnemy=ENEMY.find(e=>e.level===level.number);if(newEnemy&&!state.results[level.id])this.cards.push(()=>this.enemyCard(newEnemy));
+  this.nextCard();
  }
  // Portrait works, but landscape shows the sling and the fort together: recommend it once per session.
+ nextCard(){const f=this.cards.shift();if(f)f()}
+ enemyCard(d){Sound.play('ui');const el=overlay(this.stage,`<small class="eyebrow">NEW ENEMY · LEVEL ${d.level}</small><div class="enemy-reveal"><img src="${d.sprite}" alt=""></div><h2>${esc(d.name)}</h2><p class="muted">${esc(d.tip)}</p><div class="actions"><button class="btn primary big" data-ok autofocus>Let’s go!</button></div>`,'enemy-intro');el.onclick=e=>{if(e.target.closest('[data-ok]')){Sound.play('ui');closeOverlay(this.stage);this.nextCard()}}}
+ shotIndex(){return this.level.shots-this.world.shots}
  rotateCard(){markRotateSeen();const el=overlay(this.stage,`<div class="rotate-art" aria-hidden="true">${ICON.rotate}</div><small class="eyebrow">BEST WITH A WIDE VIEW</small><h2>Turn your phone sideways</h2><p class="muted">Landscape shows your sling and the bandits' fort together, so you can see exactly what you are aiming at.</p><p class="muted small" id="rotate-note">In portrait, a <b>TARGET</b> window shows the fort while you aim.</p><div class="actions"><button class="btn ghost" data-act="keep">Keep portrait</button><button class="btn primary" data-act="rotate" autofocus>${ICON.rotate} Rotate</button></div>`,'rotate');
-  el.onclick=async e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='keep'){Sound.play('ui');closeOverlay(this.stage)}else if(a==='rotate'){Sound.play('ui');if(await goLandscape()){closeOverlay(this.stage)}else{const n=el.querySelector('#rotate-note');if(n)n.innerHTML='Your browser cannot rotate by itself. <b>Turn your phone sideways</b> (switch on auto-rotate), or tap Keep portrait.'}}}}
+  el.onclick=async e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='keep'){Sound.play('ui');closeOverlay(this.stage);this.nextCard()}else if(a==='rotate'){Sound.play('ui');if(await goLandscape()){closeOverlay(this.stage);this.nextCard()}else{const n=el.querySelector('#rotate-note');if(n)n.innerHTML='Your browser cannot rotate by itself. <b>Turn your phone sideways</b> (switch on auto-rotate), or tap Keep portrait.'}}}}
  bounds(){const xs=[],ys=[];for(const b of[...this.world.blocks,...this.world.enemies]){const e=b.r||Math.max(b.w,b.h)/2;xs.push(b.x-e,b.x+e);ys.push(b.y-e)}return{x0:Math.min(...xs),x1:Math.max(...xs,this.world.crystal+30),top:Math.min(...ys)}}
  // ── DOM ──
  build(){
@@ -204,7 +254,8 @@ class Game{
     <div class="hud-score navy" aria-label="Score"><span class="pill"><span class="coin">★</span></span><b id="score">0</b><small>SCORE</small></div>
     <button class="hud-btn" id="pause" aria-label="Pause">${ICON.pause}</button>
    </div>
-   <div class="hud-goal navy" id="bandits" aria-label="Defeat all bandits"><span class="g-ico">${ICON.bandit}</span><span class="g-txt"><small>Defeat all<br>bandits</small><b id="goal">0/${this.world.initialCount}</b></span></div>
+   <div class="hud-goal navy" id="bandits" aria-label="Defeat all enemies"><span class="g-ico"><img src="${ENEMY[Math.max(...this.world.enemies.map(e=>e.type))].sprite}" alt=""></span><span class="g-txt"><small>Defeat all<br>enemies</small><b id="goal">0/${this.world.initialCount}</b></span></div>
+   ${this.world.wind?`<div class="hud-wind navy" aria-label="${this.world.wind<0?'Headwind':'Tailwind'}"><span class="arrow" style="transform:scaleX(${Math.sign(this.world.wind)})">➜</span><b>${this.world.wind<0?'Headwind':'Tailwind'}</b></div>`:''}
    <p class="hud-toast" id="toast" role="status"></p>
    <button class="hud-btn cam-reset" id="cam-reset" aria-label="Recenter camera" hidden>${ICON.target}</button>
    <div class="hud-bottom">
@@ -231,7 +282,7 @@ class Game{
   $('#skill').onclick=()=>this.useSkill();
   $('#next').onclick=()=>{if(this.world.next())this.afterShot()};
   $('#hero-btn').onclick=()=>this.trayOpen?this.closeTray():this.openTray();
-  $('#picks').onclick=e=>{const b=e.target.closest('[data-quick]');if(!b||b.disabled)return;const id=+b.dataset.quick;if(id!==this.world.species)this.pick(id)};
+  $('#picks').onclick=e=>{const b=e.target.closest('[data-slot]');if(!b||b.disabled)return;const k=+b.dataset.slot,i=this.shotIndex();if(k===i)return this.openTray();[this.loadout[i],this.loadout[k]]=[this.loadout[k],this.loadout[i]];saveLoadout(this.level,this.loadout);this.pick(this.loadout[i],false)};
   $('#cam-reset').onclick=()=>{Sound.play('ui');this.cam.userZ=1;this.cam.mode=this.world.status==='flight'?'follow':this.result?'result':'aim';this.updateHud()};
  }
  destroy(){this.alive=false;cancelAnimationFrame(this.raf);clearTimeout(this.toastT);this.abort.abort();this.ro?.disconnect();this.pointers.clear();this.gesture=null;document.body.classList.remove('in-level')}
@@ -239,7 +290,7 @@ class Game{
   // Cap the backing store: crisp on phones, but never more than ~2.4M pixels.
   let dpr=Math.min(2,devicePixelRatio||1)*this.quality;if(w*h*dpr*dpr>2.4e6)dpr=Math.sqrt(2.4e6/(w*h));
   const changed=w!==this.w||h!==this.h||dpr!==this.dpr;this.w=w;this.h=h;this.dpr=dpr;if(changed){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr)}
-  const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(!this.portrait&&this.stage.querySelector(':scope > .overlay.rotate.show'))closeOverlay(this.stage);if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
+  const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(!this.portrait&&this.stage.querySelector(':scope > .overlay.rotate.show')){closeOverlay(this.stage);this.nextCard()}if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
   this.hudBottom=(document.querySelector('.hud-goal')?.getBoundingClientRect().bottom||document.querySelector('.hud-top')?.getBoundingClientRect().bottom||56)-r.top;this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
  get S(){return this.base*this.cam.z}
  cy0(z=this.cam.z){const S=this.base*z;return GROUND-(this.h*this.groundFrac-this.h/2)/S}
@@ -272,7 +323,7 @@ class Game{
  async prepare(id){this.ready=false;try{await prepareMonster(id);if(this.alive&&this.world.species===id)this.ready=true}catch{if(this.alive)notify('Reconnect to download your monster artwork.')}}
  hopIn(){if(this.world.status!=='ready'||this.loaded||this.result)return;this.loaded=true;this.load={t:0};this.pull={x:0,y:0};this.pouch={x:0,y:0,vx:0,vy:0};Sound.play('hop');const v=this.visual('loaded');mood(v,'excited',900);this.syncSquad();this.updateHud()}
  visual(key,species=this.world.species){let v=this.vis.get(key);if(!v){v={id:key==='loaded'?2:key,level:species,r:29,x:SLING.x,y:SLING.y,vx:0,vy:0,contact:true};this.vis.set(key,v)}if(key==='loaded')v.level=species;return v}
- syncSquad(){const n=Math.max(0,this.world.shots-(this.loaded?1:0));while(this.squad.length<n)this.squad.push({id:900+this.squad.length,level:this.world.species,r:19,x:0,y:0,vx:0,vy:0,contact:true});this.squad.length=n;this.squad.forEach(s=>s.level=this.world.species)}
+ syncSquad(){const n=Math.max(0,this.world.shots-(this.loaded?1:0)),start=this.shotIndex()+(this.loaded?1:0);while(this.squad.length<n)this.squad.push({id:900+this.squad.length,level:0,r:19,x:0,y:0,vx:0,vy:0,contact:true});this.squad.length=n;this.squad.forEach((m,i)=>{m.level=this.loadout[start+i]??this.world.species;prepareMonster(m.level).catch(()=>{})})}
  monsterPos(){if(!this.loaded)return null;if(this.load.t<1){const t=ease(this.load.t),from={x:128,y:GROUND-21};return{x:lerp(from.x,SLING.x,t),y:lerp(from.y,SLING.y,t)-Math.sin(Math.min(1,this.load.t)*Math.PI)*70}}return{x:SLING.x+this.pull.x,y:SLING.y+this.pull.y}}
  // ── Input ──
  down(e){
@@ -319,7 +370,7 @@ class Game{
  key(e){if(this.trayOpen&&e.key==='Escape'){this.closeTray();return}if(overlayOpen(this.stage)){if(e.key==='Escape'&&this.paused)this.resume();return}
   if(e.code==='Space'){e.preventDefault();this.useSkill()}else if(e.key==='Escape'||e.key==='p'){this.pause()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){this.cam.mode='free';this.cam.cx+=(e.key==='ArrowLeft'?-80:80)/this.cam.z;this.clampCam();this.updateHud()}else if(e.key==='0'){this.cam.userZ=1;this.cam.mode='aim'}}
  // ── Shot lifecycle ──
- afterShot(){const c=this.cam;if(c.mode==='follow'||c.mode==='free'){c.mode='impact';c.t=0}this.updateHud()}
+ afterShot(){if(this.world.status==='ready'){const id=this.loadout[this.shotIndex()];if(id!=null&&id!==this.world.species){this.world.species=id;this.prepare(id);this.syncSquad()}this.updateHud(true)}const c=this.cam;if(c.mode==='follow'||c.mode==='free'){c.mode='impact';c.t=0}this.updateHud()}
  handleEvents(){const w=this.world,scale=this.fxScale();
   for(const ev of w.events.splice(0)){
    switch(ev.t){
@@ -329,17 +380,31 @@ class Game{
     case'impact':art.impactDust(this.fx,ev.x,ev.y,ev.kind,ev.speed,scale);Sound.play(ev.ground?'ground':ev.kind==='enemy'?'thud':ev.kind,ev.speed/400);break;
     case'thud':{const p=w.projectile,v=p&&this.vis.get(p.id);if(v){kick(v,clamp(ev.speed/1400,.08,.42));if(ev.speed>380)mood(v,'hurt',500)}Sound.play('thud',ev.speed/500);break}
     case'shotEnd':this.afterShot();break;
+    case'clang':art.impactDust(this.fx,ev.x,ev.y,'stone',300,scale);for(let i=0;i<6*scale;i++)this.fx.add({type:'spark',x:ev.x,y:ev.y,vx:(Math.random()-.5)*300,vy:-Math.random()*240,g:600,color:'#fff3b0',width:2,life:.3});Sound.play('stone',1);break;
+    case'block':this.fx.add({type:'text',x:ev.x,y:ev.y-30,vy:-30,drag:1.4,size:13,text:ev.type===9?'Faded!':'Blocked!',color:'#cfe0ff',life:.9});break;
+    case'ink':Sound.play('ink');for(let i=0;i<8*scale;i++)this.fx.add({type:'puff',x:ev.x-20,y:ev.y,vx:-80-Math.random()*120,vy:(Math.random()-.5)*80,drag:2,size:8,grow:30,color:'rgba(40,24,70,.6)',life:.7});break;
+    case'inkClear':for(let i=0;i<10*scale;i++)this.fx.add({type:'puff',x:ev.x+(Math.random()-.5)*120,y:ev.y+(Math.random()-.5)*80,vx:(Math.random()-.5)*300,vy:(Math.random()-.5)*200,drag:2,size:10,grow:20,color:'rgba(40,24,70,.35)',life:.6});break;
+    case'squawk':Sound.play('squawk');for(let i=0;i<6*scale;i++)this.fx.add({type:'feather',x:ev.x,y:ev.y,vx:(Math.random()-.5)*160,vy:-Math.random()*120,g:80,drag:1.5,va:4,size:5,color:'#ffffff',life:1.2});break;
+    case'prick':Sound.play('prick');{const p=w.projectile,v=p&&this.vis.get(p.id);if(v)mood(v,'hurt',700)}this.fx.add({type:'text',x:ev.x,y:ev.y-24,vy:-40,drag:1.4,size:15,text:'Ouch!',color:'#ffd0d0',life:.9});break;
+    case'splash':art.splash(this.fx,ev.x,ev.y,ev.big,scale);Sound.play('splash',ev.big?1:.5);break;
+    case'burn':art.burn(this.fx,ev.x,ev.y,scale);Sound.play('burn');break;
+    case'light':art.lightFlash(this.fx,ev.x,ev.y,ev.r,scale);Sound.play('light');break;
+    case'short':for(let i=0;i<10*scale;i++)this.fx.add({type:'spark',x:ev.x,y:ev.y-10,vx:(Math.random()-.5)*360,vy:-Math.random()*300,g:500,color:'#8fe8ff',width:2,life:.4});Sound.play('short');this.fx.add({type:'text',x:ev.x,y:ev.y-40,vy:-30,drag:1.4,size:15,text:'Shorted!',color:'#bff3ff',life:1.1});break;
+    case'steam':for(let i=0;i<12*scale;i++)this.fx.add({type:'puff',x:ev.x+(Math.random()-.5)*80,y:ev.y-20,vx:(Math.random()-.5)*80,vy:-60-Math.random()*80,drag:1.2,size:12,grow:40,color:'rgba(240,240,240,.6)',life:1.1});Sound.play('steam');this.fx.add({type:'text',x:ev.x,y:ev.y-70,vy:-30,drag:1.4,size:17,text:'Cooled!',color:'#e6f7ff',life:1.2});break;
+    case'armor':art.breakBurst(this.fx,{kind:'stone',x:ev.x,y:ev.y,w:60,h:60,a:0,vx:0,vy:0},scale);this.fx.add({type:'text',x:ev.x,y:ev.y-50,vy:-30,drag:1.4,size:16,text:'Armour broken!',color:'#ffe9a6',life:1.2});Sound.play('stoneBreak');break;
+    case'boss':this.toast(ev.phase===2?'The Magma Lord’s armour cracked! Hit the glowing core!':'Magma shield! Cool it with water or ice, or drop the boulder!',3200);Sound.play('boss');break;
+    case'erupt':Sound.play('erupt');this.shake(6);break;
     case'win':this.finish(true);break;
     case'lose':this.finish(false);break;
    }}
  }
  // ── Tray (hero selection between shots) ──
  openTray(){if(this.world.status!=='ready'||this.gesture?.type==='aim'||overlayOpen(this.stage)||this.result)return;const heroes=unlocked(state,storage);Sound.play('ui');this.trayOpen=true;const t=$('#tray');t.setAttribute('aria-hidden','false');t.classList.add('open');
-  t.innerHTML=`<div class="tray-head"><b>Next hero</b><span id="tray-skill">${esc(SPECIES[this.world.species].skill)} · ${esc(SPECIES[this.world.species].description)}</span><button class="icon-btn" data-close aria-label="Close hero tray">✕</button></div><div class="tray-row">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===this.world.species?'selected':'')).join('')}</div>`;
+  t.innerHTML=`<div class="tray-head"><b>Launch ${this.shotIndex()+1} of ${this.level.shots}</b><span id="tray-skill">${esc(SPECIES[this.world.species].skill)} · ${esc(SPECIES[this.world.species].description)}</span><button class="icon-btn" data-close aria-label="Close hero tray">✕</button></div><div class="tray-row">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===this.world.species?'selected':'')).join('')}</div>`;
   t.onclick=e=>{if(e.target.closest('[data-close]'))return this.closeTray();const b=e.target.closest('[data-hero]');if(!b)return;const id=+b.dataset.hero;if(!heroes.includes(id)){b.classList.remove('nudge');void b.offsetWidth;b.classList.add('nudge');Sound.play('hurt');return}this.pick(id);this.closeTray()};
   const sel=t.querySelector('.selected');if(sel)sel.parentElement.scrollLeft=sel.offsetLeft-sel.parentElement.clientWidth/2+sel.offsetWidth/2;(sel||t.querySelector('[data-hero]'))?.focus({preventScroll:true});this.updateHud()}
  closeTray(){const t=$('#tray');this.trayOpen=false;if(!t)return;t.classList.remove('open');t.setAttribute('aria-hidden','true');this.canvas?.focus({preventScroll:true})}
- pick(id){if(this.world.status!=='ready')return;this.world.species=id;state.selected=id;persist();const v=this.visual('loaded');v.level=id;react(v,'happy',900);this.syncSquad();this.prepare(id);Sound.play('hop');this.updateHud(true)}
+ pick(id,setSlot=true){if(this.world.status!=='ready')return;if(setSlot){this.loadout[this.shotIndex()]=id;saveLoadout(this.level,this.loadout)}this.world.species=id;const v=this.visual('loaded');v.level=id;react(v,'happy',900);this.syncSquad();this.prepare(id);Sound.play('hop');this.updateHud(true)}
  // ── Pause / results ──
  pause(auto=false){if(!this.alive||this.result||overlayOpen(this.stage))return;this.cancelGestures();this.closeTray();this.paused=true;Sound.suspend();
   const rot=this.portrait&&screen.orientation?.lock?`<button class="toggle" data-act="landscape">${ICON.rotate}<span>Landscape</span></button>`:'';const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
@@ -359,19 +424,16 @@ class Game{
   this.resultTimer=setTimeout(()=>{if(!this.alive)return;let html;
    if(won){const before=state.results[l.id];const stars=record(state,l.id,w.score,w.shots);persist();const best=!before||w.score>before.score;const after=unlocked(state,storage),fresh=after.filter(id=>!this.heroesBefore.includes(id));
     html=`<div class="burst" aria-hidden="true"></div><small class="eyebrow">${esc(ISLANDS[l.island][0])} · ${l.boss?'BOSS DEFEATED':'LEVEL '+l.number}</small><h2>Crystal rescued!</h2><div class="result-stars" aria-label="${stars} of 3 stars">${[1,2,3].map(s=>`<i class="${s<=stars?'on':''}" style="--d:${s*.32}s">★</i>`).join('')}</div><div class="result-score"><b id="count">0</b>${best?'<span class="best">New best!</span>':''}</div><p class="muted">${w.shots?`${w.shots} spare monster${w.shots>1?'s':''} · +${w.shots*350} bonus`:'Every monster used'}</p>`+
-     (fresh.length?`<div class="unlock">${fresh.map(id=>`<div class="unlock-hero"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span><div><small>NEW HERO JOINED!</small><b>${esc(SPECIES[id].name)}</b><span>${esc(SPECIES[id].skill)} · ${esc(SPECIES[id].description)}</span></div></div>`).join('')}</div>`:'')+
+     (fresh.length?`<div class="unlock">${fresh.map(id=>`<div class="unlock-hero"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span><div><small>NEW HERO UNLOCKED — ${esc(SPECIES[id].name.toUpperCase())}!</small><b>${esc(SPECIES[id].name)}</b><span>${esc(SPECIES[id].skill)} · ${esc(SPECIES[id].description)}</span></div></div>`).join('')}</div>`:'')+
      `<div class="actions"><button class="btn ghost" data-act="map" aria-label="Island map">${ICON.map}</button><button class="btn" data-act="retry">${ICON.retry} Replay</button>${l.id<29?`<button class="btn primary" data-act="next" autofocus>Next ${ICON.play}</button>`:`<button class="btn primary" data-act="map" autofocus>All islands saved!</button>`}</div>`;
-    const el=overlay(this.stage,html,'result win'+(reduced()?' calm':''));this.countUp(el.querySelector('#count'),w.score);[1,2,3].forEach(s=>s<=stars&&setTimeout(()=>this.alive&&Sound.play('star',s),320*s+150));if(fresh.length)setTimeout(()=>this.alive&&Sound.play('unlock'),1300);Sound.play('win');
+    if(l.id===29){const total=state.results.reduce((n,r)=>n+(r?.stars||0),0);html=`<div class="burst" aria-hidden="true"></div><small class="eyebrow">EMBERFALL ISLE · FINAL BOSS</small><h2>The Magma Lord is defeated!</h2><div class="result-stars" aria-label="${stars} of 3 stars">${[1,2,3].map(s=>`<i class="${s<=stars?'on':''}" style="--d:${s*.32}s">★</i>`).join('')}</div><div class="parade">${SPECIES.map((d,i)=>`<img src="${d.asset}" alt="" style="--i:${i}">`).join('')}</div><p class="muted">All five islands are safe and every crystal is home. You hold <b>${total}/90</b> stars — replay any level to collect the rest.</p><div class="result-score"><b id="count">0</b>${best?'<span class="best">New best!</span>':''}</div><div class="actions"><button class="btn" data-act="retry">${ICON.retry} Replay</button><button class="btn primary" data-act="map" autofocus>${ICON.map} Island map</button></div>`}
+    const el=overlay(this.stage,html,'result win'+(l.id===29?' finale':'')+(reduced()?' calm':''));this.countUp(el.querySelector('#count'),w.score);[1,2,3].forEach(s=>s<=stars&&setTimeout(()=>this.alive&&Sound.play('star',s),320*s+150));if(fresh.length)setTimeout(()=>this.alive&&Sound.play('unlock'),1300);Sound.play('win');
     el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='next')go('#level-'+(l.number+1));else if(a==='retry')this.restart();else if(a==='map')go('#map')};
    }else{const left=w.remaining;
-    html=`<small class="eyebrow">${esc(ISLANDS[l.island][0])} · LEVEL ${l.number}</small><h2>So close!</h2><p class="lose-line">${left} bandit${left>1?'s':''} still guard${left>1?'':'s'} the crystal.</p><p class="tip">${this.tip()}</p><div class="actions"><button class="btn ghost" data-act="map" aria-label="Island map">${ICON.map}</button><button class="btn primary big" data-act="retry" autofocus>${ICON.retry} Try again</button></div>`;
+    html=`<small class="eyebrow">${esc(ISLANDS[l.island][0])} · LEVEL ${l.number}</small><h2>So close!</h2><p class="lose-line">${left} enem${left>1?'ies':'y'} still guard${left>1?'':'s'} the crystal.</p><p class="tip">${this.tip()}</p><div class="actions"><button class="btn ghost" data-act="map" aria-label="Island map">${ICON.map}</button><button class="btn primary big" data-act="retry" autofocus>${ICON.retry} Try again</button></div>`;
     const el=overlay(this.stage,html,'result lose');Sound.play('lose');el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='retry')this.restart();else if(a==='map')go('#map')}}
   },won?(reduced()?500:1300):900)}
- tip(){const heroes=unlocked(state,storage),stone=this.world.blocks.some(b=>!b.dead&&b.kind==='stone'),glass=this.world.blocks.some(b=>!b.dead&&b.kind==='glass');
-  if(stone&&heroes.includes(10))return'Tip: Infernodon’s Inferno blast breaks stone. Tap it right above the fortress.';
-  if(stone)return'Tip: Rockro’s Boulder smash cracks stone. Tap just above the fortress.';
-  if(glass)return'Tip: Bubblo’s Bubble blast shatters glass from a distance.';
-  return'Tip: hit the lowest supports and let the tower fall onto the bandits.'}
+ tip(){const left=this.world.enemies.filter(e=>!e.dead).sort((a,b)=>b.type-a.type)[0];if(left)return`Tip — ${esc(ENEMY[left.type].name)}: ${esc(ENEMY[left.type].tip)}`;return'Tip: hit the lowest supports and let the tower fall onto the enemies.'}
  countUp(el,to){const t0=performance.now(),d=reduced()?200:900;const step=t=>{if(!this.alive||!el?.isConnected)return;const k=ease((t-t0)/d);el.textContent=Math.round(to*k).toLocaleString();if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
  // ── HUD ──
  toast(text,ms=1800){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(this.toastT);this.toastT=setTimeout(()=>t.classList.remove('show'),ms)}
@@ -380,8 +442,8 @@ class Game{
   // stars still reachable: spare monsters you would keep if every bandit fell with the next shot
   const spareIfNext=Math.max(0,w.shots-(w.status==='flight'||w.status==='settling'?0:1)),pot=w.status==='won'?(w.shots>=2?3:w.shots>=1?2:1):spareIfNext>=2?3:spareIfNext>=1?2:1;[...$('#lvl-stars').children].forEach((s,i)=>s.className=i<pot?'on':'');
   const shots=$('#shots');const used=w.level.shots-w.shots;if(full||shots.childElementCount!==w.level.shots)shots.innerHTML=Array.from({length:w.level.shots},()=>'<i></i>').join('');[...shots.children].forEach((p,i)=>p.className=i<used?'used':'');
-  const heroes=unlocked(state,storage),others=heroes.filter(id=>id!==w.species),q=[w.species,...others.slice(0,2)],key=q.join(',')+'|'+w.status;
-  if(full||this._picks!==key){this._picks=key;const off=w.status!=='ready'||!!this.result;$('#picks').innerHTML=q.map((id,i)=>`<button class="pick ${i?'small':'current'}" data-quick="${id}" ${off?'disabled':''} aria-label="${i?'Switch to ':'Current hero: '}${esc(SPECIES[id].name)}"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span></button>`).join('')}
+  const i0=Math.min(this.shotIndex(),this.level.shots-1),slots=[];for(let k=i0;k<this.level.shots&&slots.length<3;k++)slots.push(k);if(w.status!=='ready'&&slots.length)slots[0]=Math.min(i0,this.level.shots-1);const key=slots.map(k=>this.loadout[k]).join(',')+'|'+w.status+'|'+w.species+'|'+i0;
+  if(full||this._picks!==key){this._picks=key;const off=w.status!=='ready'||!!this.result;$('#picks').innerHTML=slots.map((k,i)=>{const id=i===0&&w.status==='ready'?w.species:this.loadout[k];return`<button class="pick ${i?'small':'current'}" data-slot="${k}" ${off&&i?'disabled':''} ${off&&!i?'disabled':''} aria-label="${i?'Queued: '+esc(SPECIES[id].name)+'. Tap to move it up':'Current hero: '+esc(SPECIES[id].name)+'. Tap to change'}"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span></button>`}).join('')}
   const sk=$('#skill');sk.dataset.state=w.status==='flight'?(w.used?'used':'ready'):'idle';sk.style.setProperty('--hc',d.color);$('#skill-name').textContent=w.status==='flight'&&!w.used?'TAP!':d.skill;$('#skill-badge').textContent=w.status==='flight'&&w.used?'0':'1';sk.disabled=!(w.status==='flight'&&!w.used);
   const hb=$('#hero-btn');hb.disabled=w.status!=='ready'||!!this.result;hb.setAttribute('aria-expanded',String(this.trayOpen));
   $('#next').hidden=!(w.status==='flight'&&w.age>=1);
@@ -398,6 +460,7 @@ class Game{
   const paused=this.paused;
   if(!paused){this.acc+=Math.min(.05,dtReal);let n=0;while(this.acc>=1/60&&n++<4){if(this.result)step(this.world.bodies,1/60);else this.world.tick(1/60);this.acc-=1/60}this.handleEvents()}
   const dt=paused?0:dtReal;this.time+=dt;this.score=lerp(this.score,this.world.score,1-Math.exp(-dt*8));
+  if(this.world.shakeReq){this.shake(this.world.shakeReq);this.world.shakeReq=0}
   if(!paused){this.updateCamera(dt);this.fx.update(dt);this.tickVisuals(dt,t)}
   this.draw(t);
   if(!paused&&(this._hudT=(this._hudT||0)+dt)>.1){this._hudT=0;$('#score').textContent=Math.round(this.score).toLocaleString();this.updateHud()}
@@ -418,14 +481,16 @@ class Game{
   const view={w:this.w,h:this.h,S,cx:cam.cx,cy:cam.cy,cy0:this.cy0(),horizon:this.h*this.groundFrac-150*this.base,groundScreen:cy=>this.h/2+(GROUND-cy)*S};
   c.setTransform(dpr,0,0,dpr,0,0);this.scenery.back(c,view,now);
   c.setTransform(dpr*S,0,0,dpr*S,dpr*(this.w/2-cam.cx*S+sx),dpr*(this.h/2-cam.cy*S+sy));
-  this.scenery.ground(c,S);
+  this.scenery.ground(c,S,w.terrain,now);
+  for(const d of w.decor)art.drawDecor(c,d,now,w.wind);
   art.drawCrystal(c,w.crystal,now,this.result?.won?Math.min(1,cam.t/1.2):0);
   for(const b of w.blocks)if(!b.dead){const half=Math.abs(Math.cos(b.a))*b.h/2+Math.abs(Math.sin(b.a))*b.w/2;art.drawShadow(c,b.x,b.y+half,b.w/2+4,.22)}
-  for(const e of w.enemies)if(!e.dead)art.drawShadow(c,e.x,e.y+e.r,e.r,.28);
+  for(const e of w.enemies)if(!e.dead&&!(e.type===5&&e.fly))art.drawShadow(c,e.x,e.y+(e.h?e.h/2:e.r),(e.w||e.r*2)/2,.28);
   for(const tr of[...this.trails,this.trail])if(tr){c.fillStyle=tr===this.trail?'rgba(255,255,255,.85)':'rgba(255,255,255,.4)';for(const q of tr.pts){c.beginPath();c.arc(q.x,q.y,q.s,0,Math.PI*2);c.fill()}}
   for(const b of w.blocks)if(!b.dead)art.drawBlock(c,b,w.time);
   const p=w.projectile,look=p?{x:p.x,y:p.y}:{x:SLING.x,y:SLING.y};
-  for(const e of w.enemies)if(!e.dead)art.drawBandit(c,e,{now,time:w.time,look,scared:!!p&&Math.abs(p.x-e.x)<260&&p.vx>0});
+  const pylons=w.blocks.filter(b=>b.pylon&&!b.dead);for(const e of w.enemies)if(!e.dead){if(e.type===10)art.drawVent(c,e,now);art.drawEnemy(c,e,{now,time:w.time,look,pylons})}
+  for(const k of w.inks)art.drawInk(c,k,now);
   this.drawSling(c,now);
   for(const b of w.bodies){if(b.dead)continue;if(b.kind==='seed')this.drawSeed(c,b);else if(b.kind==='monster')this.drawFlying(c,b,now)}
   this.fx.draw(c);
@@ -444,9 +509,9 @@ class Game{
   c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.clip();c.translate(r.x,r.y);
   this.scenery.back(c,{w:r.w,h:r.h,S:Sp,cx,cy,cy0:cy,horizon:gy-150*Sp,groundScreen:()=>gy},now);
   c.setTransform(dpr*Sp,0,0,dpr*Sp,dpr*(r.x+r.w/2-cx*Sp),dpr*(r.y+r.h/2-cy*Sp));
-  this.scenery.ground(c,Sp);art.drawCrystal(c,W.crystal,now,0);
+  this.scenery.ground(c,Sp,W.terrain,now);for(const d of W.decor)art.drawDecor(c,d,now,W.wind);art.drawCrystal(c,W.crystal,now,0);
   for(const b of W.blocks)if(!b.dead)art.drawBlock(c,b,W.time);
-  for(const e of W.enemies)if(!e.dead)art.drawBandit(c,e,{now,time:W.time,look:{x:SLING.x,y:SLING.y},scared:this.gesture?.type==='aim'});
+  for(const e of W.enemies)if(!e.dead)art.drawEnemy(c,e,{now,time:W.time,pylons:W.blocks.filter(b=>b.pylon&&!b.dead)});for(const k of W.inks)art.drawInk(c,k,now);
   if(this.gesture?.type==='aim')this.drawAim(c,1/Sp*.9);
   c.restore();c.save();c.setTransform(dpr,0,0,dpr,0,0);c.strokeStyle='#fff';c.lineWidth=3;c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.stroke();
   c.fillStyle='rgba(42,26,12,.62)';c.beginPath();c.roundRect(r.x+8,r.y+8,64,20,10);c.fill();c.fillStyle='#fff';c.font='700 12px Fredoka,ui-rounded,system-ui,sans-serif';c.textBaseline='middle';c.fillText('🎯 TARGET',r.x+14,r.y+18.5);c.restore();return true}
@@ -472,12 +537,12 @@ class Game{
   paintMonster(c,v,now,{x:b.x+b.vx,y:b.y+b.vy});c.restore()}
  drawSeed(c,b){c.save();c.translate(b.x,b.y);c.rotate(b.a);c.fillStyle='#e6d55a';c.strokeStyle='#8a7a24';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,b.r,b.r*.8,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#6fc048';c.beginPath();c.ellipse(-b.r*.2,-b.r*.85,b.r*.55,b.r*.25,-.5,0,Math.PI*2);c.fill();c.restore()}
  // Trajectory preview: the same integrator as the simulation, from the same release point.
- drawAim(c,k=1){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3),solids=this.world.bodies.filter(b=>!b.static&&!b.dead&&b.kind!=='monster');
+ drawAim(c,k=1){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3,this.world.env),solids=this.world.bodies.filter(b=>!b.dead&&b.kind!=='monster'&&b.kind!=='ground'&&!(b.kind==='enemy'&&b.ghost)),inks=this.world.inks;
   let end=pts.length;for(let i=0;i<pts.length;i++){const q=pts[i];if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){end=i;break}}
   const path=[o,...pts.slice(0,end)],hit=end<pts.length?pts[end]:pts[pts.length-1];
   c.save();c.lineCap='round';
   // dashed white arc with a soft dark edge, fading with distance
-  for(let pass=0;pass<2;pass++){c.strokeStyle=pass?'#ffffff':'rgba(15,31,61,.35)';c.lineWidth=(pass?5:8)*k;for(let i=2;i+1<path.length;i+=3){c.globalAlpha=clamp(1.15-i/path.length,.25,1);c.beginPath();c.moveTo(path[i].x,path[i].y);c.lineTo(path[i+1].x,path[i+1].y);c.stroke()}}
+  for(let pass=0;pass<2;pass++){c.strokeStyle=pass?'#ffffff':'rgba(15,31,61,.35)';c.lineWidth=(pass?5:8)*k;for(let i=2;i+1<path.length;i+=3){if(inks.some(q=>Math.hypot(path[i].x-q.x,path[i].y-q.y)<q.r*.75))continue;c.globalAlpha=clamp(1.15-i/path.length,.25,1);c.beginPath();c.moveTo(path[i].x,path[i].y);c.lineTo(path[i+1].x,path[i+1].y);c.stroke()}}
   if(hit){c.globalAlpha=1;const R=13*k;for(let pass=0;pass<2;pass++){c.strokeStyle=pass?(k>1?'#ff5a3c':'#ffffff'):'rgba(15,31,61,.4)';c.lineWidth=(pass?3.6:6.5)*k;c.beginPath();c.arc(hit.x,hit.y,R,0,Math.PI*2);c.stroke()}c.fillStyle=k>1?'#ff5a3c':'#fff';c.beginPath();c.arc(hit.x,hit.y,3.6*k,0,Math.PI*2);c.fill()}
   c.restore()}
  // When the fort is off-screen, a small marker on the edge shows where the bandits are and how far.

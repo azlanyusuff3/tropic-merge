@@ -9,7 +9,7 @@ const pass=m=>{results.push(m);console.log('PASS '+m)};
 let siteRoot=ROOT;
 const TYPES={'.js':'application/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp','.png':'image/png','.webmanifest':'application/manifest+json','.json':'application/json'};
 const server=http.createServer((req,res)=>{let name=new URL(req.url,'http://x').pathname;if(!name.startsWith('/tropic-merge/')){res.writeHead(404);return res.end()}name=name.slice('/tropic-merge'.length);if(name==='/')name='/index.html';const f=path.resolve(siteRoot,'.'+name);if(!f.startsWith(siteRoot+path.sep)){res.writeHead(403);return res.end()}fs.readFile(f,(e,d)=>{if(e){res.writeHead(404);return res.end()}res.setHeader('content-type',TYPES[path.extname(f)]||'text/plain');res.setHeader('cache-control','no-cache');res.end(d)})});
-const save=(results,extra={})=>JSON.stringify({version:1,results,selected:0,sound:false,revision:1,tutorial:1,...extra});
+const save=(results,extra={})=>JSON.stringify({version:1,results,selected:0,sound:false,revision:1,tutorial:1,legacyHeroes:[],...extra});
 const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
 
 (async()=>{
@@ -21,16 +21,17 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
  const G=p=>p.evaluate(()=>{const g=__sling.game;return g&&{status:g.world.status,shots:g.world.shots,remaining:g.world.remaining,mode:g.cam.mode,cx:g.cam.cx,cz:g.cam.z,userZ:g.cam.userZ,loaded:g.loaded,ready:g.ready,load:g.load.t,gesture:g.gesture?.type||null,used:g.world.used,proj:!!g.world.projectile,paused:g.paused,S:g.S,portrait:g.portrait,time:g.world.time}});
  const monsterScreen=p=>p.evaluate(()=>{const g=__sling.game,m=g.monsterPos(),s=g.toScreen(m.x,m.y),r=g.canvas.getBoundingClientRect();return{x:s.x+r.left,y:s.y+r.top}});
  const waitAim=p=>p.waitForFunction(()=>{const g=__sling.game;if(!(g&&g.cam.mode==='aim'&&g.loaded&&g.load.t>=1&&g.ready&&g.world.status==='ready'))return false;const t=g.aimTarget();return Math.abs(g.cam.cx-t.cx)<4&&Math.abs(g.cam.z-t.z)<.01},null,{timeout:15000});
- const openLevel=async(p,n,saveData)=>{await p.goto(BASE+'/sling.html?test');if(saveData!==undefined){await p.evaluate(s=>localStorage.setItem('monsterSlingSaveV1',s),saveData)}await p.goto(BASE+'/sling.html?test#level-'+n);await p.waitForFunction(n=>__sling.game?.level.number===n,n)};
+ const openLevel=async(p,n,saveData)=>{await p.goto(BASE+'/sling.html?test');if(saveData!==undefined){await p.evaluate(s=>localStorage.setItem('monsterSlingSaveV1',s),saveData)}await p.goto(BASE+'/sling.html?test#level-'+n);await p.waitForFunction(n=>__sling.game?.level.number===n,n);if(await p.locator('.overlay.enemy-intro [data-ok]').count())await p.locator('.overlay.enemy-intro [data-ok]').click()};
  const dragLaunch=async(p,dx=-80,dy=34,steps=10)=>{await waitAim(p);const m=await monsterScreen(p);await p.mouse.move(m.x,m.y);await p.mouse.down();for(let i=1;i<=steps;i++)await p.mouse.move(m.x+dx*i/steps,m.y+dy*i/steps);await p.mouse.up()};
 
  // ── 1. Menu and campaign map ──
  {const {ctx,p}=await newPage();await p.goto(BASE+'/');assert.equal(await p.locator('body').textContent().then(t=>t.includes('Monster Care')),false);assert.ok(await p.locator('a[href="./merge.html"]').count());await p.screenshot({path:OUT+'/sling-menu.png'});
   await p.locator('a[href="./sling.html"]').click();await p.waitForSelector('.title-screen .play-big');await p.screenshot({path:OUT+'/sling-title.png'});assert.match(await p.locator('.play-big').textContent(),/PLAY/);await p.locator('#t-map').click();await p.waitForSelector('.node');assert.equal(await p.locator('.node').count(),30);assert.equal(await p.locator('.node.boss').count(),5);assert.equal(await p.locator('.node[data-level="1"]').isDisabled(),true);assert.equal(await p.locator('.node.current').getAttribute('data-level'),'0');
-  await p.screenshot({path:OUT+'/sling-map.png'});await p.locator('.node[data-level="0"]').click({force:true});await p.waitForSelector('.overlay.show [data-play]');await p.screenshot({path:OUT+'/sling-level-card.png'});await p.locator('[data-squad]').click();await p.waitForSelector('.hero-grid');assert.equal(await p.locator('.hero-grid .hero-tile:not(.locked)').count(),3);await p.screenshot({path:OUT+'/sling-squad.png'});
-  await p.locator('.hero-grid [data-hero="1"]').click();await p.waitForSelector('[data-play]');await p.locator('[data-play]').click();await p.waitForFunction(()=>document.body.classList.contains('in-level'));
-  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('monsterSlingSaveV1')).selected),1);await ctx.close();
-  pass('Island menu keeps Merge and Sling; title screen with PLAY; adventure map shows 30 route nodes, 5 boss destinations, locks, level card and squad picker')}
+  await p.screenshot({path:OUT+'/sling-map.png'});await p.locator('.node[data-level="0"]').click({force:true});await p.waitForSelector('.overlay.show [data-play]');await p.screenshot({path:OUT+'/sling-level-card.png'});assert.equal(await p.locator('.lo-slot').count(),4,'one slot per launch');assert.equal(await p.locator('.foe').count(),1);
+  await p.locator('[data-play]').click();await p.waitForFunction(()=>document.body.classList.contains('in-level'));await p.waitForSelector('.overlay.enemy-intro');assert.match(await p.locator('.overlay.enemy-intro').textContent(),/Shellkin/);await p.screenshot({path:OUT+'/sling-enemy-intro.png'});
+  await p.goto(BASE+'/sling.html');await p.waitForSelector('#t-squad');await p.locator('#t-squad').click();await p.waitForSelector('.collection .hero-grid');assert.equal(await p.locator('.collection .hero-tile').count(),11);assert.equal(await p.locator('.collection .hero-tile:not(.locked)').count(),1,'a new player starts with Slimelet');assert.match(await p.locator('.collection').textContent(),/Unlocks at level 29/);await p.screenshot({path:OUT+'/sling-collection.png'});
+  await p.locator('[data-tab="foes"]').click();await p.waitForSelector('.foe-tile');assert.equal(await p.locator('.foe-tile').count(),11);assert.equal(await p.locator('.foe-tile:not(.locked)').count(),1);await p.screenshot({path:OUT+'/sling-bestiary.png'});await ctx.close();
+  pass('Island menu keeps Merge and Sling; title screen with PLAY; level card loadout; new-enemy intro; hero and enemy collection; adventure map shows 30 route nodes, 5 boss destinations, locks, level card and squad picker')}
 
  // ── 2. Fullscreen stage and readable scale at every size ──
  for(const [w,h] of SIZES){const {ctx,p}=await newPage(w,h);await openLevel(p,8,save(allClear(7)));await p.waitForTimeout(500);await p.screenshot({path:OUT+`/sling-${w}x${h}-intro.png`});await waitAim(p);await p.waitForTimeout(300);await p.screenshot({path:OUT+`/sling-${w}x${h}-aim.png`});
@@ -98,10 +99,10 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await ctx.close();pass('One-finger pan, pinch-to-zoom within limits, mouse wheel zoom and the recenter button')}
 
  // ── 7. All 11 hero skills through the real UI (tray, drag, tap) ──
- {const {ctx,p}=await newPage(844,390);await p.goto(BASE+'/sling.html?test');await p.evaluate(()=>localStorage.setItem('monsterMergeCodexV1',JSON.stringify([0,1,2,3,4,5,6,7,8,9,10])));const seen=[];
+ {const {ctx,p}=await newPage(844,390);const seen=[];
   let open=false;
   for(let id=0;id<11;id++){
-   if(!open||await p.evaluate(()=>__sling.game.world.status!=='ready'||__sling.game.world.shots===0)){await openLevel(p,20,save(allClear(19)));open=true}
+   if(!open||await p.evaluate(()=>__sling.game.world.status!=='ready'||__sling.game.world.shots===0)){await openLevel(p,29,save(allClear(28)));open=true}
    await waitAim(p);await p.locator('#hero-btn').click();await p.waitForSelector('#tray.open');await p.locator(`#tray [data-hero="${id}"]`).click();await p.waitForFunction(id=>__sling.game.world.species===id&&__sling.game.ready&&!__sling.game.trayOpen,id);
    await dragLaunch(p,-80,26);await p.waitForTimeout(450);const fx0=await p.evaluate(()=>__sling.game.fx.list.length);assert.equal(await p.locator('#skill').getAttribute('data-state'),'ready');await p.locator('#skill').click({force:true});
    const r=await p.evaluate(()=>({used:__sling.game.world.used,fx:__sling.game.fx.list.length}));assert.equal(r.used,true,'skill '+id);assert.ok(r.fx>fx0,'skill '+id+' shows effects');await p.waitForTimeout(80);assert.equal(await p.locator('#skill').getAttribute('data-state'),'used');
@@ -127,8 +128,8 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
  // ── 9. Defeat and quick retry; unlock celebration ──
  {const {ctx,p}=await newPage(390,844);await openLevel(p,2,save(allClear(1)));await waitAim(p);await p.evaluate(()=>{const w=__sling.game.world;for(let i=0;i<4;i++){w.launch(-80,-10);for(let k=0;k<900&&w.status==='flight';k++)w.tick(1/60)}});
   await p.waitForSelector('.result.lose [data-act="retry"]',{timeout:15000});await p.screenshot({path:OUT+'/sling-defeat.png'});await p.locator('[data-act="retry"]').click();await p.waitForFunction(()=>__sling.game.world.shots===4&&__sling.game.world.status==='ready');
-  await openLevel(p,4,save(allClear(3)));await waitAim(p);await p.evaluate(()=>{const w=__sling.game.world;w.launch(80,-40);for(const e of w.enemies)w.damage(e,9999)});await p.waitForSelector('.unlock-hero',{timeout:8000});assert.match(await p.locator('.unlock-hero').textContent(),/Sproutiball/);await p.waitForTimeout(1500);await p.screenshot({path:OUT+'/sling-unlock.png'});
-  await ctx.close();pass('Defeat card retries instantly; clearing the 4th level celebrates the newly unlocked Sproutiball')}
+  await openLevel(p,4,save(allClear(3)));await waitAim(p);await p.evaluate(()=>{const w=__sling.game.world;w.launch(80,-40);for(const e of w.enemies)w.damage(e,9999)});await p.waitForSelector('.unlock-hero',{timeout:8000});assert.match(await p.locator('.unlock-hero').textContent(),/Puffling/);await p.waitForTimeout(1500);await p.screenshot({path:OUT+'/sling-unlock.png'});
+  await ctx.close();pass('Defeat card retries instantly; clearing level 4 celebrates the newly unlocked Puffling (joins at level 5)')}
 
  // ── 10. Pause, resume and background/foreground ──
  {const {ctx,p}=await newPage(844,390);await openLevel(p,5,save(allClear(4)));await dragLaunch(p);await p.waitForTimeout(200);
@@ -152,7 +153,7 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await dragLaunch(p);assert.equal((await G(p)).proj,true,'input still works');perf.heapGrowthMB=+((heap1-heap0)/1e6).toFixed(1);await ctx.close();pass(`30 restarts: one animation loop, heap growth ${perf.heapGrowthMB}MB, input still responsive`)}
 
  // ── 13. Reduced motion ──
- {const {ctx,p}=await newPage(844,390,{reducedMotion:'reduce'});await p.goto(BASE+'/sling.html?test');await p.evaluate(()=>localStorage.setItem('monsterMergeCodexV1','[4]'));await openLevel(p,3,save(allClear(2),{selected:4}));await dragLaunch(p);await p.waitForTimeout(400);await p.locator('#skill').click({force:true});await p.waitForTimeout(50);assert.equal(await p.evaluate(()=>__sling.game.cam.shake),0);assert.ok(await p.evaluate(()=>__sling.game.fx.budget)<=70);await ctx.close();pass('Reduced-motion preference: no screen shake, lighter particles, still playable')}
+ {const {ctx,p}=await newPage(844,390,{reducedMotion:'reduce'});await p.goto(BASE+'/sling.html?test');await openLevel(p,11,save(allClear(10),{selected:4,loadouts:{10:[4,4,4,4]}}));await dragLaunch(p);await p.waitForTimeout(400);await p.locator('#skill').click({force:true});await p.waitForTimeout(50);assert.equal(await p.evaluate(()=>__sling.game.cam.shake),0);assert.ok(await p.evaluate(()=>__sling.game.fx.budget)<=70);await ctx.close();pass('Reduced-motion preference: no screen shake, lighter particles, still playable')}
 
  // ── 14. Offline play and upgrade from the previous release ──
  {const old=path.join(OUT,'previous-release');fs.rmSync(old,{recursive:true,force:true});fs.mkdirSync(old,{recursive:true});let prevRef='b5f39ee';try{execSync(`git -C "${ROOT}" cat-file -e ${prevRef}`)}catch{prevRef=null}
@@ -161,7 +162,7 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await p.goto(BASE+'/');await p.evaluate(async()=>{await navigator.serviceWorker.ready;const c=await caches.open('another-game-test');await c.put('/another-game/x',new Response('x'));localStorage.setItem('monsterSlingSaveV1',JSON.stringify({version:1,results:[{score:4242,stars:3},{score:10,stars:1}],selected:4,sound:true,revision:3}))});
   await poll(p,async()=>(await caches.keys()).some(k=>k.startsWith('monster-merge-v16')));
   siteRoot=ROOT;await p.goto(BASE+'/');await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
-  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v18-1-pilefix-20261025-2')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v18-1-pilefix-20261025-2')});
+  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v19-0-sling-20261025-1')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v19-0-sling-20261025-1')});
   // the page that was open during the update reloads itself once (it is not in a level)
   await p.waitForLoadState('load');await poll(p,async()=>{const r=await navigator.serviceWorker.getRegistration();return !!r?.active&&r.active.state==='activated'&&!r.waiting&&!r.installing});
   const keys=await p.evaluate(()=>caches.keys());assert.ok(keys.includes('another-game-test'),'unrelated caches survive');

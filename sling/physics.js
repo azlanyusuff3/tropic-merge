@@ -39,23 +39,31 @@ function impulse(a,b,m,onHit){const {n,depth}=m,sum=a.inv+b.inv;if(!sum)return;
  if(hit>45)onHit?.(a,b,hit,hj,m.x,m.y);
 }
 export const SUBSTEPS=3;
-function integrate(b,h){b.vy+=GRAVITY*h;b.vx*=Math.exp(-.09*h);b.vy*=Math.exp(-.035*h);b.omega*=Math.exp(-.7*h);b.x+=b.vx*h;b.y+=b.vy*h;b.a+=b.omega*h;b.vx=Math.max(-1050,Math.min(1050,b.vx));b.vy=Math.max(-1000,Math.min(1000,b.vy));b.omega=Math.max(-10,Math.min(10,b.omega))}
+// Environment: wind pushes airborne projectiles; water zones give buoyancy and drag.
+// env={wind:number (u/s²), water:[{x0,x1,y0,y1}]}. Shared by the simulation and the preview.
+function inWater(b,env){if(!env?.water)return null;for(const z of env.water)if(b.x>z.x0&&b.x<z.x1&&b.y>z.y0&&b.y<z.y1)return z;return null}
+function integrate(b,h,env){
+ const z=inWater(b,env);
+ if(!b.fly)b.vy+=GRAVITY*h;
+ if(env?.wind&&b.windy&&!z)b.vx+=env.wind*h;
+ if(z){const sub=Math.min(1,(b.y-z.y0)/Math.max(8,(b.r||b.h/2)*2)),dens=b.density??1;b.vy-=GRAVITY*h*sub*(b.kind==='stone'?.6:b.kind==='monster'?.85:1.45)/dens;const d=Math.exp(-2.4*h);b.vx*=d;b.vy*=d;b.omega*=Math.exp(-3*h)}b.vx*=Math.exp(-.09*h);b.vy*=Math.exp(-.035*h);b.omega*=Math.exp(-.7*h);b.x+=b.vx*h;b.y+=b.vy*h;b.a+=b.omega*h;b.vx=Math.max(-1050,Math.min(1050,b.vx));b.vy=Math.max(-1000,Math.min(1000,b.vy));b.omega=Math.max(-10,Math.min(10,b.omega))}
 // Free-flight path using exactly the simulation's integrator and tick rate (1/60 s, SUBSTEPS substeps).
-export function predict(x,y,vx,vy,ticks=120,stride=4){const b={x,y,vx,vy,a:0,omega:0},out=[];const h=1/60/SUBSTEPS;for(let i=1;i<=ticks;i++){for(let s=0;s<SUBSTEPS;s++)integrate(b,h);if(i%stride===0)out.push({x:b.x,y:b.y,t:i/60});if(b.y>GROUND-20||b.x>1500)break}return out}
+export function predict(x,y,vx,vy,ticks=120,stride=4,env=null){const b={x,y,vx,vy,a:0,omega:0,windy:true,kind:'monster'},out=[];const h=1/60/SUBSTEPS;for(let i=1;i<=ticks;i++){for(let s=0;s<SUBSTEPS;s++)integrate(b,h,env);if(i%stride===0)out.push({x:b.x,y:b.y,t:i/60});if(b.y>GROUND+40||b.x>1600||inWater(b,env))break}return out}
 // Sleeping: a body that has been still for a moment stops integrating until something moving
 // touches it, an explosion reaches it or a neighbour breaks. Standing forts therefore stay put
 // instead of slowly creeping, and every collapse is still caused by a real impact.
 const SLEEP_SPEED=5,SLEEP_SPIN=.06,SLEEP_TIME=.6,WAKE_SPEED=8;
 export function wake(b){if(b&&!b.static&&b.sleep){b.sleep=false;b.sleepT=0}}
+const inert=b=>(b.static&&!b.kin)||b.sleep;
 export function wakeNear(bodies,x,y,r){for(const b of bodies)if(b.sleep&&Math.hypot(b.x-x,b.y-y)<r+(b.r||Math.hypot(b.w,b.h)/2))wake(b)}
 const speed=b=>Math.hypot(b.vx,b.vy);
 function freeze(b){const s={inv:b.inv,invI:b.invI};b.inv=0;b.invI=0;return s}
-export function step(bodies,dt,onHit){
+export function step(bodies,dt,onHit,env){
  const n=SUBSTEPS,h=dt/n;
  for(let sub=0;sub<n;sub++){
-  for(const b of bodies)if(!b.static&&!b.dead&&!b.sleep)integrate(b,h);
+  for(const b of bodies){if(b.dead)continue;if(b.kin){b.x+=b.vx*h;b.y+=b.vy*h;b.a+=b.omega*h;continue}if(!b.static&&!b.sleep)integrate(b,h,env)}
   for(let k=0;k<6;k++)for(let i=0;i<bodies.length;i++){const a=bodies[i];if(a.dead)continue;for(let j=i+1;j<bodies.length;j++){const b=bodies[j];if(b.dead||a.static&&b.static||a.phase>0&&b.kind!=='ground'||b.phase>0&&a.kind!=='ground')continue;
-   const inertA=a.static||a.sleep,inertB=b.static||b.sleep;if(inertA&&inertB)continue;
+   if(a.static&&b.static)continue;const inertA=inert(a),inertB=inert(b);if(inertA&&inertB)continue;
    if(Math.abs(a.x-b.x)>(a.r||Math.hypot(a.w,a.h)/2)+(b.r||Math.hypot(b.w,b.h)/2)+2)continue;
    const m=contact(a,b);if(!m)continue;
    // A moving body wakes the sleeper it touches; a slow, resting one leans on it as if it were solid.
@@ -63,5 +71,5 @@ export function step(bodies,dt,onHit){
    const fa=a.sleep?freeze(a):null,fb=b.sleep?freeze(b):null;impulse(a,b,m,k===0?onHit:null);if(fa)Object.assign(a,fa);if(fb)Object.assign(b,fb);
   }}
  }
- for(const b of bodies){if(b.static||b.dead||b.sleep||b.kind==='monster'||b.kind==='seed')continue;if(speed(b)<SLEEP_SPEED&&Math.abs(b.omega)<SLEEP_SPIN){b.sleepT=(b.sleepT||0)+dt;if(b.sleepT>SLEEP_TIME){b.sleep=true;b.vx=b.vy=b.omega=0}}else b.sleepT=0}
+ for(const b of bodies){if(b.static||b.dead||b.sleep||b.fly||b.noSleep||b.kind==='monster'||b.kind==='seed')continue;if(speed(b)<SLEEP_SPEED&&Math.abs(b.omega)<SLEEP_SPIN){b.sleepT=(b.sleepT||0)+dt;if(b.sleepT>SLEEP_TIME){b.sleep=true;b.vx=b.vy=b.omega=0}}else b.sleepT=0}
 }
