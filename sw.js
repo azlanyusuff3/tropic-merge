@@ -1,7 +1,7 @@
-const CACHE='monster-island-v18-2-match-20261025';
+const CACHE='monster-island-v18-3-match-identity-20261025';
 const CORE=[
  './','./index.html','./merge.html','./sling.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/app.js','./match/engine.mjs','./sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
+ './match/style.css','./match/app.js','./match/engine.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp','./sling/style.css','./assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
  ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
 ];

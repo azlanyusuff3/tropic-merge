@@ -32,6 +32,8 @@ const server = http.createServer((req, res) => {
       assert.equal(await page.locator('a[href="./merge.html"]').count(), 1);
       assert.equal(await page.locator('a[href="./sling.html"]').count(), 1);
       assert.equal(await page.locator('a[href="./match.html"]').count(), 1);
+      assert.equal(await page.locator('.match-preview img[src="./match/assets/tidalon-match.webp"]').count(), 1);
+      assert.equal(await page.locator('.match-preview img[src="./match/assets/frostbop-match.webp"]').count(), 1);
       await page.locator('a[href="./match.html"]').click();
       await page.waitForSelector('.tile');
       assert.equal(await page.locator('.tile').count(), 64);
@@ -39,6 +41,15 @@ const server = http.createServer((req, res) => {
       const board = await page.locator('#board').boundingBox();
       assert.ok(board.width >= 200);
       assert.equal(await page.evaluate(() => [...document.querySelectorAll('.tile img')].every(img => img.complete && img.naturalWidth > 0)), true);
+      const images = await page.evaluate(async () => {
+        const urls = ['./match/assets/tidalon-match.webp', './match/assets/frostbop-match.webp'];
+        return Promise.all(urls.map(src => new Promise(resolve => {
+          const image = new Image(); image.onload = () => resolve(image.naturalWidth > 100 && image.naturalHeight > 100);
+          image.onerror = () => resolve(false); image.src = src;
+        })));
+      });
+      assert.deepEqual(images, [true, true], 'both Match-only water and ice artworks must load');
+
       await page.locator('#hint-btn').click();
       const hints = await page.locator('.tile.hinted').all();
       assert.equal(hints.length, 2);

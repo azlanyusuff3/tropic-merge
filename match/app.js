@@ -2,11 +2,11 @@ import { SIZE, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, make
 
 const SPRITES = [
   ['Slimelet', './assets/monsters/01-slimelet.webp'],
-  ['Bubblo', './assets/monsters/02-bubblo.webp'],
+  ['Tidalon', './match/assets/tidalon-match.webp'],
   ['Puffling', './assets/monsters/03-puffling.webp'],
   ['Sproutiball', './assets/monsters/04-sproutiball.webp'],
   ['Rockro', './assets/monsters/05-rockro.webp'],
-  ['Frostbop', './assets/monsters/06-frostbop.webp']
+  ['Frostbop', './match/assets/frostbop-match.webp']
 ];
 const SAVE_KEY = 'monsterMatchSaveV1';
 const BEST_KEY = 'monsterMatchBestV1';

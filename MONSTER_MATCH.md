@@ -21,3 +21,9 @@ The pure, deterministic rules and generator are in `match/engine.mjs`; the UI is
 Run `npm run test:match` for the model tests and the Playwright browser check across four screen sizes (320x568, 390x844, 430x932, 768x1024), touch input, images, persistence and reset. `npm test` also runs the existing Merge and Sling suites.
 
 The implementation was exercised in isolated headless Chromium (using placeholder monster art) and with 334 engine checks. Real Android GPU performance, system gestures, audio and installed-PWA behavior still need device verification.
+
+## Monster element visual identities (Match-only)
+
+For the 8x8 board, the former cyan Bubblo kind (index 1) is now visibly represented by **Tidalon**, using its deep-blue/aqua sea-creature artwork, tail, waves and bubbles. Frostbop (index 5) is shown in bright icy-white/cyan with the original pronounced crystal spikes. To prevent unintended changes to other games, their source sprites are copied without modifying the originals to `match/assets/tidalon-match.webp` and `match/assets/frostbop-match.webp`; these are referenced **only** from the Monster Match board and Monster Match's menu preview. Match-only CSS increases contrast between ocean-blue and ice-white tiles, with discrete wave/snowflake symbols at tile corners.
+
+The six-kind match algorithm, kind indices, saved boards, high score and all other mechanics remain unchanged. `merge.html`, `sling.html` and their art paths are unchanged. The service worker pre-caches both Match-only art files; install activates the new cache without clearing local game progress.
