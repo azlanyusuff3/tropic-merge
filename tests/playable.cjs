@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
 const hook=`
-window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,kick,
+window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,
  state:()=>({score,best,gameOver,combo,soundOn,bombMode,running,currentLevel,nextLevel}),
  pause:()=>{running=false},resume:()=>{running=true},
  seed:(level,x,y)=>{spawn(level,x);let b=balls[balls.length-1];Object.assign(b,{y,vx:0,vy:0,born:performance.now()-2000,mergeLock:0,entered:true,sleeping:false});return b},
@@ -45,7 +45,7 @@ window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shak
    const a=g.monsterPose(b,1000),c=g.monsterPose(b,1400);
    for(const p of [a,c])for(const k of ['sx','sy','tilt'])if(!Number.isFinite(p[k]))out.finite=false;
    if(Math.abs(a.sy-c.sy)>1e-4||Math.abs(a.tilt-c.tilt)>1e-4)out.moves++}
-  const j=g.seed(0,200,400);j.sleeping=true;g.kick(j,.25);const hit=g.monsterPose(j,performance.now()+10).sy,calm=g.monsterPose(j,performance.now()+4000).sy;
+  const j=g.seed(0,200,400);j.sleeping=true;g.jellyKick(j,.25);const hit=g.monsterPose(j,performance.now()+10).sy,calm=g.monsterPose(j,performance.now()+4000).sy;
   const m=g.seed(3,100,400);m.sleeping=true;m.popT=1000;const small=g.monsterPose(m,1000).sx;
   const before=g.balls.map(b=>[b.x,b.y,b.r]);g.draw();g.draw();const same=g.balls.every((b,i)=>b.x===before[i][0]&&b.y===before[i][1]&&b.r===before[i][2]);
   return {...out,hit,calm,small,same}});

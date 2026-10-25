@@ -109,7 +109,7 @@ for(let sub=0;sub<steps;sub++){
     let wallE=.25-Math.min(.08,b.level*.008),floorE=.27-Math.min(.13,b.level*.013);
     if(b.x-br<box.l){b.x=box.l+br;b.vx=Math.abs(b.vx)*wallE;b.spinKick=Math.min(.5,(b.spinKick||0)+.12)}
     if(b.x+br>box.r){b.x=box.r-br;b.vx=-Math.abs(b.vx)*wallE;b.spinKick=Math.max(-.5,(b.spinKick||0)-.12)}
-    if(b.y+br>box.b){b.y=box.b-br;b.contact=true;let impact=Math.abs(b.vy);if(impact>=60)kick(b,Math.min(.3,impact/2400));if(impact<38)b.vy=0;else b.vy=-impact*floorE;b.vx*=impact>90?.965:.935;if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0}
+    if(b.y+br>box.b){b.y=box.b-br;b.contact=true;let impact=Math.abs(b.vy);if(impact>=60)jellyKick(b,Math.min(.3,impact/2400));if(impact<38)b.vy=0;else b.vy=-impact*floorE;b.vx*=impact>90?.965:.935;if(Math.abs(b.vx)<3&&Math.abs(b.vy)<8)b.vx=0}
   }
 
   // Adaptive solver: fewer passes when most fruit are asleep; enough passes while the board is moving.
@@ -130,7 +130,7 @@ for(let sub=0;sub<steps;sub++){
         let tx=-ny,ty=nx,ma=ar*ar,mb=br*br,sum=ma+mb;
         a.contact=b.contact=true;a.x-=nx*over*(mb/sum);a.y-=ny*over*(mb/sum);b.x+=nx*over*(ma/sum);b.y+=ny*over*(ma/sum);
         let rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
-        if(vn<0){const kj=Math.min(.28,-vn/2200);if(kj>.02){kick(a,kj);kick(b,kj)}let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;let vt=rvx*tx+rvy*ty;a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick))}
+        if(vn<0){const kj=Math.min(.28,-vn/2200);if(kj>.02){jellyKick(a,kj);jellyKick(b,kj)}let e=.24-Math.min(.1,Math.max(a.level,b.level)*.01),imp=-(1+e)*vn/(1/ma+1/mb);a.vx-=imp*nx/ma;a.vy-=imp*ny/ma;b.vx+=imp*nx/mb;b.vy+=imp*ny/mb;let vt=rvx*tx+rvy*ty;a.vx+=tx*vt*.016;b.vx-=tx*vt*.016;let kick=Math.max(-.55,Math.min(.55,vt/Math.max(30,sumR)*.22));a.spinKick=Math.max(-.7,Math.min(.7,(a.spinKick||0)+kick));b.spinKick=Math.max(-.7,Math.min(.7,(b.spinKick||0)-kick))}
       }
     }
     if(merged)continue;
@@ -191,7 +191,7 @@ const monsterMoves=[
  {br:.028,sp:1.2,sw:.030,jel:.6,fl:.016,fs:7,glow:.18}    // Infernodon: slow menacing, glowing
 ];
 // Impact "wobble": remembers the strongest recent hit; draw time turns it into a decaying jelly spring.
-function kick(b,j){const n=performance.now(),cur=(b.jig||0)*Math.exp(-(n-(b.jigT||0))/260);if(j>cur){b.jig=j;b.jigT=n}}
+function jellyKick(b,j){const n=performance.now(),cur=(b.jig||0)*Math.exp(-(n-(b.jigT||0))/260);if(j>cur){b.jig=j;b.jigT=n}}
 function monsterPose(b,now){
  const m=monsterMoves[b.level]||monsterMoves[0],t=now/1000;
  const ph=b.ph??(b.ph=(((b.id??b.level)||0)*2.399)%6.2832);
