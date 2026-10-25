@@ -29,7 +29,9 @@ Care uses 30fps home drawing, 15fps while sleeping, up to 60fps during active ge
 
 ## Artwork
 
-All 11 WebP sprites and the tropical background are reused unchanged from the repository. `care/room.svg` and the food/furniture/icon shapes in `care/art.js` are original vector artwork created for this project and may be distributed with it. There are no additional third-party artwork dependencies.
+All 11 WebP sprites and the tropical background are reused unchanged from the repository. `care/room.svg` and the food/furniture/icon drawings in `care/art.js` are original vector artwork created for this project and may be distributed with it. There are no additional third-party artwork dependencies.
+
+v15.1 repaints every prop to match the glossy hand-painted monsters instead of flat clip-art: volume gradients, coloured outlines, specular highlights, soft contact shadows and surface detail (mango blush and leaf veins, glossy berries in a glazed bowl, a fibrous coconut with a striped straw, an iced star biscuit, a translucent soap bar with foam and rainbow bubbles, woven basket bed, terracotta and glazed pots, a glowing paper lantern and more). Each inline icon gets unique gradient ids. The room has window light, a sea view, folded curtains, wooden floor planks and a vignette, with the same geometry as before so saved furniture slots still line up. Bathing leaves foam that clings to the monster and releases floating rainbow bubbles; monsters get a soft contact shadow; mini-games use a painted beach backdrop (rendered once per round), real rocks, driftwood stumps and sparkle bursts.
 
 ## Validation
 

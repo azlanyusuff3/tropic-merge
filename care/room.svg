@@ -1,29 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 420">
+<!-- Painted island room. Geometry (floor line y=283, window, two shelves) matches the prop slots in app.js. -->
 <defs>
- <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#ffeac3"/><stop offset="1" stop-color="#f7d6a5"/></linearGradient>
- <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#e4b574"/><stop offset="1" stop-color="#f5d09a"/></linearGradient>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#83dae3"/><stop offset=".7" stop-color="#d9f2de"/><stop offset=".71" stop-color="#6fcdbf"/><stop offset="1" stop-color="#72baab"/></linearGradient>
- <linearGradient id="sun" x2="0" y2="1"><stop stop-color="#fffae1" stop-opacity=".6"/><stop offset="1" stop-color="#fffae1" stop-opacity="0"/></linearGradient>
- <pattern id="grain" width="90" height="50" patternUnits="userSpaceOnUse"><path d="M0 49H90M18 0v49" stroke="#b98850" stroke-opacity=".24" fill="none"/><path d="M30 16q18-8 38-2M35 29q11-5 23-2" stroke="#d3a367" stroke-opacity=".25" fill="none"/></pattern>
+ <radialGradient id="wall" cx=".5" cy=".28" r=".75"><stop stop-color="#fff4d9"/><stop offset=".55" stop-color="#ffe2b3"/><stop offset="1" stop-color="#eebf86"/></radialGradient>
+ <pattern id="paper" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 6c3 5 3 9 0 13-3-4-3-8 0-13Z" fill="#e9b77c" opacity=".28"/><circle cx="0" cy="28" r="1.6" fill="#fff8ea" opacity=".6"/><circle cx="44" cy="28" r="1.6" fill="#fff8ea" opacity=".6"/></pattern>
+ <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#c98a4c"/><stop offset=".35" stop-color="#dfa465"/><stop offset="1" stop-color="#f0c48a"/></linearGradient>
+ <linearGradient id="plankHi" x2="0" y2="1"><stop stop-color="#fff2d6" stop-opacity=".35"/><stop offset="1" stop-color="#fff2d6" stop-opacity="0"/></linearGradient>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#3fb6e8"/><stop offset=".55" stop-color="#9fe0f4"/><stop offset=".78" stop-color="#e9f8ee"/></linearGradient>
+ <linearGradient id="sea" x2="0" y2="1"><stop stop-color="#2fc2c8"/><stop offset="1" stop-color="#1a8fa8"/></linearGradient>
+ <linearGradient id="frame" x1="0" x2="1"><stop stop-color="#8a5426"/><stop offset=".5" stop-color="#d49a5c"/><stop offset="1" stop-color="#8a5426"/></linearGradient>
+ <linearGradient id="frameV" x2="0" y2="1"><stop stop-color="#e0a866"/><stop offset="1" stop-color="#9a6130"/></linearGradient>
+ <linearGradient id="pillar" x1="0" x2="1"><stop stop-color="#7a4a22"/><stop offset=".45" stop-color="#d9a466"/><stop offset="1" stop-color="#7a4a22"/></linearGradient>
+ <linearGradient id="curtain" x1="0" x2="1"><stop stop-color="#3fae9a"/><stop offset=".25" stop-color="#8fe0cc"/><stop offset=".5" stop-color="#45b8a2"/><stop offset=".75" stop-color="#9ae6d3"/><stop offset="1" stop-color="#3a9f8c"/></linearGradient>
+ <linearGradient id="beam" x2="0" y2="1"><stop stop-color="#fffbe6" stop-opacity=".55"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></linearGradient>
+ <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop stop-color="#fffdf0"/><stop offset=".45" stop-color="#fff3b0"/><stop offset="1" stop-color="#fff3b0" stop-opacity="0"/></radialGradient>
+ <radialGradient id="pool" cx=".5" cy=".5" r=".5"><stop stop-color="#fff6d6" stop-opacity=".55"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></radialGradient>
+ <radialGradient id="vig" cx=".5" cy=".45" r=".72"><stop offset=".62" stop-color="#5a2e0c" stop-opacity="0"/><stop offset="1" stop-color="#5a2e0c" stop-opacity=".28"/></radialGradient>
+ <linearGradient id="isl" x2="0" y2="1"><stop stop-color="#6fcf6a"/><stop offset="1" stop-color="#2f8f52"/></linearGradient>
+ <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9be77f"/><stop offset="1" stop-color="#2c8a4a"/></linearGradient>
+ <linearGradient id="shelf" x2="0" y2="1"><stop stop-color="#e2ab6c"/><stop offset="1" stop-color="#8f5a2a"/></linearGradient>
+ <clipPath id="glass"><rect x="111" y="37" width="218" height="165" rx="80"/></clipPath>
 </defs>
-<path fill="url(#wall)" d="M0 0h440v290H0Z"/>
-<path fill="url(#floor)" d="M0 283h440v137H0Z"/><path fill="url(#grain)" d="M0 283h440v137H0Z"/>
-<path d="M0 282h440" stroke="#b78550" stroke-width="10"/><path d="M0 277h440" stroke="#f9dfaa" stroke-width="4"/>
-<path d="M16 0v282M424 0v282" stroke="#c49358" stroke-width="17"/><path d="M12 0v275M420 0v275" stroke="#e3bc81" stroke-width="5"/>
-<rect x="101" y="29" width="238" height="183" rx="90" fill="#b88a50"/><rect x="111" y="37" width="218" height="165" rx="80" fill="url(#sky)"/>
-<circle cx="268" cy="77" r="24" fill="#fff7bf"/>
-<path d="M112 175q52-53 99-13t117-11v35H113" fill="#91ca8c"/>
-<path d="M118 181q56-28 116-10t94-3v26H115" fill="#63b497"/>
-<path d="M147 172q-14-42-1-74" stroke="#bc9a62" stroke-width="8" fill="none"/>
-<path d="M146 110Q117 76 106 105q19-4 40 5M146 110q25-46 45-20-24 2-45 20M146 110q-7-32-31-32 10 20 31 32M146 110q27-12 43 15-23-7-43-15" fill="#4ca77e"/>
-<path d="M220 38v165M112 125h216" stroke="#c19459" stroke-width="7"/>
-<path d="M104 201h233" stroke="#f8dba6" stroke-width="13" stroke-linecap="round"/>
-<path d="M98 45q-30 64-15 142l33-8q-7-65 0-120M340 45q29 66 17 142l-34-8q7-68 0-120" fill="#7ac7b4" stroke="#55a790" stroke-width="3"/>
-<path d="m111 208 117 0 93 170H56Z" fill="url(#sun)"/>
-<path d="M31 0q7 29 34 26Q63 4 31 0M42 0q31 11 49-4M395 0q-7 33-37 25Q362 6 395 0" fill="#75b787"/>
-<path d="M35 241h58" stroke="#a47643" stroke-width="7" stroke-linecap="round"/><path d="M46 245v9M83 245v9" stroke="#a47643" stroke-width="4"/>
-<rect x="352" y="230" width="55" height="9" rx="4" fill="#bc8b53"/>
-<path d="M362 240v11M398 240v11" stroke="#a5784b" stroke-width="4"/>
-<ellipse cx="220" cy="349" rx="100" ry="32" fill="#d6b27d" opacity=".23"/>
-<g fill="#fff5d5" opacity=".65"><circle cx="65" cy="91" r="2"/><circle cx="367" cy="111" r="2"/><circle cx="82" cy="220" r="1.7"/><circle cx="293" cy="243" r="2"/></g>
+<rect width="440" height="290" fill="url(#wall)"/><rect width="440" height="290" fill="url(#paper)"/>
+<!-- floor planks -->
+<rect y="283" width="440" height="137" fill="url(#floor)"/>
+<g stroke="#9a6131" stroke-opacity=".45" stroke-width="1.4"><path d="M0 306H440M0 334H440M0 366H440M0 402H440"/></g>
+<g stroke="#8a5426" stroke-opacity=".35" stroke-width="1.2"><path d="M70 283v23M250 283v23M160 306v28M360 306v28M40 334v32M220 334v32M410 334v32M120 366v36M300 366v36"/></g>
+<g fill="url(#plankHi)"><rect y="284" width="440" height="10"/><rect y="307" width="440" height="10"/><rect y="335" width="440" height="11"/><rect y="367" width="440" height="12"/></g>
+<g fill="none" stroke="#b97a40" stroke-opacity=".35" stroke-width="1"><path d="M96 296q14-5 30 0M296 320q16-6 32 0M150 352q18-6 36 0M330 388q20-6 40 0M24 386q16-5 30 0"/></g>
+<!-- skirting -->
+<rect y="276" width="440" height="11" fill="#a96a33"/><rect y="275" width="440" height="3" fill="#f6d39b"/><rect y="286" width="440" height="2" fill="#6e4019" opacity=".6"/>
+<!-- side pillars -->
+<rect x="7" y="0" width="19" height="283" fill="url(#pillar)"/><rect x="414" y="0" width="19" height="283" fill="url(#pillar)"/>
+<g stroke="#5e3414" stroke-opacity=".35"><path d="M16 20v240M423 20v240"/></g>
+<!-- window -->
+<rect x="96" y="24" width="248" height="193" rx="96" fill="#6b3f1c"/>
+<rect x="101" y="29" width="238" height="183" rx="90" fill="url(#frame)"/>
+<g clip-path="url(#glass)">
+ <rect x="111" y="37" width="218" height="165" fill="url(#sky)"/>
+ <circle cx="268" cy="80" r="44" fill="url(#sun)"/><circle cx="268" cy="80" r="17" fill="#fffbe2"/>
+ <g fill="#fff" opacity=".9"><path d="M140 86q6-12 18-8 6-10 18-4 12-2 12 10 8 4 2 10h-48q-8-4-2-8Z"/><path d="M290 112q4-8 12-6 4-7 12-3 8-1 8 7 5 3 1 7h-32q-5-3-1-5Z" opacity=".8"/></g>
+ <path d="M111 150H329V202H111Z" fill="url(#sea)"/>
+ <g stroke="#bff3f0" stroke-width="2" stroke-linecap="round" opacity=".7"><path d="M130 162h22M190 170h30M250 160h18M286 176h26M150 186h20M220 190h24"/></g>
+ <path d="M150 152q30-34 64-6q22-22 44 0Z" fill="url(#isl)"/><path d="M262 152q18-20 40-2Z" fill="#4caf6a"/>
+ <path d="M111 202V176q30-14 58 4t72-6 88 2V202Z" fill="#f4dca2"/><path d="M111 186q40-10 80 2t80-4 58 4" fill="none" stroke="#fff6d8" stroke-width="2" opacity=".8"/>
+ <path d="M146 182q-12-44 2-82" fill="none" stroke="#9a6a3a" stroke-width="7" stroke-linecap="round"/>
+ <g fill="url(#leaf)" stroke="#1e6b3a" stroke-width="1.2"><path d="M147 104Q118 76 104 100q22-6 43 4Z"/><path d="M147 104q24-44 48-18-26 0-48 18Z"/><path d="M147 104q-6-34-32-36 8 22 32 36Z"/><path d="M147 104q30-8 44 20-24-10-44-20Z"/></g>
+ <path d="M126 40L176 40L132 196L112 196Z" fill="#fff" opacity=".12"/><path d="M188 40L204 40L156 196L142 196Z" fill="#fff" opacity=".1"/>
+</g>
+<path d="M220 37v165M111 125h218" stroke="url(#frameV)" stroke-width="7"/><path d="M220 37v165M111 125h218" stroke="#5e3414" stroke-width="1" stroke-opacity=".5"/>
+<rect x="96" y="198" width="248" height="14" rx="6" fill="#f2c88c"/><rect x="96" y="208" width="248" height="5" rx="2" fill="#a96a33"/><path d="M104 201h232" stroke="#fff4d6" stroke-width="2" stroke-linecap="round"/>
+<!-- curtains -->
+<rect x="80" y="18" width="280" height="8" rx="4" fill="#8a5426"/><circle cx="80" cy="22" r="7" fill="#d49a5c" stroke="#6b3f1c" stroke-width="2"/><circle cx="360" cy="22" r="7" fill="#d49a5c" stroke="#6b3f1c" stroke-width="2"/>
+<path d="M86 26q-34 66-10 160l40-8q-14-74-4-152Z" fill="url(#curtain)" stroke="#2c7d6e" stroke-width="2"/>
+<path d="M354 26q34 66 10 160l-40-8q14-74 4-152Z" fill="url(#curtain)" stroke="#2c7d6e" stroke-width="2"/>
+<g fill="none" stroke="#2c7d6e" stroke-opacity=".4" stroke-width="1.4"><path d="M94 34q-10 70 0 146M104 30q-6 74 4 150M346 34q10 70 0 146M336 30q6 74-4 150"/></g>
+<path d="M78 118q20 8 36-2M362 118q-20 8-36-2" stroke="#f5c76b" stroke-width="5" stroke-linecap="round" fill="none"/>
+<!-- sunbeam and pool of light on the floor -->
+<path d="M126 210L314 210L392 400H36Z" fill="url(#beam)"/>
+<ellipse cx="220" cy="350" rx="128" ry="38" fill="url(#pool)"/>
+<!-- shelves -->
+<path d="M30 236h66l-4 9H34Z" fill="url(#shelf)" stroke="#5e3414" stroke-width="1.4"/><path d="M32 237h62" stroke="#fff0d0" stroke-width="1.4" opacity=".7"/><path d="M44 245l-2 12M84 245l2 12" stroke="#7a4a22" stroke-width="4" stroke-linecap="round"/>
+<path d="M348 226h62l-4 9h-54Z" fill="url(#shelf)" stroke="#5e3414" stroke-width="1.4"/><path d="M350 227h58" stroke="#fff0d0" stroke-width="1.4" opacity=".7"/><path d="M360 235l-2 12M398 235l2 12" stroke="#7a4a22" stroke-width="4" stroke-linecap="round"/>
+<!-- hanging vines -->
+<g fill="url(#leaf)" stroke="#1e6b3a" stroke-width="1"><path d="M30 0q8 30 36 26Q62 2 30 0Z"/><path d="M44 0q30 14 50-4Z"/><path d="M396 0q-8 34-38 26Q362 6 396 0Z"/><path d="M60 22q4 10 0 20-6-8 0-20Z"/><path d="M372 24q-4 12 2 22 6-10-2-22Z"/></g>
+<!-- dust in the light -->
+<g fill="#fffbe6"><circle cx="170" cy="240" r="1.8" opacity=".7"/><circle cx="246" cy="262" r="1.4" opacity=".6"/><circle cx="292" cy="236" r="1.6" opacity=".55"/><circle cx="206" cy="292" r="1.2" opacity=".5"/><circle cx="64" cy="96" r="2" opacity=".5"/><circle cx="380" cy="120" r="2" opacity=".5"/></g>
+<rect width="440" height="420" fill="url(#vig)"/>
 </svg>
