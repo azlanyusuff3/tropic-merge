@@ -1,28 +1,20 @@
-# Monster Island v15 — verification, 25 October 2026
+# Monster Island v16.0 verification — 25 October 2026
 
-Baseline: main commit `b3afe4155a2ded41473806f4e789fdebb92d8b34` (Monster Merge v14).
+Baseline: `d9b8043` from main. Monster Merge's entire `merge.html` document is unchanged byte-for-byte, including navigation, styles, physics, sounds, sprites, collection, achievements and save formats. Background, sprite and icon binaries are unchanged. The existing Merge regression suite also checks original engine/CSS SHA-256 fingerprints.
 
-## Preservation
+## Automated checks
 
-`merge.html` contains the baseline's exact original engine scripts and CSS. The regression runner asserts their SHA-256 fingerprints before testing. Only a return-to-menu anchor was added to the original document. Original sprite/background/icon binaries are unchanged. The new `index.html` is the menu; Care runs in its own document and modules.
+- Thirty generated campaign levels settle with finite rigid-body positions and no free enemy kills. Normal slingshot trajectories and Bubblo skills can clear all thirty levels within their ammunition budgets, without assigning victory or deleting enemies directly.
+- All eleven hero skills, single-use limits, projectile flight termination, short-drag cancellation, finite physics, missed-shot defeat, damage-driven victory and one-time bonuses.
+- Progression gates, read-only Merge unlock integration, best stars/scores, cross-tab result merging and validated backup recovery.
+- Playwright: menu, campaign, real drag/release trajectory, ammo, skills, damage-driven win, next-level unlock, retry, zoom/pan controls, instructions, defeat, save/reload and document navigation.
+- Responsive battle/map checks at 320×568, 390×844, 430×932, 768×1024 and 844×390. No horizontal overflow or overlapping action buttons. Portrait screens can scroll to the hero rack. Landscape offers a wider battlefield.
+- Original Monster Merge regression suite: all merge transitions, Infernodon explosion, Bomb charges, Shake, collisions, combo/scoring, game-over/restart, monster faces/jelly animations, collection/goals, touch/drag input, NEXT scaling and offline operation.
+- Offline smoke tests use unmodified production modules with a real installed service worker, browser networking disabled and the `/tropic-merge/` path. Menu, Sling battlefield and Merge start correctly. Unrelated application caches survive.
+- No page/console errors or failed runtime assets in browser checks. Test-only state inspection is injected into served source by the runner and is not present in shipped modules. Browser reward tests position a projectile near a target before activating the real skill; model campaign checks use normal simulated trajectories.
 
-Engine SHA-256: `1386508f6affd0af53c2b1bc9b6097037e9d14086b60fd0f364b6036bfe62fc0`.
-
-## Automated coverage
-
-Headless Chromium with Playwright, real touch/pointer events, the actual Canvas game engine and production service worker. Model tests use simulated timestamps. Mini-game tests inject state inspection and accelerated simulation ticks into the HTTP response only; production modules ship without test/debug hooks. Scoring is earned through the actual pointer handlers and physics, rather than directly assigning scores.
-
-- Model: starter; read-only species unlocking; independent adoption; food preferences; action cooldowns; XP/bond/energy; bathing; offline sleeping; long absences/backwards clocks; all growth thresholds; purchases/placement; daily and score milestone claim deduplication; all mini-game rewards; achievements; anniversaries; validated save and backup recovery; invalid-value rejection; unchanged legacy keys.
-- Original Merge regression: sprites, touch drop, dragging, all ten merges, collision separation, Infernodon explosion/disappearance, scoring/combo, bomb charges, Shake, ten seconds of pile physics, danger/game-over/restart, Collection, achievements, sound toggle, every living-face rig, jelly/body animation, NEXT sizing, multi-touch input regression, offline reload and unrelated-cache preservation.
-- Care browser: menu launch, unlocks/adoption/switching, favorite feeding, play, pointer-stroke affection, interactive soap/rinse bath, sleep/wake plus simulated closed-app recovery, all four mini-games with nonzero earned scores/end/reward/records, cancelled-game cleanup, daily/achievement persistence, all eleven sprites/rigs, Adult Infernodon, shop and furniture slots, garden groups and selecting a friend, legacy storage immutability, independent mode navigation and actual Merge save/resume after visiting Care.
-- Responsive browser checks: all six Care screens and menu at 320×568, 390×844, 430×932 and 768×1024. Merge also tested at 1440×900. No horizontal overflow, offscreen navigation or overlapping navigation buttons. Smaller phones intentionally scroll vertically to retain readable controls.
-- Lifecycle/upgrade: install the actual v14 service worker under `/tropic-merge/`, update to v15, retain all Merge keys, resume the old board, retain an unrelated cache even when it shares a legacy name prefix, remove only this scope’s old cache, verify zero pending RAF callbacks outside active scenes, simulate app backgrounding during a mini-game, and exercise normal Back navigation.
-- Offline checks use unmodified production modules, a real installed service worker and disabled browser networking. Menu, Care, mini-game launch and original Merge all work. No JavaScript exceptions, console errors or broken runtime artwork.
-
-## Reproduce
-
-`npm install` then `npx playwright install chromium` and `npm test`. `CHROMIUM_PATH` can select another installed Chromium executable. Output screenshots and JSON summaries go to ignored `test-output/`.
+Run `npm install`, `npx playwright install chromium`, then `npm test`. Set `CHROMIUM_PATH` for an existing compatible browser. Screenshots and JSON results go to ignored `test-output/`.
 
 ## Limits
 
-No physical Android/iPhone/iPad tests were performed. Add to Home Screen installation UI, hardware-specific audio behavior and actual budget-phone frame rates remain unverified. Growth/elapsed-time scenarios use controlled timestamps rather than waiting multiple days. Mini-game timing is accelerated in automated gameplay checks, and the real offline smoke test uses the unchanged runtime. No cross-device/cloud saves; browser storage must be retained. There is no claim of measured 60fps on physical hardware. Android Back uses normal document/hash history and native dialog dismissal; OS-specific gesture behavior still needs a physical-device check.
+Tests use headless Chromium and emulated touch/viewports. Physical Android/iOS installation gestures, device-specific audio and budget-phone frame rates have not been measured. The solver uses simple 2D rigid bodies, not a third-party commercial physics engine. Level progress is local to each browser. Active shots are paused when backgrounded; reloading an unfinished level restarts it. No cloud synchronization is included.

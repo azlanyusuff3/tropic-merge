@@ -1,7 +1,7 @@
 {
   "name": "Monster Merge",
   "short_name": "Monster Merge",
-  "description": "Two offline island adventures: Monster Merge and Monster Care. Adopt, play, grow and discover.",
+  "description": "Two offline island adventures: Monster Merge and Monster Sling. Drop, discover, launch and rescue.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

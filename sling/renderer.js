@@ -1,4 +1,4 @@
-// Care-only visual rig reused from Monster Merge b3afe41. No physics or game loop.
+// Sling-only visual rig reused from Monster Merge b3afe41. No physics or game loop.
 const ballKinds=[
 {name:'Slimelet',r:15,artScale:2.3957,c1:'#83ed3a',value:2,asset:'./assets/monsters/01-slimelet.webp'},
 {name:'Bubblo',r:20,artScale:2.34604,c1:'#50d5ff',value:4,asset:'./assets/monsters/02-bubblo.webp'},

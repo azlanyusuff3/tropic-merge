@@ -1,11 +1,11 @@
 {
   "name": "monster-merge",
-  "version": "15.1.0",
+  "version": "16.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/model.cjs && node tests/playable.cjs && node tests/care.cjs && node tests/lifecycle.cjs",
+    "test": "node tests/sling-model.cjs && node tests/playable.cjs && node tests/sling.cjs",
     "test:merge": "node tests/playable.cjs",
-    "test:care": "node tests/model.cjs && node tests/care.cjs"
+    "test:sling": "node tests/sling-model.cjs && node tests/sling.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

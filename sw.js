@@ -1,7 +1,7 @@
-const CACHE='monster-merge-v15-1-care-20261025-3';
+const CACHE='monster-merge-v16-0-sling-20261025-1';
 const CORE=[
- './','./index.html','./merge.html','./care.html','./manifest.webmanifest',
- './care/style.css','./care/model.js','./care/art.js','./care/renderer.js','./care/minigames.js','./care/app.js','./care/pwa.js','./care/room.svg',
+ './','./index.html','./merge.html','./sling.html','./manifest.webmanifest',
+ './sling/style.css','./sling/menu.css','./sling/data.js','./sling/physics.js','./sling/battle.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
  ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
 ];
@@ -17,5 +17,7 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
 self.addEventListener('fetch',event=>{
  const req=event.request,url=new URL(req.url);
  if(req.method!=='GET'||url.origin!==self.location.origin||!url.href.startsWith(self.registration.scope))return;
+ // Installed older menus may still have this retired link open during an update.
+ if(req.mode==='navigate'&&url.pathname===new URL('./care.html',self.registration.scope).pathname){event.respondWith(Response.redirect(new URL('./sling.html',self.registration.scope).href,302));return;}
  event.respondWith(caches.open(CACHE).then(async c=>{const hit=await c.match(req,{ignoreSearch:true});if(hit)return hit;try{return await fetch(req)}catch(err){if(req.mode==='navigate')return c.match('./index.html');throw err}}));
 });

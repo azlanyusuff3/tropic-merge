@@ -1,43 +1,22 @@
-MONSTER MERGE — Offline PWA
+MONSTER ISLAND v16.0 — MONSTER MERGE + MONSTER SLING
 
 Play: https://azlanyusuff3.github.io/tropic-merge/
 
-Drag left or right, then release to drop. Two identical monsters merge into
-one monster of the next level. Reach the legendary Infernodon (level 11).
-Bomb: choose the button, then touch and release on one monster to remove it.
-Shake: gives the pile a physical nudge; has a 1.2 second cooldown.
-Restart: confirms before clearing the current board. Best score is preserved.
-Sound: toggles synthesized audio; no remote audio downloads.
+The island menu offers two independent games.
+Monster Merge: the original working drop/merge game, preserved in merge.html.
+Monster Sling: launch the original monsters, topple forts, rescue crystals and
+collect stars across 30 levels. Open How to Play for controls and hero skills.
 
-Install from Safari's Share > Add to Home Screen on iPhone/iPad, or your
-browser's Install/Add to Home Screen option on Android and desktop.
-Open online once and let the artwork load before going offline. If updating
-an already installed Ball Merge, close and reopen after the update downloads.
-The original tropicBest localStorage key is retained.
+Install on Android using Chrome > Add to Home Screen / Install app.
+After the initial offline bundle downloads, both games work without a connection.
+For updates, close and reopen the installed app while online. Do not clear site
+data to refresh: that removes locally saved progress.
 
-DEVELOPMENT
-Serve this directory over HTTP, e.g. python3 -m http.server 8000.
-No build, CDN, framework or runtime dependency is required.
-index.html: interface, original custom circle physics, input, cached sprite
-rendering, procedural sound, game states and visual effects.
-assets/monsters/: 11 individually generated transparent WebP game sprites.
-assets/tropical.webp: generated tropical background (not a screenshot UI).
-icons/: Monster Merge PWA icons.
-sw.js: versioned offline cache, scoped to this game.
+Sling supports portrait and landscape. Drag back and release to launch. Tap during
+flight to activate your hero's skill. Use zoom and pan for smaller screens.
+Scores and stars save automatically. You can retry any unlocked level freely.
+Reloading restarts an unfinished level. Completed levels and Merge progress stay.
 
-ART DIRECTION
-A: tropical scene, wooden interface and glass container.
-B: Slimelet, Bubblo, Puffling, Sproutiball, Rockro, Frostbop, Shadebub,
-   Groveling, Tidalon, Lumiorb and Infernodon, in that order.
-C: bomb selection/explosion, physical shake, merge sparkles and danger line.
-Artwork is a practical recreation, not pixel-identical to the references.
-Sprites are generated individually with alpha, normalized and optimized;
-references are never used as gameplay screenshots or directly cropped sprites.
-
-MONSTER ISLAND v15
-The existing install now opens a menu with Monster Merge and Monster Care.
-Monster Merge is preserved in merge.html. Monster Care is an independent game.
-Your old Merge progress stays in the same browser storage. Do not clear site data
-or uninstall/delete browser storage to refresh the game. Close and reopen while
-online to let the service worker finish downloading the new offline bundle.
-See MONSTER_CARE.md and QA.md for gameplay, architecture and test details.
+Development: npm install, npx playwright install chromium, npm test.
+Or set CHROMIUM_PATH to a compatible installed Chromium executable.
+See MONSTER_SLING.md for gameplay/architecture and QA.md for verification.
