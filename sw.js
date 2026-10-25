@@ -1,4 +1,4 @@
-const CACHE='monster-island-v18-5-evolution-20261025';
+const CACHE='monster-island-v18-6-elemental-powers-20261025';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
  './match/style.css','./match/app.js','./match/engine.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',

@@ -1,4 +1,4 @@
-import { SIZE, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint } from './engine.mjs';
+import { SIZE, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 
 const SPRITES = [
   ['Slimelet', './assets/monsters/01-slimelet.webp'],
@@ -7,6 +7,7 @@ const SPRITES = [
   ['Sproutiball', './assets/monsters/04-sproutiball.webp'],
   ['Rockro', './assets/monsters/05-rockro.webp'],
   ['Frostbop', './match/assets/frostbop-match.webp']
+
 ];
 // Match-only evolved characters; the artwork of Monster Merge and Sling is unchanged.
 const EVOLVED_SPRITES = Object.freeze({
@@ -29,6 +30,7 @@ let selected = null;
 let touchStart = null;
 let statusTimeout = 0;
 let hintTimeout = 0;
+let previewTimeout = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const safeNumber = value => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
 const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
@@ -100,7 +102,7 @@ function render(board) {
     }
     button.style.setProperty('--c', c);
     button.style.setProperty('--r', r);
-    button.dataset.r = r; button.dataset.c = c;
+    button.dataset.r = r; button.dataset.c = c; button.dataset.evolution = cell.evolution || '';
     const appearance = `${cell.kind}|${cell.special || ''}|${cell.evolution || ''}`;
     if (button.dataset.appearance !== appearance) {
       button.dataset.appearance = appearance;
@@ -108,7 +110,7 @@ function render(board) {
       button.classList.toggle('is-power', !!cell.special);
       button.classList.toggle('is-rainbow', cell.special === 'rainbow');
       button.classList.toggle('is-evolved', cell.special === 'evolved');
-      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', evolved blast power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
+      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', ' + ABILITY_NAMES[cell.evolution] + ' power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
     }
     button.classList.toggle('chosen', !!selected && selected[0] === r && selected[1] === c);
   }));
@@ -116,6 +118,22 @@ function render(board) {
 }
 function clearHints() { clearTimeout(hintTimeout); boardEl.querySelectorAll('.hinted').forEach(node => node.classList.remove('hinted')); }
 function clearSelection() { selected = null; boardEl.querySelectorAll('.chosen').forEach(node => node.classList.remove('chosen')); }
+function clearPowerPreview() {
+  clearTimeout(previewTimeout);
+  boardEl.querySelectorAll('.power-preview').forEach(node => { node.classList.remove('power-preview'); delete node.dataset.preview; });
+}
+function showPowerPreview(from, to = null) {
+  clearPowerPreview();
+  if (busy) return null;
+  const effect = previewPower(game.board, from, to);
+  if (!effect) return null;
+  for (const [r, c] of effect.cells) {
+    const node = boardEl.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+    if (node) { node.classList.add('power-preview'); node.dataset.preview = effect.evolution || 'mega'; }
+  }
+  previewTimeout = setTimeout(clearPowerPreview, 1800);
+  return effect;
+}
 function highlight(cells, className) {
   for (const [r, c] of cells) {
     const node = boardEl.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
@@ -136,18 +154,38 @@ function setBusy(value) {
   for (const id of ['hint-btn', 'shuffle-btn', 'new-btn']) el(id).disabled = busy;
 }
 function showBlast(effect) {
-  const span = effect.radius * 2 + 1;
-  const ring = document.createElement('div');
-  ring.className = `blast-fx${effect.type === 'mega' ? ' is-mega' : ''}`;
-  ring.style.left = `${(effect.c + .5) * 100 / SIZE}%`;
-  ring.style.top = `${(effect.r + .5) * 100 / SIZE}%`;
-  ring.style.width = `${span * 100 / SIZE}%`;
-  ring.style.height = `${span * 100 / SIZE}%`;
-  ring.setAttribute('aria-hidden', 'true');
-  boardEl.append(ring);
-  ring.addEventListener('animationend', () => ring.remove(), { once: true });
-  setTimeout(() => ring.remove(), 1000);
+  for (const [r, c] of effect.cells || []) {
+    const tile = boardEl.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+    if (tile) {
+      tile.classList.add('power-hit');
+      tile.dataset.hit = effect.evolution || 'mega';
+    }
+  }
+  const fx = document.createElement('div');
+  fx.className = `blast-fx ${effect.type === 'mega' ? 'is-mega' : 'is-' + effect.evolution}`;
+  fx.setAttribute('aria-hidden', 'true');
+  const centerX = (effect.c + .5) * 100 / SIZE;
+  const centerY = (effect.r + .5) * 100 / SIZE;
+  fx.style.left = `${centerX}%`;
+  fx.style.top = `${centerY}%`;
+  fx.style.setProperty('--power-row', `${(effect.r + .5) * 100 / SIZE}%`);
+  fx.style.setProperty('--power-col', `${(effect.c + .5) * 100 / SIZE}%`);
+  const radius = effect.type === 'mega' ? 2 : 1;
+  fx.style.width = `${(radius * 2 + 1) * 100 / SIZE}%`;
+  fx.style.height = `${(radius * 2 + 1) * 100 / SIZE}%`;
+  if (effect.evolution === 'bubblo') {
+    const row = effect.r < SIZE - 1 ? effect.r : effect.r - 1;
+    fx.style.left = '50%';
+    fx.style.top = `${(row + 1) * 100 / SIZE}%`;
+    fx.style.width = '100%'; fx.style.height = `${2 * 100 / SIZE}%`;
+  } else if (['groveling', 'lumiorb', 'infernodon'].includes(effect.evolution)) {
+    fx.style.left = '50%';fx.style.top = '50%';fx.style.width = '100%';fx.style.height = '100%';
+  }
+  boardEl.append(fx);
+  fx.addEventListener('animationend', () => fx.remove(), { once: true });
+  setTimeout(() => fx.remove(), 850);
 }
+
 function showEvolution(created) {
   for (const item of created) {
     if (item.special !== 'evolved') continue;
@@ -160,7 +198,7 @@ function showEvolution(created) {
 }
 async function playMove(from, to) {
   if (busy || !adjacent(from, to)) return;
-  setBusy(true); clearHints(); clearSelection();
+  setBusy(true); clearHints(); clearSelection(); clearPowerPreview();
   const result = makeMove(game.board, from, to);
   if (!result.valid) {
     if (result.swapped) { render(result.swapped); await delay(175); render(game.board); }
@@ -177,10 +215,11 @@ async function playMove(from, to) {
   for (const stage of result.stages) {
     highlight(stage.clear, 'clearing');
     const mega = stage.effects.some(effect => effect.type === 'mega');
-    const blast = stage.effects.some(effect => effect.type === 'evolved');
+    const powers = stage.effects.filter(effect => effect.type === 'evolved');
+    const blast = powers.length > 0;
     const evolution = stage.created.some(item => item.special === 'evolved');
     if (mega || blast || evolution || stage.chain > 1) {
-      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? 'POWER BLAST!' : evolution ? 'EVOLUTION!' : `COMBO x${stage.chain}!`;
+      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? `${powers[0].ability.toUpperCase()}!` : evolution ? 'EVOLUTION!' : `COMBO x${stage.chain}!`;
       el('chain-badge').classList.add('combo-live');
     }
     for (const effect of stage.effects) showBlast(effect);
@@ -199,7 +238,10 @@ async function playMove(from, to) {
   if (result.reshuffled) { render(game.board); showMessage('Fresh board! No more available moves.'); }
   else if (megaBlast) showMessage('MEGA BLAST! Two evolved monsters combined!');
   else if (newEvolution) showMessage(`${EVOLVED_SPRITES[newEvolution.evolution][0]} evolved! Swap it to blast 3×3.`, 3100);
-  else if (powerBlast) showMessage('Power explosion! Keep matching.');
+  else if (powerBlast) {
+    const power = result.stages.flatMap(stage => stage.effects).find(effect => effect.type === 'evolved');
+    showMessage(`${power.ability}! Keep the combo going.`);
+  }
   else if (result.chains > 1) showMessage(`Amazing! ${result.chains} chain combos!`);
   else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');
@@ -211,8 +253,21 @@ boardEl.addEventListener('pointerdown', event => {
   if (busy || event.button > 0) return;
   const tile = event.target.closest('.tile');
   if (!tile) return;
-  touchStart = { id: event.pointerId, r: Number(tile.dataset.r), c: Number(tile.dataset.c), x: event.clientX, y: event.clientY };
+  touchStart = { id: event.pointerId, r: Number(tile.dataset.r), c: Number(tile.dataset.c), x: event.clientX, y: event.clientY, previewTo: '' };
+  const cell = game.board[touchStart.r][touchStart.c];
+  if (cell.special === 'evolved') showPowerPreview([touchStart.r, touchStart.c]);
   try { boardEl.setPointerCapture(event.pointerId); } catch {}
+});
+boardEl.addEventListener('pointermove', event => {
+  if (!touchStart || touchStart.id !== event.pointerId || busy) return;
+  const start = touchStart;
+  const dx = event.clientX - start.x, dy = event.clientY - start.y;
+  const threshold = Math.max(12, boardEl.clientWidth / SIZE * .25);
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
+  const to = Math.abs(dx) > Math.abs(dy) ? [start.r, start.c + Math.sign(dx)] : [start.r + Math.sign(dy), start.c];
+  if (!adjacent([start.r, start.c], to) || start.previewTo === to.join(',')) return;
+  start.previewTo = to.join(',');
+  showPowerPreview([start.r, start.c], to);
 });
 boardEl.addEventListener('pointerup', event => {
   if (!touchStart || event.pointerId !== touchStart.id || busy) return;
@@ -231,9 +286,16 @@ boardEl.addEventListener('pointerup', event => {
     const same = selected?.[0] === start.r && selected?.[1] === start.c;
     selected = same ? null : [start.r, start.c];
     render(game.board);
+    if (selected) {
+      const active = game.board[selected[0]][selected[1]];
+      if (active.special === 'evolved') {
+        const fx = showPowerPreview(selected);
+        showMessage(`${artwork(active)[0]} · ${ABILITY_NAMES[active.evolution]} — swap to activate!`, 2500);
+      } else clearPowerPreview();
+    } else clearPowerPreview();
   }
 });
-boardEl.addEventListener('pointercancel', () => { touchStart = null; });
+boardEl.addEventListener('pointercancel', () => { touchStart = null; clearPowerPreview(); });
 boardEl.addEventListener('keydown', event => {
   if (busy) return;
   const directions = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
@@ -245,14 +307,14 @@ boardEl.addEventListener('keydown', event => {
 });
 el('hint-btn').addEventListener('click', () => {
   if (busy) return;
-  clearHints(); clearSelection();
+  clearHints(); clearSelection(); clearPowerPreview();
   const pair = findHint(game.board);
   if (pair) { highlight(pair, 'hinted'); hintTimeout = setTimeout(clearHints, 2300); showMessage('Try swapping these glowing monsters!', 2300); }
 });
 el('shuffle-btn').addEventListener('click', () => {
   if (busy) return;
   clearHints(); clearSelection();
-  game.board = createBoard(); store(); render(game.board); tone(540, .09);
+  clearPowerPreview(); game.board = createBoard(); store(); render(game.board); tone(540, .09);
   showMessage('Shuffled! Your score is safe.');
 });
 el('sound-btn').addEventListener('click', () => {
@@ -268,7 +330,7 @@ el('help-modal').querySelectorAll('[data-close]').forEach(button => button.addEv
 el('new-btn').addEventListener('click', () => { if (!busy) modal('reset-modal', true); });
 el('cancel-reset').addEventListener('click', () => modal('reset-modal', false));
 el('confirm-reset').addEventListener('click', () => {
-  clearHints(); clearSelection();
+  clearHints(); clearSelection(); clearPowerPreview();
   game = { board: createBoard(), score: 0, best: game.best, matches: 0, moves: 0 };
   store(); render(game.board); updateHud(); modal('reset-modal', false); showMessage('New game! Make your first match.');
 });

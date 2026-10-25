@@ -126,5 +126,39 @@ const server = http.createServer((req, res) => {
       await context.close();
       console.log('PASS Monster Evolution browser: Match5, Infernodon, save, 3x3, 5x5');
     }
+
+    // Elemental powers: tap previews exact ability and touch activates the move.
+    for (const [name, kind, label] of [
+      ['bubblo',1,'Tidal Wave'],['shadebub',2,'Shadow Explosion'],
+      ['groveling',3,'Vine Strike'],['lumiorb',5,'Star Magic'],
+      ['infernodon',4,'Inferno Blast']
+    ]) {
+      const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,serviceWorkers:'block'});
+      const page=await context.newPage();
+      const errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      await page.goto(base+'/match.html');
+      await page.evaluate(async({name,kind})=>{
+        const {createBoard}=await import('./match/engine.mjs');
+        const board=createBoard();
+        board[3][3]={...board[3][3],kind,special:'evolved',evolution:name};
+        board[3][4]={...board[3][4],kind:2,special:null};
+        localStorage.setItem('monsterMatchSaveV1',JSON.stringify({
+          version:1,board,score:0,best:100,matches:0,moves:0
+        }));
+      },{name,kind});
+      await page.reload();
+      assert.equal(await page.locator('.tile.is-evolved').count(),1);
+      await page.locator('.tile[data-r="3"][data-c="3"]').tap();
+      assert.ok(await page.locator('.tile.power-preview').count()>0,name+' must preview affected cells');
+      assert.ok((await page.locator('#game-message').textContent()).includes(label),name+' should identify its unique power');
+      await page.locator('.tile[data-r="3"][data-c="4"]').tap();
+      await page.waitForFunction(()=>window.__monsterMatch.state().moves===1&&!window.__monsterMatch.state().busy);
+      assert.ok(await page.evaluate(()=>window.__monsterMatch.state().score)>0,name+' should score points');
+      assert.equal(await page.locator('.tile').count(),64,name+' keeps full playable board');
+      assert.deepEqual(errors,[],name+' must not throw');
+      await context.close();
+      console.log('PASS '+name+': preview and activate '+label);
+    }
   } finally { await browser.close(); }
 })().then(() => server.close()).catch(error => { console.error(error); server.close(); process.exitCode = 1; });

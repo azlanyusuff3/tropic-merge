@@ -141,7 +141,75 @@ function fallAndFill(board, rng) {
     for (let r = SIZE - 1; r >= 0; r--) board[r][c] = survivors[SIZE - 1 - r] || newTile(pick(COLORS, rng));
   }
 }
-function collectPowerEffects(board, initial, effects = []) {
+// Every evolved monster has a unique, deterministic power. UI and resolver share this geometry.
+export const ABILITY_NAMES = Object.freeze({
+  bubblo: 'Tidal Wave', shadebub: 'Shadow Explosion', groveling: 'Vine Strike',
+  lumiorb: 'Star Magic', infernodon: 'Inferno Blast'
+});
+function majorityKind(board) {
+  const counts = Array(COLORS).fill(0);
+  for (const row of board) for (const tile of row) if (tile && !tile.special) counts[tile.kind]++;
+  return counts.indexOf(Math.max(...counts));
+}
+function squareKeys(r, c, radius) {
+  const keys = [];
+  for (let y = r - radius; y <= r + radius; y++) for (let x = c - radius; x <= c + radius; x++) {
+    if (within(y, x)) keys.push(posKey(y, x));
+  }
+  return keys;
+}
+export function powerCells(board, r, c, evolution, partnerKind = null) {
+  if (!within(r, c) || !ABILITY_NAMES[evolution]) return [];
+  const keys = new Set([posKey(r, c)]);
+  const add = (y, x) => { if (within(y, x)) keys.add(posKey(y, x)); };
+  if (evolution === 'bubblo') {
+    // Sweep two full horizontal rows, keeping the effect within the board.
+    const second = r < SIZE - 1 ? r + 1 : r - 1;
+    for (const row of [r, second]) for (let x = 0; x < SIZE; x++) add(row, x);
+  } else if (evolution === 'shadebub') {
+    for (const key of squareKeys(r, c, 1)) keys.add(key);
+  } else if (evolution === 'groveling') {
+    // Two diagonals cross the evolved tile, even at the board edges.
+    for (let d = -SIZE + 1; d < SIZE; d++) { add(r + d, c + d); add(r + d, c - d); }
+  } else if (evolution === 'lumiorb') {
+    const kind = Number.isInteger(partnerKind) && partnerKind >= 0 && partnerKind < COLORS
+      ? partnerKind : majorityKind(board);
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+      // Star Magic removes ordinary monsters only; other evolved pieces are preserved.
+      if (board[y][x] && !board[y][x].special && board[y][x].kind === kind) add(y, x);
+    }
+  } else if (evolution === 'infernodon') {
+    for (let x = 0; x < SIZE; x++) add(r, x);
+    for (let y = 0; y < SIZE; y++) add(y, c);
+  }
+  return [...keys].sort((a, b) => a - b).map(position);
+}
+// A tap shows the current power footprint; a directional swipe shows the exact landing cells.
+export function previewPower(board, from, to = null) {
+  if (!isValidBoard(board) || !Array.isArray(from) || !within(...from)) return null;
+  const first = board[from[0]][from[1]];
+  if (!to) {
+    if (first?.special !== 'evolved') return null;
+    return { type: 'evolved', evolution: first.evolution, r: from[0], c: from[1],
+      precise: false, cells: powerCells(board, ...from, first.evolution) };
+  }
+  if (!adjacent(from, to)) return null;
+  const second = board[to[0]][to[1]];
+  if (first.special === 'evolved' && second.special === 'evolved') {
+    return { type: 'mega', r: to[0], c: to[1], precise: true,
+      cells: [...new Set([...squareKeys(...to, 2), posKey(...from)])].sort((a, b) => a - b).map(position) };
+  }
+  const evolved = first.special === 'evolved' ? first : second.special === 'evolved' ? second : null;
+  if (!evolved) return null;
+  const landing = first.special === 'evolved' ? to : from;
+  const partner = first.special === 'evolved' ? second : first;
+  const swapped = swap(board, from, to);
+  return { type: 'evolved', evolution: evolved.evolution, r: landing[0], c: landing[1],
+    precise: true, targetKind: partner.kind,
+    cells: powerCells(swapped, ...landing, evolved.evolution, partner.kind) };
+}
+
+function collectPowerEffects(board, initial, effects = [], targetKinds = new Map(), skipEvolved = new Set()) {
   const clear = new Set(initial);
   const queue = [...initial];
   const activated = new Set();
@@ -160,9 +228,12 @@ function collectPowerEffects(board, initial, effects = []) {
     if (tile.special === 'col') for (let y = 0; y < SIZE; y++) add(y, c);
     if (tile.special === 'bomb') for (let y = r - 1; y <= r + 1; y++) for (let x = c - 1; x <= c + 1; x++) add(y, x);
     if (tile.special === 'rainbow') for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (board[y][x]?.kind === tile.kind) add(y, x);
-    if (tile.special === 'evolved') {
-      effects.push({ type: 'evolved', r, c, radius: 1, evolution: tile.evolution });
-      for (let y = r - 1; y <= r + 1; y++) for (let x = c - 1; x <= c + 1; x++) add(y, x);
+    if (tile.special === 'evolved' && !skipEvolved.has(key)) {
+      const targetKind = targetKinds.get(key) ?? null;
+      const cells = powerCells(board, r, c, tile.evolution, targetKind);
+      effects.push({ type: 'evolved', r, c, evolution: tile.evolution,
+        ability: ABILITY_NAMES[tile.evolution], targetKind, cells });
+      for (const [y, x] of cells) add(y, x);
     }
   }
   return clear;
@@ -173,15 +244,17 @@ export function makeMove(board, from, to, rng = Math.random) {
   restoreIds(board);
   let working = swap(board, from, to);
   const swapped = cloneBoard(working), a = working[from[0]][from[1]], b = working[to[0]][to[1]];
-  const direct = new Set(), initialEffects = [];
+  const direct = new Set(), initialEffects = [], targetKinds = new Map(), skipEvolved = new Set();
   if (a.special === 'evolved' && b.special === 'evolved') {
     // Two evolved monsters swapped together trigger one 5x5 mega blast.
     const [centerR, centerC] = to;
-    initialEffects.push({ type: 'mega', r: centerR, c: centerC, radius: 2 });
-    for (let r = centerR - 2; r <= centerR + 2; r++) for (let c = centerC - 2; c <= centerC + 2; c++) {
-      if (within(r, c)) direct.add(posKey(r, c));
-    }
+    const area = squareKeys(centerR, centerC, 2);
+    const cells = [...new Set([...area, posKey(...from), posKey(...to)])].map(position);
+    initialEffects.push({ type: 'mega', r: centerR, c: centerC, radius: 2, cells });
+    for (const key of area) direct.add(key);
     direct.add(posKey(...from)); direct.add(posKey(...to));
+    // The swapped pair powers the mega attack; don't also fire two ordinary abilities.
+    skipEvolved.add(posKey(...from)); skipEvolved.add(posKey(...to));
   } else if (a.special === 'rainbow' || b.special === 'rainbow') {
     const rainbowA = a.special === 'rainbow', rainbowB = b.special === 'rainbow';
     if (rainbowA && rainbowB) for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) direct.add(posKey(r, c));
@@ -193,6 +266,9 @@ export function makeMove(board, from, to, rng = Math.random) {
   } else {
     if (a.special) direct.add(posKey(...from));
     if (b.special) direct.add(posKey(...to));
+    // A and b refer to their positions AFTER the swap.
+    if (a.special === 'evolved') targetKinds.set(posKey(...from), b.kind);
+    if (b.special === 'evolved') targetKinds.set(posKey(...to), a.kind);
   }
   if (!direct.size && !findRuns(working).length) return { valid: false, board, swapped };
 
@@ -205,9 +281,9 @@ export function makeMove(board, from, to, rng = Math.random) {
     const seedClear = new Set(chain === 1 ? direct : []);
     for (const group of groups) for (const key of group.keys) seedClear.add(key);
     const effects = chain === 1 ? [...initialEffects] : [];
-    const clears = collectPowerEffects(working, seedClear, effects);
+    const clears = collectPowerEffects(working, seedClear, effects, targetKinds, skipEvolved);
     const upgrades = [];
-    const blockedAnchors = direct.size && chain === 1 ? collectPowerEffects(working, direct) : new Set();
+    const blockedAnchors = direct.size && chain === 1 ? collectPowerEffects(working, direct, [], targetKinds, skipEvolved) : new Set();
     for (const group of groups) {
       const special = powerFor(group);
       if (!special) continue;

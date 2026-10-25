@@ -1,13 +1,13 @@
 {
   "name": "monster-merge",
-  "version": "18.3.0",
+  "version": "18.4.0",
   "private": true,
   "scripts": {
-    "test": "node tests/sling-model.cjs && node tests/sling-levels.mjs && node tests/playable.cjs && node tests/sling.cjs && node tests/match-engine.mjs && node tests/match.cjs",
+    "test": "node tests/sling-model.cjs && node tests/sling-levels.mjs && node tests/playable.cjs && node tests/sling.cjs && node tests/match-engine.mjs && node tests/match-abilities.mjs && node tests/match.cjs",
     "test:merge": "node tests/playable.cjs",
     "test:sling": "node tests/sling-model.cjs && node tests/sling-levels.mjs && node tests/sling.cjs",
     "solve": "node tests/sling-solver.mjs",
-    "test:match": "node tests/match-engine.mjs && node tests/match.cjs"
+    "test:match": "node tests/match-engine.mjs && node tests/match-abilities.mjs && node tests/match.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

@@ -62,3 +62,35 @@ body:after{position:fixed;content:'';inset:0;z-index:-1;background:radial-gradie
 @keyframes evolution-born{0%{transform:scale(.35) rotate(-16deg);opacity:.15;filter:brightness(2)}55%{transform:scale(1.22) rotate(7deg);opacity:1;filter:brightness(1.6)}100%{transform:scale(1) rotate(0);filter:brightness(1)}}
 @keyframes monster-blast{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}25%{opacity:.85}100%{opacity:0;transform:translate(-50%,-50%) scale(1.13)}}
 @media(prefers-reduced-motion:reduce){.tile.is-evolved .tile-well{animation:none}.blast-fx{animation-duration:.01ms!important}}
+
+/* Elemental evolved powers: bright previews, unique highlights, and low-cost CSS effects. */
+.tile.is-evolved[data-evolution="bubblo"] .tile-well{background:linear-gradient(135deg,#bef9ff,#269dce);border-color:#e1ffff}
+.tile.is-evolved[data-evolution="shadebub"] .tile-well{background:linear-gradient(135deg,#f2cafb,#8061bd);border-color:#f5d8ff}
+.tile.is-evolved[data-evolution="groveling"] .tile-well{background:linear-gradient(135deg,#ddffb3,#60b073);border-color:#eaffbc}
+.tile.is-evolved[data-evolution="lumiorb"] .tile-well{background:linear-gradient(135deg,#fffbd1,#e3ae67);border-color:#ffffed}
+.tile.is-evolved[data-evolution="infernodon"] .tile-well{background:linear-gradient(135deg,#fff1a6,#ec7a45);border-color:#ffedb5}
+.tile.power-preview{z-index:5}
+.tile.power-preview .tile-well{outline:2px solid #fffefa;outline-offset:-1px;box-shadow:0 0 0 2px #55c7e2,0 0 10px #e7faff;animation:power-preview-pulse .62s ease-in-out infinite alternate}
+.tile.power-preview[data-preview="groveling"] .tile-well{box-shadow:0 0 0 2px #7dcb65,0 0 10px #b4ffd6}
+.tile.power-preview[data-preview="shadebub"] .tile-well{box-shadow:0 0 0 2px #a66aff,0 0 10px #efd5ff}
+.tile.power-preview[data-preview="lumiorb"] .tile-well{box-shadow:0 0 0 2px #edbc44,0 0 10px #fff1ae}
+.tile.power-preview[data-preview="infernodon"] .tile-well{box-shadow:0 0 0 2px #ff874a,0 0 10px #ffda88}
+.tile.power-hit .tile-well{animation:power-hit-glow .43s ease-out!important}
+.tile.power-hit[data-hit="bubblo"] .tile-well{--power-tint:#73e8ff}
+.tile.power-hit[data-hit="shadebub"] .tile-well{--power-tint:#b28bff}
+.tile.power-hit[data-hit="groveling"] .tile-well{--power-tint:#80db86}
+.tile.power-hit[data-hit="lumiorb"] .tile-well{--power-tint:#fff2a4}
+.tile.power-hit[data-hit="infernodon"] .tile-well{--power-tint:#ffaf69}
+@keyframes power-preview-pulse{to{filter:brightness(1.15);transform:scale(.94)}}
+@keyframes power-hit-glow{0%{background:var(--power-tint,#ffe2a7);transform:scale(1.04);filter:brightness(1.6)}100%{filter:brightness(1)}}
+.blast-fx.is-bubblo{border:2px solid #c8faff;border-radius:36%;background:linear-gradient(90deg,transparent,#7ce7ffdd 40%,#c1faffb0 60%,transparent);animation:wave-sweep .55s ease-out both}
+.blast-fx.is-shadebub{border:2px solid #eed0ff;border-radius:50%;background:radial-gradient(circle,#c99cf9d9,#7a4ab9aa,transparent 76%);animation:shadow-pulse .55s ease-out both}
+.blast-fx.is-groveling{border:none;border-radius:0;box-shadow:none;background:repeating-linear-gradient(45deg,transparent 0 46%,#72c870cc 48% 50%,transparent 52%),repeating-linear-gradient(-45deg,transparent 0 46%,#b3ef89cc 48% 50%,transparent 52%);animation:vine-strike .58s ease-out both}
+.blast-fx.is-lumiorb{border:none;border-radius:0;box-shadow:none;background:radial-gradient(circle,#fff9ad65,#ffe08330,transparent 74%);animation:star-magic .56s ease-out both}
+.blast-fx.is-infernodon{border:0;border-radius:0;box-shadow:none;background:linear-gradient(180deg,transparent calc(var(--power-row) - 6.25%),#ffac56aa calc(var(--power-row) - 6.25%),#ffecaa99 calc(var(--power-row) + 6.25%),transparent calc(var(--power-row) + 6.25%)),linear-gradient(90deg,transparent calc(var(--power-col) - 6.25%),#ff7644aa calc(var(--power-col) - 6.25%),#ffe1a899 calc(var(--power-col) + 6.25%),transparent calc(var(--power-col) + 6.25%));animation:inferno-flash .55s ease-out both}
+@keyframes wave-sweep{0%{transform:translate(-95%,-50%) scaleX(.2);opacity:0}32%{opacity:.95}100%{transform:translate(0,-50%) scaleX(1);opacity:0}}
+@keyframes shadow-pulse{0%{transform:translate(-50%,-50%) scale(.3) rotate(0);opacity:0}40%{opacity:.85}100%{transform:translate(-50%,-50%) scale(1.2) rotate(35deg);opacity:0}}
+@keyframes vine-strike{0%{transform:translate(-50%,-50%) scale(.15);opacity:0}40%{opacity:.7}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes star-magic{0%{transform:translate(-50%,-50%) scale(.45) rotate(-25deg);opacity:0}30%{opacity:.85}100%{transform:translate(-50%,-50%) scale(1) rotate(22deg);opacity:0}}
+@keyframes inferno-flash{0%{transform:translate(-50%,-50%) scale(.55);opacity:0}35%{opacity:.9}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@media(prefers-reduced-motion:reduce){.tile.power-preview .tile-well,.tile.power-hit .tile-well{animation:none!important}.blast-fx{animation-duration:.01ms!important}}

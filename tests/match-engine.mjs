@@ -67,7 +67,7 @@ cases++;
 console.log(`PASS Monster Match engine: ${cases} board, move, combo, power, save checks`);
 
 
-// Monster Evolution regression: all 11 identities, 3x3 and mega 5x5, chains and old saves.
+// Monster Evolution regression: 11 identities, elemental power areas, mega 5x5, chains and old saves.
 import { EVOLUTIONS, cloneBoard } from '../match/engine.mjs';
 const intended = ['groveling','bubblo','shadebub','groveling','infernodon','lumiorb'];
 assert.deepEqual([...EVOLUTIONS],intended);
@@ -102,9 +102,11 @@ for(let kind=0;kind<6;kind++){
  const result=makeMove(b,[3,3],[3,4],random(8200+kind));
  assert.equal(result.valid,true);
  assert.equal(JSON.stringify(b),before,'blast does not mutate input');
- assert.ok(result.stages[0].effects.some(e=>e.type==='evolved'&&e.evolution===intended[kind]&&e.radius===1));
+ const power=result.stages[0].effects.find(e=>e.type==='evolved'&&e.evolution===intended[kind]);
+ assert.ok(power,'correct evolved power must fire');
+ assert.ok(power.ability&&power.cells.length>0,'power should return its actual footprint');
  const cleared=new Set(result.stages[0].clear.map(x=>x.join(',')));
- for(let r=2;r<=4;r++)for(let c=3;c<=5;c++)assert.ok(cleared.has(r+','+c),'3x3 clear must contain all nine cells');
+ for(const pos of power.cells)assert.ok(cleared.has(pos.join(',')),'actual clear covers the evolved power');
  assert.equal(result.board.flat().some(x=>x?.id===b[3][3].id),false);
  assert.equal(isValidBoard(result.board),true);
  cases++;
@@ -129,7 +131,7 @@ for(let kind=0;kind<6;kind++){
  const result=makeMove(b,[3,3],[3,4],random(9451));
  assert.equal(result.valid,true);
  assert.equal(result.stages[0].effects.filter(e=>e.type==='evolved').length,2);
- assert.ok(result.stages[0].clear.some(([r,c])=>r===4&&c===6));
+ assert.ok(result.stages[0].clear.some(([r,c])=>r===4&&c===5),'diagonal Vine Strike activates Lumiorb');
  cases++;
 }
 {
@@ -145,4 +147,4 @@ for(let kind=0;kind<6;kind++){
  assert.equal(isValidBoard(corrupted),true);
  cases++;
 }
-console.log('PASS Monster Evolution: '+cases+' total checks; 11 identities, 3x3, mega 5x5, chains and old saves');
+console.log('PASS Monster Evolution: '+cases+' total checks; 11 identities, unique blast areas, mega 5x5, chains and old saves');
