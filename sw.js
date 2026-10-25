@@ -1,4 +1,4 @@
-const CACHE = 'monster-merge-v13-3-20261025-6';
+const CACHE = 'monster-merge-v14-0-20261025-7';
 const CORE = [
   './', './index.html', './manifest.webmanifest', './assets/tropical.webp',
   './icons/apple-touch-icon.png', './icons/icon-192.png',
