@@ -1,4 +1,4 @@
-const CACHE='monster-merge-v17-0-sling-20261025-1';
+const CACHE='monster-merge-v17-1-sling-20261025-1';
 const CORE=[
  './','./index.html','./merge.html','./sling.html','./manifest.webmanifest',
  './sling/style.css','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',

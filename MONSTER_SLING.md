@@ -1,4 +1,4 @@
-# Monster Sling v17.0
+# Monster Sling v17.1
 
 A fullscreen 2D slingshot game that lives next to the original Monster Merge on Monster Island.
 
@@ -16,7 +16,7 @@ The hero tray (bottom-left portrait) opens between shots. Slimelet, Bubblo and R
 
 - **Aim:** touch inside a generous circle around the loaded monster and drag. The pull is measured in world space and the camera stays still while you drag. A tiny pull, dragging back to the fork, a second finger, a cancelled touch, rotating the device or leaving the app never launches.
 - **Look around:** drag anywhere else to pan, pinch (or mouse wheel) to zoom within limits, and tap the target button to recenter.
-- **Camera:** intro pan over the fort → aiming view → smooth flight tracking (and it keeps the fort in frame where it fits) → impact hold while the fort collapses → return to the sling. In portrait the camera frames the sling and follows the action instead of shrinking the whole level, an edge marker points to off-screen bandits, and the impact view eases out to fit the fort.
+- **Camera:** intro pan over the fort → aiming view → smooth flight tracking (and it keeps the fort in frame where it fits) → impact hold while the fort collapses → return to the sling. Landscape is recommended: the first portrait level of each session shows a card offering to rotate (automatic where the browser allows, otherwise it asks you to turn the phone; turning it closes the card). In portrait the camera frames the sling instead of shrinking the whole level, a live **TARGET** window shows the fort with the trajectory and predicted impact while you aim, and the impact view eases out to fit the fort. Pause also offers a Landscape button in portrait.
 - **Pause:** top-left button, Escape or P. Pause holds resume, restart, map, how-to-play, sound, calm effects and optional browser full screen. Leaving the app pauses automatically.
 
 ## Hero skills

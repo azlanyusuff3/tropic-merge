@@ -5,7 +5,7 @@ import{GROUND,predict,step}from'./physics.js';
 import{prepareMonster,paintMonster,react,kick,mood}from'./renderer.js';
 import*as art from'./art.js';
 
-export const VERSION='17.0';
+export const VERSION='17.1';
 const $=(s,r=document)=>r.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>1-Math.pow(1-clamp(t,0,1),3);
 const app=$('#app');
@@ -64,6 +64,7 @@ const ICON={
  target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="2.2"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
  help:'<svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 115 2.2c-1.2.8-2 1.4-2 2.8M12 18h.01" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
  full:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+ rotate:'<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 13a9 9 0 009 9M21 11a9 9 0 00-9-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 2l2 0 0 2M14 22l-2 0 0-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
  sparkle:'<svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg>',
  lock:'<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>',
  crown:'<svg viewBox="0 0 24 24"><path d="M3 18l1.5-10 5 4.5L12 5l2.5 7.5 5-4.5L21 18z"/></svg>',
@@ -85,6 +86,12 @@ function helpHTML(){return`<h2>How to sling</h2><div class="help-grid">
  <div><i class="help-ico tap"></i><b>Tap in flight</b><span>Use your hero's skill once per launch. Timing is everything.</span></div>
  <div><i class="help-ico look"></i><b>Look around</b><span>Drag the sky to pan, pinch to zoom, then tap ${ICON.target.replace('<svg','<svg class="inline"')} to recenter.</span></div>
  </div><p class="help-foot">Defeat every shell bandit to rescue the crystal. Spare monsters earn stars: 2 spare = ★★★, 1 spare = ★★.</p>`}
+
+// Try to switch to landscape: works in installed apps and in Chrome full screen on Android.
+async function goLandscape(){const o=screen.orientation;if(!o?.lock)return false;try{await o.lock('landscape');return true}catch{}
+ try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen({navigationUI:'hide'});await o.lock('landscape');return true}catch{return false}}
+const rotateSeen=()=>{try{return sessionStorage.getItem('slingRotateTip')==='1'}catch{return true}};
+const markRotateSeen=()=>{try{sessionStorage.setItem('slingRotateTip','1')}catch{}};
 
 // ───────────────────────────── Campaign map ─────────────────────────────
 const NODES=[[22,86],[56,76],[80,60],[50,47],[20,32],[60,15]];
@@ -143,7 +150,11 @@ class Game{
   this.build();this.resize();this.camToIntro();this.prepare(this.world.species);this.fx.setBudget(this.budget());this.syncSquad();
   this.raf=requestAnimationFrame(t=>this.frame(t));
   this.updateHud(true);
+  if(this.portrait&&!rotateSeen())this.rotateCard();
  }
+ // Portrait works, but landscape shows the sling and the fort together: recommend it once per session.
+ rotateCard(){markRotateSeen();const el=overlay(this.stage,`<div class="rotate-art" aria-hidden="true">${ICON.rotate}</div><small class="eyebrow">BEST WITH A WIDE VIEW</small><h2>Turn your phone sideways</h2><p class="muted">Landscape shows your sling and the bandits' fort together, so you can see exactly what you are aiming at.</p><p class="muted small" id="rotate-note">In portrait, a <b>TARGET</b> window shows the fort while you aim.</p><div class="actions"><button class="btn ghost" data-act="keep">Keep portrait</button><button class="btn primary" data-act="rotate" autofocus>${ICON.rotate} Rotate</button></div>`,'rotate');
+  el.onclick=async e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='keep'){Sound.play('ui');closeOverlay(this.stage)}else if(a==='rotate'){Sound.play('ui');if(await goLandscape()){closeOverlay(this.stage)}else{const n=el.querySelector('#rotate-note');if(n)n.innerHTML='Your browser cannot rotate by itself. <b>Turn your phone sideways</b> (switch on auto-rotate), or tap Keep portrait.'}}}}
  bounds(){const xs=[],ys=[];for(const b of[...this.world.blocks,...this.world.enemies]){const e=b.r||Math.max(b.w,b.h)/2;xs.push(b.x-e,b.x+e);ys.push(b.y-e)}return{x0:Math.min(...xs),x1:Math.max(...xs,this.world.crystal+30),top:Math.min(...ys)}}
  // ── DOM ──
  build(){
@@ -191,8 +202,8 @@ class Game{
   // Cap the backing store: crisp on phones, but never more than ~2.4M pixels.
   let dpr=Math.min(2,devicePixelRatio||1)*this.quality;if(w*h*dpr*dpr>2.4e6)dpr=Math.sqrt(2.4e6/(w*h));
   const changed=w!==this.w||h!==this.h||dpr!==this.dpr;this.w=w;this.h=h;this.dpr=dpr;if(changed){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr)}
-  const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
-  this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
+  const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(!this.portrait&&this.stage.querySelector(':scope > .overlay.rotate.show'))closeOverlay(this.stage);if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
+  this.hudBottom=(document.querySelector('.hud-top')?.getBoundingClientRect().bottom||56)-r.top;this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
  get S(){return this.base*this.cam.z}
  cy0(z=this.cam.z){const S=this.base*z;return GROUND-(this.h*this.groundFrac-this.h/2)/S}
  toScreen(x,y){return{x:this.w/2+(x-this.cam.cx)*this.S,y:this.h/2+(y-this.cam.cy)*this.S}}
@@ -206,7 +217,7 @@ class Game{
   const c=this.cam,w=this.world;c.t+=dt;if(this.gesture?.type==='aim'||c.mode==='free'){this.clampCam();return}
   let T,k=4;
   switch(c.mode){
-   case'intro':{const hold=reduced()?.5:1.2,pan=reduced()?.4:1.1;T=c.t<hold?this.fortTarget():this.aimTarget();k=c.t<hold?6:2.6;if(c.t>hold+pan){c.mode='aim';this.hopIn()}break}
+   case'intro':{if(overlayOpen(this.stage))c.t=0;const hold=reduced()?.5:1.2,pan=reduced()?.4:1.1;T=c.t<hold?this.fortTarget():this.aimTarget();k=c.t<hold?6:2.6;if(c.t>hold+pan){c.mode='aim';this.hopIn()}break}
    case'aim':T=this.aimTarget();k=3.4;if(!this.loaded&&w.status==='ready')this.hopIn();break;
    case'follow':{const p=w.projectile;if(!p){c.mode='impact';c.t=0;T=this.impactTarget();break}const z=c.userZ,S=this.base*z,ahead=clamp(p.vx*.22,-120,240);T={cx:p.x+ahead,cy:Math.min(this.cy0(z),p.y+(this.h/2-90)/S),z};
     // Keep the fort in frame on wide screens whenever it fits alongside the monster.
@@ -294,13 +305,14 @@ class Game{
  pick(id){if(this.world.status!=='ready')return;this.world.species=id;state.selected=id;persist();const v=this.visual('loaded');v.level=id;react(v,'happy',900);this.syncSquad();this.prepare(id);Sound.play('hop');this.updateHud(true)}
  // ── Pause / results ──
  pause(auto=false){if(!this.alive||this.result||overlayOpen(this.stage))return;this.cancelGestures();this.closeTray();this.paused=true;Sound.suspend();
-  const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
-  const el=overlay(this.stage,`<small class="eyebrow">${auto?'GAME PAUSED':'PAUSED'} · ${esc(ISLANDS[this.level.island][0])} ${this.level.number}</small><h2>${esc(this.level.title)}</h2><div class="pause-list"><button class="btn primary big" data-act="resume" autofocus>${ICON.play} Resume</button><button class="btn" data-act="retry">${ICON.retry} Restart level</button><button class="btn" data-act="map">${ICON.map} Island map</button><button class="btn ghost" data-act="help">${ICON.help} How to play</button></div><div class="toggles"><button class="toggle ${state.sound?'on':''}" data-act="sound" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}<span>Sound ${state.sound?'on':'off'}</span></button><button class="toggle ${state.effects!=='reduced'?'on':''}" data-act="fx" aria-pressed="${state.effects!=='reduced'}">${ICON.sparkle}<span>${state.effects==='reduced'?'Calm effects':'Full effects'}</span></button>${fs}</div>`,'pause');
+  const rot=this.portrait&&screen.orientation?.lock?`<button class="toggle" data-act="landscape">${ICON.rotate}<span>Landscape</span></button>`:'';const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
+  const el=overlay(this.stage,`<small class="eyebrow">${auto?'GAME PAUSED':'PAUSED'} · ${esc(ISLANDS[this.level.island][0])} ${this.level.number}</small><h2>${esc(this.level.title)}</h2><div class="pause-list"><button class="btn primary big" data-act="resume" autofocus>${ICON.play} Resume</button><button class="btn" data-act="retry">${ICON.retry} Restart level</button><button class="btn" data-act="map">${ICON.map} Island map</button><button class="btn ghost" data-act="help">${ICON.help} How to play</button></div><div class="toggles"><button class="toggle ${state.sound?'on':''}" data-act="sound" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}<span>Sound ${state.sound?'on':'off'}</span></button><button class="toggle ${state.effects!=='reduced'?'on':''}" data-act="fx" aria-pressed="${state.effects!=='reduced'}">${ICON.sparkle}<span>${state.effects==='reduced'?'Calm effects':'Full effects'}</span></button>${rot}${fs}</div>`,'pause');
   el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(!a)return;Sound.resume();Sound.play('ui');
    if(a==='resume')this.resume();else if(a==='retry')this.restart();else if(a==='map')go('#map');
    else if(a==='help'){closeOverlay(this.stage);const h=overlay(this.stage,helpHTML()+'<div class="actions"><button class="btn primary" data-back autofocus>Got it</button></div>','help');h.onclick=ev=>{if(ev.target.closest('[data-back]')){closeOverlay(this.stage);this.paused=false;this.pause(auto)}}}
    else if(a==='sound'){state.sound=!state.sound;persist();closeOverlay(this.stage);this.paused=false;this.pause(auto)}
    else if(a==='fx'){state.effects=state.effects==='reduced'?'full':'reduced';persist();this.fx.setBudget(this.budget());closeOverlay(this.stage);this.paused=false;this.pause(auto)}
+   else if(a==='landscape'){goLandscape().then(ok=>{if(!ok)notify('Turn your phone sideways for landscape (auto-rotate on).')})}
    else if(a==='full'){const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen({navigationUI:'hide'});Promise.resolve(p).catch(()=>notify('Full screen is not available here.')).finally(()=>{if(this.alive){closeOverlay(this.stage);this.paused=false;this.pause(auto)}})}}}
  resume(){closeOverlay(this.stage);this.paused=false;this.last=0;Sound.resume();this.canvas.focus({preventScroll:true})}
  restart(){closeOverlay(this.stage);route()}
@@ -379,8 +391,24 @@ class Game{
   for(const e of w.effects){const k=1-e.life/.65;c.save();c.globalAlpha=clamp(e.life/.65,0,1)*.6;c.strokeStyle=e.color;c.lineWidth=4;c.beginPath();c.arc(e.x,e.y,Math.max(2,e.r*ease(k)),0,Math.PI*2);c.stroke();c.restore()}
   if(this.gesture?.type==='aim')this.drawAim(c);
   c.setTransform(dpr,0,0,dpr,0,0);this.scenery.front(c,view,now);
-  this.drawPointer(c,now);this.drawHand();
+  if(!this.drawTargetView(c,now))this.drawPointer(c,now);this.drawHand();
  }
+ // Portrait "TARGET" window: while aiming, a live inset of the fort with the trajectory dots,
+ // so players always see what they are shooting at even though the fort is off-screen.
+ targetRect(){const top=this.hudBottom||64,w=Math.min(this.w*.56,250),h=Math.round(w*.7);return{x:this.w-w-10,y:top+8,w,h}}
+ drawTargetView(c,now){const W=this.world;if(!this.portrait||this.result||W.status!=='ready'||!this.loaded||this.cam.mode==='intro'||this.cam.mode==='free'||this.trayOpen)return false;
+  const alive=W.enemies.filter(e=>!e.dead);if(!alive.length)return false;const right=this.cam.cx+this.w/2/this.S;if(Math.min(...alive.map(e=>e.x-e.r))<right-20)return false;
+  const r=this.targetRect(),f=this.fortBox,dpr=this.dpr,Sp=Math.min(r.w/(f.x1-f.x0+150),(r.h*.8)/(GROUND-f.top+70)),cx=(f.x0+f.x1)/2,gy=r.h*.86,cy=GROUND-(gy-r.h/2)/Sp;
+  c.save();c.setTransform(dpr,0,0,dpr,0,0);c.shadowColor='rgba(40,20,5,.35)';c.shadowBlur=12;c.shadowOffsetY=4;c.fillStyle='#fffaee';c.beginPath();c.roundRect(r.x-3,r.y-3,r.w+6,r.h+6,16);c.fill();c.shadowColor='transparent';
+  c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.clip();c.translate(r.x,r.y);
+  this.scenery.back(c,{w:r.w,h:r.h,S:Sp,cx,cy,cy0:cy,horizon:gy-150*Sp,groundScreen:()=>gy},now);
+  c.setTransform(dpr*Sp,0,0,dpr*Sp,dpr*(r.x+r.w/2-cx*Sp),dpr*(r.y+r.h/2-cy*Sp));
+  this.scenery.ground(c,Sp);art.drawCrystal(c,W.crystal,now,0);
+  for(const b of W.blocks)if(!b.dead)art.drawBlock(c,b,W.time);
+  for(const e of W.enemies)if(!e.dead)art.drawBandit(c,e,{now,time:W.time,look:{x:SLING.x,y:SLING.y},scared:this.gesture?.type==='aim'});
+  if(this.gesture?.type==='aim')this.drawAim(c,1/Sp*.9);
+  c.restore();c.save();c.setTransform(dpr,0,0,dpr,0,0);c.strokeStyle='#fffaee';c.lineWidth=3;c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,13);c.stroke();
+  c.fillStyle='rgba(42,26,12,.62)';c.beginPath();c.roundRect(r.x+8,r.y+8,64,20,10);c.fill();c.fillStyle='#fff';c.font='900 11px ui-rounded,system-ui,sans-serif';c.textBaseline='middle';c.fillText('🎯 TARGET',r.x+14,r.y+18.5);c.restore();return true}
  drawSling(c,now){const F=art.FORK,m=this.monsterPos(),aiming=this.gesture?.type==='aim';
   art.drawSlingBack(c);
   // The rest of the squad waits behind the sling, one per remaining launch.
@@ -403,9 +431,9 @@ class Game{
   paintMonster(c,v,now,{x:b.x+b.vx,y:b.y+b.vy});c.restore()}
  drawSeed(c,b){c.save();c.translate(b.x,b.y);c.rotate(b.a);c.fillStyle='#e6d55a';c.strokeStyle='#8a7a24';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,b.r,b.r*.8,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#6fc048';c.beginPath();c.ellipse(-b.r*.2,-b.r*.85,b.r*.55,b.r*.25,-.5,0,Math.PI*2);c.fill();c.restore()}
  // Trajectory preview: the same integrator as the simulation, from the same release point.
- drawAim(c){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3),solids=this.world.bodies.filter(b=>!b.static&&!b.dead&&b.kind!=='monster');
-  c.save();let hit=null;pts.some((q,i)=>{if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){hit=q;return true}c.globalAlpha=clamp(1-i/pts.length,.18,.95);c.fillStyle='#fffbe6';c.strokeStyle='rgba(80,50,20,.35)';c.lineWidth=1;c.beginPath();c.arc(q.x,q.y,i%4===0?4.2:2.8,0,Math.PI*2);c.fill();c.stroke();return false});
-  if(hit){c.globalAlpha=.9;c.strokeStyle='#fffbe6';c.lineWidth=2.5;c.beginPath();c.arc(hit.x,hit.y,9,0,Math.PI*2);c.stroke()}c.restore()}
+ drawAim(c,k=1){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3),solids=this.world.bodies.filter(b=>!b.static&&!b.dead&&b.kind!=='monster');
+  c.save();let hit=null;pts.some((q,i)=>{if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){hit=q;return true}c.globalAlpha=clamp(1-i/pts.length,.18,.95);c.fillStyle='#fffbe6';c.strokeStyle='rgba(80,50,20,.35)';c.lineWidth=1;c.lineWidth=k;c.beginPath();c.arc(q.x,q.y,(i%4===0?4.2:2.8)*k,0,Math.PI*2);c.fill();c.stroke();return false});
+  if(hit){c.globalAlpha=.95;c.strokeStyle=k>1?'#ff5a3c':'#fffbe6';c.lineWidth=2.5*k;c.beginPath();c.arc(hit.x,hit.y,9*k,0,Math.PI*2);c.stroke()}c.restore()}
  // When the fort is off-screen, a small marker on the edge shows where the bandits are and how far.
  drawPointer(c,now){const w=this.world;if(this.result||w.status==='flight'||this.cam.mode==='intro')return;const alive=w.enemies.filter(e=>!e.dead);if(!alive.length)return;const right=this.cam.cx+this.w/2/this.S;const nearest=Math.min(...alive.map(e=>e.x-e.r));if(nearest<right-10)return;
   const ty=alive.reduce((a,e)=>a+e.y,0)/alive.length,s=this.toScreen(0,ty),y=clamp(s.y,90,this.h*this.groundFrac-20),x=this.w-14-(this.portrait?0:0),bob=reduced()?0:Math.sin(now/300)*3,dist=Math.round((nearest-right)/10)*10;

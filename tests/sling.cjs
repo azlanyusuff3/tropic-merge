@@ -15,7 +15,7 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const BASE='http://127.0.0.1:'+server.address().port+'/tropic-merge';
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox','--js-flags=--expose-gc']});
- const newPage=async(w=390,h=844,opts={})=>{const ctx=await browser.newContext({viewport:{width:w,height:h},isMobile:true,hasTouch:true,deviceScaleFactor:2,serviceWorkers:'block',...opts});const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});p.on('response',r=>{if(r.status()>=400)failed.push(r.url())});const cdp=await ctx.newCDPSession(p);return{ctx,p,cdp}};
+ const newPage=async(w=390,h=844,opts={})=>{const {rotateTip,...o}=opts;const ctx=await browser.newContext({viewport:{width:w,height:h},isMobile:true,hasTouch:true,deviceScaleFactor:2,serviceWorkers:'block',...o});if(!opts.rotateTip)await ctx.addInitScript(()=>{try{sessionStorage.setItem('slingRotateTip','1')}catch{}});const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});p.on('response',r=>{if(r.status()>=400)failed.push(r.url())});const cdp=await ctx.newCDPSession(p);return{ctx,p,cdp}};
  const poll=async(p,fn,ms=20000)=>{const t=Date.now();while(Date.now()-t<ms){if(await p.evaluate(fn))return;await new Promise(r=>setTimeout(r,250))}throw Error('timed out waiting for '+fn)};
  const touch=(cdp,type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map((q,i)=>({x:q.x,y:q.y,id:q.id??i+1,radiusX:4,radiusY:4,force:1}))});
  const G=p=>p.evaluate(()=>{const g=__sling.game;return g&&{status:g.world.status,shots:g.world.shots,remaining:g.world.remaining,mode:g.cam.mode,cx:g.cam.cx,cz:g.cam.z,userZ:g.cam.userZ,loaded:g.loaded,ready:g.ready,load:g.load.t,gesture:g.gesture?.type||null,used:g.world.used,proj:!!g.world.projectile,paused:g.paused,S:g.S,portrait:g.portrait,time:g.world.time}});
@@ -77,6 +77,16 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   // dragging across the HUD: starting on a button is not an aim, and a short pull cancels safely
   await p.locator('[data-act="resume"]').click();await waitAim(p);const m5=await monsterScreen(p);await p.mouse.move(m5.x,m5.y);await p.mouse.down();await p.mouse.move(m5.x-3,m5.y+2);await p.mouse.up();s=await G(p);assert.equal(s.shots,4,'tiny pull cancels');
   await ctx.close();pass('Second finger cancels an aim into pinch; touch cancel, rotation mid-drag, backgrounding mid-drag and tiny pulls never launch')}
+
+ // ── 5b. Portrait: landscape recommendation and the live TARGET window ──
+ {const {ctx,p}=await newPage(390,844,{rotateTip:true});await openLevel(p,8,save(allClear(7)));await p.waitForSelector('.overlay.rotate.show');await p.waitForTimeout(400);await p.screenshot({path:OUT+'/sling-rotate-card.png'});
+  assert.equal((await G(p)).mode,'intro','intro waits behind the card');await p.locator('[data-act="keep"]').click();await waitAim(p);
+  const m=await monsterScreen(p);await p.mouse.move(m.x,m.y);await p.mouse.down();await p.mouse.move(m.x-75,m.y+28,{steps:6});
+  const r=await p.evaluate(()=>{const g=__sling.game,c=g.canvas.getContext('2d'),t=g.targetRect(),d=c.getImageData(Math.round((t.x+t.w/2)*g.dpr),Math.round((t.y+t.h/2)*g.dpr),1,1).data;return{shown:g.drawTargetView.length>=0&&g.portrait&&g.world.enemies.every(e=>e.x>g.cam.cx+g.w/2/g.S),rect:t,px:[...d]}});
+  assert.ok(r.shown,'fort is off-screen in portrait aim view');await p.screenshot({path:OUT+'/sling-target-view.png'});await p.mouse.up();
+  await p.goto(BASE+'/sling.html?test#level-2');await p.waitForFunction(()=>__sling.game?.level.number===2);await p.waitForTimeout(300);assert.equal(await p.locator('.overlay.rotate.show').count(),0,'shown once per session');
+  await p.setViewportSize({width:844,height:390});await p.evaluate(()=>sessionStorage.removeItem('slingRotateTip'));await p.setViewportSize({width:390,height:844});await p.goto(BASE+'/sling.html?test#level-3');await p.waitForSelector('.overlay.rotate.show');await p.setViewportSize({width:844,height:390});await p.waitForTimeout(300);assert.equal(await p.locator('.overlay.rotate.show').count(),0,'turning the phone closes the card');
+  await ctx.close();pass('Portrait: one-time landscape recommendation (closes on rotation) and a live TARGET window with the trajectory while aiming')}
 
  // ── 6. Camera pan, pinch-zoom, wheel, limits and reset ──
  {const {ctx,p,cdp}=await newPage(390,844);await openLevel(p,9,save(allClear(8)));await waitAim(p);const a=await G(p);
@@ -151,7 +161,7 @@ const allClear=n=>Array.from({length:n},(_,i)=>({score:1000+i,stars:1+i%3}));
   await p.goto(BASE+'/');await p.evaluate(async()=>{await navigator.serviceWorker.ready;const c=await caches.open('another-game-test');await c.put('/another-game/x',new Response('x'));localStorage.setItem('monsterSlingSaveV1',JSON.stringify({version:1,results:[{score:4242,stars:3},{score:10,stars:1}],selected:4,sound:true,revision:3}))});
   await poll(p,async()=>(await caches.keys()).some(k=>k.startsWith('monster-merge-v16')));
   siteRoot=ROOT;await p.goto(BASE+'/');await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()});
-  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v17-0-sling-20261025-1')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v17-0-sling-20261025-1')});
+  await poll(p,async()=>{const k=await caches.keys();return k.includes('monster-merge-v17-1-sling-20261025-1')&&!k.some(x=>x.startsWith('monster-merge-')&&x!=='monster-merge-v17-1-sling-20261025-1')});
   // the page that was open during the update reloads itself once (it is not in a level)
   await p.waitForLoadState('load');await poll(p,async()=>{const r=await navigator.serviceWorker.getRegistration();return !!r?.active&&r.active.state==='activated'&&!r.waiting&&!r.installing});
   const keys=await p.evaluate(()=>caches.keys());assert.ok(keys.includes('another-game-test'),'unrelated caches survive');

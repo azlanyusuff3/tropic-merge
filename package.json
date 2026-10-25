@@ -1,6 +1,6 @@
 {
   "name": "monster-merge",
-  "version": "17.0.0",
+  "version": "17.1.0",
   "private": true,
   "scripts": {
     "test": "node tests/sling-model.cjs && node tests/sling-levels.mjs && node tests/playable.cjs && node tests/sling.cjs",

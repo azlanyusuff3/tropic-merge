@@ -1,8 +1,8 @@
-# Monster Island v17.0 verification — 25 October 2026
+# Monster Island v17.1 verification — 25 October 2026
 
 Baseline: `b5f39ee` from main. `merge.html` is unchanged byte-for-byte (SHA-256 `4a7dd28b2258f82222bff3a5d37319cebd9b81d7fe1fee411aedd121cfbe9441`), as are all eleven monster sprites, the Merge background, icons and the manifest (18 files checked by SHA-256 before and after).
 
-`npm test` (50 checks, all passing) runs four suites.
+`npm test` (51 checks, all passing) runs four suites.
 
 ## Simulation (`tests/sling-model.cjs`, `tests/sling-levels.mjs`)
 
@@ -18,6 +18,7 @@ Baseline: `b5f39ee` from main. `merge.html` is unchanged byte-for-byte (SHA-256 
 - Touch drag aims with the camera frozen; release launches; camera follows, holds on the impact and returns to the sling.
 - Dotted preview matches the live flight in the page (max error 0 world units).
 - A second finger turns an aim into a pinch without launching; touch cancel, rotating mid-drag, backgrounding mid-drag and tiny pulls never launch.
+- Portrait: the landscape card appears once per session, waits the intro, closes when the phone turns; the TARGET window shows the off-screen fort while aiming.
 - One-finger pan, pinch zoom within limits, wheel zoom and the recenter button.
 - All 11 heroes picked from the tray, launched by drag and fired from the skill button with ready/used states and effects.
 - A recorded solution topples real structures, wins with stars, unlocks the next level and survives reload; Merge keys untouched.
