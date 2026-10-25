@@ -6,42 +6,62 @@ const dot=(a,b)=>a.x*b.x+a.y*b.y;
 function axes(b){return [{x:Math.cos(b.a),y:Math.sin(b.a)},{x:-Math.sin(b.a),y:Math.cos(b.a)}]}
 function radius(b,n){if(b.r)return b.r;const [u,v]=axes(b);return Math.abs(dot(u,n))*b.w/2+Math.abs(dot(v,n))*b.h/2}
 function vertices(b){const [u,v]=axes(b);return[-1,1].flatMap(x=>[-1,1].map(y=>({x:b.x+u.x*x*b.w/2+v.x*y*b.h/2,y:b.y+u.y*x*b.w/2+v.y*y*b.h/2})))}
+function inside(box,p,eps){const [u,v]=axes(box),dx=p.x-box.x,dy=p.y-box.y;return Math.abs(dx*u.x+dy*u.y)<=box.w/2+eps&&Math.abs(dx*v.x+dy*v.y)<=box.h/2+eps}
 export function contact(a,b){
  let ns;if(a.r&&b.r){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>=a.r+b.r)return null;ns=[{x:d?dx/d:1,y:d?dy/d:0}]}
  else{ns=[...(!a.r?axes(a):[]),...(!b.r?axes(b):[])];if(a.r||b.r){const c=a.r?a:b,box=a.r?b:a;const vs=vertices(box).sort((p,q)=>(p.x-c.x)**2+(p.y-c.y)**2-((q.x-c.x)**2+(q.y-c.y)**2));const dx=vs[0].x-c.x,dy=vs[0].y-c.y,d=Math.hypot(dx,dy);if(d>0.001)ns.push({x:dx/d,y:dy/d})}}
  let depth=Infinity,normal;const delta={x:b.x-a.x,y:b.y-a.y};for(const axis of ns){const overlap=radius(a,axis)+radius(b,axis)-Math.abs(dot(delta,axis));if(overlap<=0)return null;if(overlap<depth){depth=overlap;const sign=dot(delta,axis)>=0?1:-1;normal={x:axis.x*sign,y:axis.y*sign}}}
- const n=normal,t={x:-n.y,y:n.x};const range=o=>{const center=dot(o,t),r=radius(o,t);return[center-r,center+r]};const ra=range(a),rb=range(b),tangent=(Math.max(ra[0],rb[0])+Math.min(ra[1],rb[1]))/2;
+ const n=normal,t={x:-n.y,y:n.x};
+ // Box on box: use every corner that sits inside the other box, so a resting block gets a two-point
+ // footing and resists tipping. Circles and edge crossings fall back to the single mid-point.
+ if(!a.r&&!b.r){const eps=.5+depth;const pts=[...vertices(a).filter(p=>inside(b,p,eps)),...vertices(b).filter(p=>inside(a,p,eps))];if(pts.length>=2){
+  // Keep the two points furthest apart along the contact face.
+  pts.sort((p,q)=>dot(p,t)-dot(q,t));const plane=(dot(a,n)+radius(a,n)+dot(b,n)-radius(b,n))/2;const ends=[pts[0],pts[pts.length-1]].map(p=>({x:p.x+n.x*(plane-dot(p,n)),y:p.y+n.y*(plane-dot(p,n))}));
+  if(Math.abs(dot(ends[0],t)-dot(ends[1],t))>1)return{n,depth,points:ends,x:(ends[0].x+ends[1].x)/2,y:(ends[0].y+ends[1].y)/2}}}
+ const range=o=>{const center=dot(o,t),r=radius(o,t);return[center-r,center+r]};const ra=range(a),rb=range(b),tangent=(Math.max(ra[0],rb[0])+Math.min(ra[1],rb[1]))/2;
  const plane=(dot(a,n)+radius(a,n)+dot(b,n)-radius(b,n))/2;
- return {n,depth,x:n.x*plane+t.x*tangent,y:n.y*plane+t.y*tangent};
+ const x=n.x*plane+t.x*tangent,y=n.y*plane+t.y*tangent;return {n,depth,points:[{x,y}],x,y};
 }
-function impulse(a,b,m,onHit){const {n,depth,x,y}=m,sum=a.inv+b.inv;if(!sum)return;
+function impulse(a,b,m,onHit){const {n,depth}=m,sum=a.inv+b.inv;if(!sum)return;
  const correction=Math.max(0,depth-.12)*.55/sum;a.x-=n.x*correction*a.inv;a.y-=n.y*correction*a.inv;b.x+=n.x*correction*b.inv;b.y+=n.y*correction*b.inv;
- const ar={x:x-a.x,y:y-a.y},br={x:x-b.x,y:y-b.y};const rv={x:b.vx-b.omega*br.y-a.vx+a.omega*ar.y,y:b.vy+b.omega*br.x-a.vy-a.omega*ar.x},vn=dot(rv,n);if(vn>=0)return;
- const ac=ar.x*n.y-ar.y*n.x,bc=br.x*n.y-br.y*n.x,den=sum+ac*ac*a.invI+bc*bc*b.invI;
- const restitution=Math.abs(vn)>35?Math.max(a.restitution,b.restitution):0;const j=-(1+restitution)*vn/den;
- function apply(px,py){a.vx-=px*a.inv;a.vy-=py*a.inv;a.omega-=(ar.x*py-ar.y*px)*a.invI;b.vx+=px*b.inv;b.vy+=py*b.inv;b.omega+=(br.x*py-br.y*px)*b.invI}apply(n.x*j,n.y*j);
- const t={x:-n.y,y:n.x},at=ar.x*t.y-ar.y*t.x,bt=br.x*t.y-br.y*t.x;const jt=Math.max(-j*.5,Math.min(j*.5,-dot(rv,t)/(sum+at*at*a.invI+bt*bt*b.invI)));apply(t.x*jt,t.y*jt);
- if(-vn>45)onHit?.(a,b,-vn,j);
+ const mu=Math.sqrt((a.friction??.55)*(b.friction??.55)),share=1/m.points.length;let hit=0,hj=0;
+ // Jacobi pass: every footing point is solved from the same velocity snapshot and shares the
+ // impulse, so a block resting on two corners receives a symmetric push and does not creep.
+ const pending=[];
+ for(const p of m.points){
+  const ar={x:p.x-a.x,y:p.y-a.y},br={x:p.x-b.x,y:p.y-b.y};const rv={x:b.vx-b.omega*br.y-a.vx+a.omega*ar.y,y:b.vy+b.omega*br.x-a.vy-a.omega*ar.x},vn=dot(rv,n);if(vn>=0)continue;
+  const ac=ar.x*n.y-ar.y*n.x,bc=br.x*n.y-br.y*n.x,den=sum+ac*ac*a.invI+bc*bc*b.invI;
+  const restitution=Math.abs(vn)>35?Math.max(a.restitution,b.restitution):0;const j=-(1+restitution)*vn/den*share;
+  const t={x:-n.y,y:n.x},at=ar.x*t.y-ar.y*t.x,bt=br.x*t.y-br.y*t.x;const jt=Math.max(-j*mu,Math.min(j*mu,-dot(rv,t)/(sum+at*at*a.invI+bt*bt*b.invI)*share));
+  pending.push({ar,br,px:n.x*j+t.x*jt,py:n.y*j+t.y*jt});if(-vn>hit){hit=-vn;hj=j/share}
+ }
+ for(const {ar,br,px,py} of pending){a.vx-=px*a.inv;a.vy-=py*a.inv;a.omega-=(ar.x*py-ar.y*px)*a.invI;b.vx+=px*b.inv;b.vy+=py*b.inv;b.omega+=(br.x*py-br.y*px)*b.invI}
+ if(hit>45)onHit?.(a,b,hit,hj,m.x,m.y);
 }
+export const SUBSTEPS=3;
+function integrate(b,h){b.vy+=GRAVITY*h;b.vx*=Math.exp(-.09*h);b.vy*=Math.exp(-.035*h);b.omega*=Math.exp(-.7*h);b.x+=b.vx*h;b.y+=b.vy*h;b.a+=b.omega*h;b.vx=Math.max(-1050,Math.min(1050,b.vx));b.vy=Math.max(-1000,Math.min(1000,b.vy));b.omega=Math.max(-10,Math.min(10,b.omega))}
+// Free-flight path using exactly the simulation's integrator and tick rate (1/60 s, SUBSTEPS substeps).
+export function predict(x,y,vx,vy,ticks=120,stride=4){const b={x,y,vx,vy,a:0,omega:0},out=[];const h=1/60/SUBSTEPS;for(let i=1;i<=ticks;i++){for(let s=0;s<SUBSTEPS;s++)integrate(b,h);if(i%stride===0)out.push({x:b.x,y:b.y,t:i/60});if(b.y>GROUND-20||b.x>1500)break}return out}
+// Sleeping: a body that has been still for a moment stops integrating until something moving
+// touches it, an explosion reaches it or a neighbour breaks. Standing forts therefore stay put
+// instead of slowly creeping, and every collapse is still caused by a real impact.
+const SLEEP_SPEED=5,SLEEP_SPIN=.06,SLEEP_TIME=.6,WAKE_SPEED=8;
+export function wake(b){if(b&&!b.static&&b.sleep){b.sleep=false;b.sleepT=0}}
+export function wakeNear(bodies,x,y,r){for(const b of bodies)if(b.sleep&&Math.hypot(b.x-x,b.y-y)<r+(b.r||Math.hypot(b.w,b.h)/2))wake(b)}
+const speed=b=>Math.hypot(b.vx,b.vy);
+function freeze(b){const s={inv:b.inv,invI:b.invI};b.inv=0;b.invI=0;return s}
 export function step(bodies,dt,onHit){
- const n=3,h=dt/n;
+ const n=SUBSTEPS,h=dt/n;
  for(let sub=0;sub<n;sub++){
-  for(const b of bodies)if(!b.static&&!b.dead){b.vy+=GRAVITY*h;b.vx*=Math.exp(-.09*h);b.vy*=Math.exp(-.035*h);b.omega*=Math.exp(-.7*h);b.x+=b.vx*h;b.y+=b.vy*h;b.a+=b.omega*h;b.vx=Math.max(-1050,Math.min(1050,b.vx));b.vy=Math.max(-1000,Math.min(1000,b.vy));b.omega=Math.max(-10,Math.min(10,b.omega))}
-  for(let k=0;k<6;k++)for(let i=0;i<bodies.length;i++){const a=bodies[i];if(a.dead)continue;for(let j=i+1;j<bodies.length;j++){const b=bodies[j];if(b.dead||a.static&&b.static||a.phase>0&&b.kind!=='ground'||b.phase>0&&a.kind!=='ground')continue;if(Math.abs(a.x-b.x)>(a.r||Math.hypot(a.w,a.h)/2)+(b.r||Math.hypot(b.w,b.h)/2)+2)continue;const m=contact(a,b);if(m)impulse(a,b,m,k===0?onHit:null)}}
+  for(const b of bodies)if(!b.static&&!b.dead&&!b.sleep)integrate(b,h);
+  for(let k=0;k<6;k++)for(let i=0;i<bodies.length;i++){const a=bodies[i];if(a.dead)continue;for(let j=i+1;j<bodies.length;j++){const b=bodies[j];if(b.dead||a.static&&b.static||a.phase>0&&b.kind!=='ground'||b.phase>0&&a.kind!=='ground')continue;
+   const inertA=a.static||a.sleep,inertB=b.static||b.sleep;if(inertA&&inertB)continue;
+   if(Math.abs(a.x-b.x)>(a.r||Math.hypot(a.w,a.h)/2)+(b.r||Math.hypot(b.w,b.h)/2)+2)continue;
+   const m=contact(a,b);if(!m)continue;
+   // A moving body wakes the sleeper it touches; a slow, resting one leans on it as if it were solid.
+   if(a.sleep&&(speed(b)>WAKE_SPEED||Math.abs(b.omega)>.3))wake(a);if(b.sleep&&(speed(a)>WAKE_SPEED||Math.abs(a.omega)>.3))wake(b);
+   const fa=a.sleep?freeze(a):null,fb=b.sleep?freeze(b):null;impulse(a,b,m,k===0?onHit:null);if(fa)Object.assign(a,fa);if(fb)Object.assign(b,fb);
+  }}
  }
-}
-export function buildLevel(level){
- const blocks=[],enemies=[];const add=(x,y,w,h,material='wood')=>blocks.push(body({x,y,w,h,kind:material,mass:material==='stone'?2.8:material==='glass'?.65:1.1,hp:material==='stone'?180:material==='glass'?55:95}));
- const enemy=(x,y,boss=false)=>enemies.push(body({x,y,r:boss?32:22,mass:boss?2.4:1,hp:boss?240:65,kind:'enemy',boss}));
- const tower=(x,tiers=1,mat='wood')=>{for(let t=0;t<tiers;t++){const floor=GROUND-t*100;add(x-48,floor-43,18,86,mat);add(x+48,floor-43,18,86,mat);add(x,floor-94,124,14,t%2?'wood':mat);enemy(x,floor-23)}return GROUND-tiers*100};
- const rank=level.rank,mat=rank>=2?'glass':'wood';
- switch(level.pattern){
-  case 0:tower(865,1+Math.min(2,rank),mat);if(rank>0)tower(1065,1,'wood');break;
-  case 1:tower(790,1+Math.floor(rank/2),mat);tower(1030,1+Math.floor(rank/3),'wood');break;
-  case 2:tower(770,1,mat);tower(1050,1,'wood');add(910,474,165,18,rank>1?'stone':'wood');enemy(910,443);if(rank>1)enemy(910,GROUND-23);break;
-  case 3:tower(870,2,mat);add(870,355,70,70,'glass');enemy(1050,GROUND-23);add(1025,GROUND-60,16,120,'wood');add(1080,GROUND-60,16,120,'wood');add(1052,461,100,18,'wood');break;
-  case 4:tower(810,2,'wood');tower(1060,1,mat);add(940,GROUND-28,55,55,'stone');enemy(940,GROUND-76);break;
-  case 5:tower(810,2,mat);tower(1050,2,rank>2?'stone':'wood');enemy(930,GROUND-34,true);add(930,435,150,18,'glass');break;
- }
- const ground=body({x:600,y:GROUND+60,w:3000,h:120,kind:'ground',static:true});return {bodies:[ground,...blocks,...enemies],blocks,enemies};
+ for(const b of bodies){if(b.static||b.dead||b.sleep||b.kind==='monster'||b.kind==='seed')continue;if(speed(b)<SLEEP_SPEED&&Math.abs(b.omega)<SLEEP_SPIN){b.sleepT=(b.sleepT||0)+dt;if(b.sleepT>SLEEP_TIME){b.sleep=true;b.vx=b.vy=b.omega=0}}else b.sleepT=0}
 }

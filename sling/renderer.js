@@ -19,7 +19,7 @@ const gameOver=false,dragging=false,box={danger:-10000};
 function getBallSprite(level){
  if(ballSprites.has(level))return ballSprites.get(level);
  const im=monsterImages[level];if(!im)return null;
- const k=ballKinds[level],logical=k.r*k.artScale,side=Math.ceil(logical*2),sc=document.createElement('canvas');sc.width=sc.height=side;
+ const k=ballKinds[level],logical=k.r*k.artScale,side=Math.ceil(Math.max(logical*2,384)),sc=document.createElement('canvas');sc.width=sc.height=side;
  const c=sc.getContext('2d');c.imageSmoothingQuality='high';c.drawImage(im,0,0,side,side);
  const sp={body:sc,logical,r:k.r,side};
  const fa=faceAssets[level];
@@ -242,3 +242,6 @@ export async function prepareMonster(level){
 }
 export function paintMonster(c,b,now,pointer){frameNow=now;faceCtx={held:!!pointer,hx:pointer?.x,hy:pointer?.y};drawRealFruit(c,b,1,true)}
 export function react(b,mood,ms=1600){faceEvent(b,mood,ms);b.jig=.12;b.jigT=performance.now()}
+// Sling additions: a physical squash kick (0..~.4) and a mood without the wobble.
+export function kick(b,j){jellyKick(b,j)}
+export function mood(b,k,ms=1200){faceEvent(b,k,ms)}

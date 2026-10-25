@@ -1,7 +1,7 @@
-const CACHE='monster-merge-v16-0-sling-20261025-1';
+const CACHE='monster-merge-v17-0-sling-20261025-1';
 const CORE=[
  './','./index.html','./merge.html','./sling.html','./manifest.webmanifest',
- './sling/style.css','./sling/menu.css','./sling/data.js','./sling/physics.js','./sling/battle.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
+ './sling/style.css','./sling/menu.css','./sling/data.js','./sling/levels.js','./sling/physics.js','./sling/battle.js','./sling/art.js','./sling/renderer.js','./sling/app.js','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
  ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
 ];

@@ -1,29 +1,55 @@
-# Monster Sling v16.0
+# Monster Sling v17.0
 
-An independent 2D slingshot puzzle game alongside the original Monster Merge.
+A fullscreen 2D slingshot game that lives next to the original Monster Merge on Monster Island.
 
 ## Play
 
-Open Monster Sling from the island menu. Choose a hero, drag back and release. Pulling left and slightly down launches right and up. The dotted trajectory helps aim. Tap the battlefield or skill button during flight to activate a skill once. Defeat every shell bandit to recover the crystal. Aim at supports to topple the fort. Try again freely; there are no lives, timers or real-money purchases.
+Open Monster Sling from the island menu. The campaign is an adventure map of five islands, each with a winding route of six levels that ends in a boss fort. Tap a level for its card (best stars, best score, hero) and press Play.
 
-Thirty sequential levels cover five island themes, with a guardian boss every sixth level. Four launches are available in normal levels and five in boss levels. Complete a level with at least two spare launches for three stars, one spare launch for two stars, or no spare launches for one star. Best score and best star count are saved independently and never decrease.
+Each level opens with a short camera pan over the enemy fort before returning to the sling, where your hero hops into the pouch. Grab the monster, pull back and release. Dotted trails show the exact flight path. Tap anywhere (or the skill button, or Space) during flight to fire your hero's skill once. Defeat every shell bandit to rescue the crystal.
 
-Slimelet, Bubblo and Rockro start unlocked. More heroes unlock at 2, 4, 7, 10, 13, 16, 20 and 25 cleared levels. Discovering a species in Monster Merge also unlocks it here. All eleven original sprite designs are reused. Species IDs in `monsterMergeCodexV1` are read without modifying any Merge key. Sling progression is independent of Merge scoring and physics.
+Normal levels give four monsters, boss levels five. Two spare monsters earn three stars, one spare earns two, none earns one. Best score and stars per level are kept and never decrease.
 
-Skills: Slimelet jelly dash/bounce, Bubblo bubble blast, Puffling feather gust, Sproutiball seed projectiles, Rockro downward smash, Frostbop structure weakening/freezing, Shadebub temporary collision phasing, Groveling foundation quake, Tidalon sideways wave, Lumiorb targeted trajectory change, and Infernodon explosion.
+The hero tray (bottom-left portrait) opens between shots. Slimelet, Bubblo and Rockro start unlocked; Puffling, Sproutiball, Frostbop, Shadebub, Groveling, Tidalon, Lumiorb and Infernodon join after 2, 4, 7, 10, 13, 16, 20 and 25 cleared levels, with a celebration on the victory card. A species discovered in Monster Merge is unlocked here too (Merge storage is only read).
 
-Zoom in/out for precision and toggle the pan button to drag the world. The zoomed camera follows a flying monster. Portrait and landscape work; landscape provides a wider view. Next Monster lets a player end a shot after one second. A shot otherwise ends automatically after resting, leaving the battlefield or eight seconds. An exhausted squad gets a bounded settling period before defeat, preventing stuck rounds. Dialogs and backgrounding pause the simulation. Leaving the document stops the animation loop. Reloading restarts the current level; completed-level progress remains saved.
+## Controls and camera
 
-## Architecture and storage
+- **Aim:** touch inside a generous circle around the loaded monster and drag. The pull is measured in world space and the camera stays still while you drag. A tiny pull, dragging back to the fork, a second finger, a cancelled touch, rotating the device or leaving the app never launches.
+- **Look around:** drag anywhere else to pan, pinch (or mouse wheel) to zoom within limits, and tap the target button to recenter.
+- **Camera:** intro pan over the fort → aiming view → smooth flight tracking (and it keeps the fort in frame where it fits) → impact hold while the fort collapses → return to the sling. In portrait the camera frames the sling and follows the action instead of shrinking the whole level, an edge marker points to off-screen bandits, and the impact view eases out to fit the fort.
+- **Pause:** top-left button, Escape or P. Pause holds resume, restart, map, how-to-play, sound, calm effects and optional browser full screen. Leaving the app pauses automatically.
 
-`index.html`: island menu. `sling.html`: campaign and battlefield. `sling/data.js`: species, campaign and saves. `sling/physics.js`: independent oriented-box/circle collision solver with angular impulses, friction and substeps. `sling/battle.js`: turns, damage, hero skills, victory and defeat. `sling/renderer.js`: separate copy of the original visual monster rig, without any Merge engine. `sling/app.js`: UI, touch input, camera, rendering and audio.
+## Hero skills
 
-`monsterSlingSaveV1` stores results, hero selection and sound settings. A previous valid snapshot is retained in `monsterSlingBackupV1`. Malformed saves fall back to the backup. Saves merge completed results by maximum score and stars, retaining progress from another tab. Storage errors display a visible notice. No account, backend, tracking, advertising or payments. Saves are local to the browser; clearing site data removes them.
+Slimelet jelly dash, Bubblo bubble blast, Puffling feather gust, Sproutiball seed burst (three physical seeds), Rockro boulder smash, Frostbop freeze (weakens nearby blocks to a quarter), Shadebub shadow slip (phases through for 0.8 s), Groveling root quake, Tidalon tidal wave, Lumiorb star seeker (re-aims at the nearest bandit) and Infernodon inferno blast. Each has its own particles, sound, monster reaction and, for the three heavy skills, a short screen shake (off with reduced motion or calm effects).
 
-All former virtual-pet gameplay, UI, resources, documentation and tests have been removed. Previously stored data from that removed mode is left unused; no automatic browser-storage deletion is performed. Existing Monster Merge keys are never cleared, rewritten or migrated by Sling.
+## Levels
 
-The shared worker precaches every runtime file and sprite. Cache cleanup checks both project cache-name prefixes and every cached URL against the service-worker scope, protecting other applications on the same Pages account. Original icon files, manifest name/scope/start URL and Merge document remain compatible with installed PWAs.
+Thirty hand-built forts in `sling/levels.js`, one function each: Sunlit Shores teaches aiming and toppling, Bamboo Bluffs adds tall towers, bridges, stairs and a domino row, Frost Lagoon brings glass huts, a glass pyramid, a stone shield and shelves, Twilight Grove hides heavy roofs, a balancing plank and a bunker, and Ember Summit builds stone keeps, three peaks and the final overlord. Every sixth level is a boss with a crowned, armoured bandit and an HP bar.
+
+`tests/sling-solutions.json` stores a winning shot list for every level that only uses heroes guaranteed at that point in the campaign. `npm run solve` (slow, offline) regenerates it after layout changes; `tests/sling-levels.mjs` replays it in every test run and also checks that each fort stands on its own.
+
+## Architecture
+
+| File | Role |
+| --- | --- |
+| `sling.html` | Shell page for the map and the stage |
+| `sling/app.js` | Map, level card, squad, fullscreen stage, camera, gestures, HUD, tray, pause/results, synthesised audio |
+| `sling/art.js` | Island scenery layers, material sprites with damage stages, shell bandits, sling, crystal, pooled particles and skill effects |
+| `sling/renderer.js` | Separate copy of the Merge monster rig (breathing, blinking, eyes, moods, jelly), with larger sprite caches and squash/mood hooks |
+| `sling/battle.js` | Turns, damage, skills, scoring, events for effects and sound; no DOM or randomness |
+| `sling/physics.js` | Independent box/circle solver: two-point box footings, material friction, sleeping bodies, and the shared integrator used by the trajectory preview |
+| `sling/levels.js` | The 30 fort layouts and material table |
+| `sling/data.js` | Species, islands, campaign list and saves |
+
+Why the solver changed: the previous one gave box stacks a single contact point, so tall towers slowly tipped over by themselves (three-tier towers fell before the first shot). Stacked blocks now get a two-point footing solved symmetrically, and still bodies sleep until something moving touches them, a neighbour breaks or a skill reaches them. Collapses therefore come only from real impacts. No third-party engine or framework was added.
+
+Rendering: the world is drawn on one canvas with a fixed 60 Hz simulation step. Scenery layers, block textures, bandit shells and monster sprites are generated once and cached; the backing store is capped at 2× device pixels and about 2.4 million pixels; particle budgets drop with reduced motion, calm effects, or if frames run slow. The loop stops when you leave a level and pauses when the page is hidden; all listeners of a level are removed when it ends.
+
+## Storage
+
+`monsterSlingSaveV1` keeps results, selected hero, sound, effects preference and whether the tutorial was seen; `monsterSlingBackupV1` keeps the previous valid copy. Existing saves load unchanged (new fields are optional). Results merge by maximum across tabs. Monster Merge keys are never written.
 
 ## Artwork
 
-Original eleven monster WebP sprites, island background and icons remain unchanged. Shell bandits, crystal, sling, wood/glass/stone structures, particles and game controls are original Canvas/CSS artwork. No extra image library or framework is required.
+The eleven original monster sprites, icons and Merge background are unchanged. Island scenery, terrain, wood/stone/glass, shell bandits and the boss, the sling, crystal, particles, map islands and UI icons are original procedural Canvas, SVG and CSS artwork created for Sling.

@@ -1,68 +1,419 @@
+// Monster Sling: campaign map, fullscreen battle stage, camera, gestures, HUD, overlays and audio.
 import{SPECIES,ISLANDS,LEVELS,load,save,unlocked,available,record}from'./data.js';
-import{Battle}from'./battle.js';
-import{GROUND,GRAVITY}from'./physics.js';
-import{prepareMonster,paintMonster,react}from'./renderer.js';
-const $=s=>document.querySelector(s),screen=$('#screen'),modal=$('#modal'),content=$('#modal-content');
-let storage;try{storage=localStorage}catch{storage={getItem:()=>null,setItem:()=>{throw Error('Storage unavailable')}}}
-let state=load(storage),stop=()=>{},current=null,audio=null,noticeTimer;
-const background=new Image();background.src='./assets/tropical.webp';
-function persist(){if(!save(storage,state))notify('Storage unavailable. Your progress cannot be saved.',true)}
-function notify(text,warning=false){const el=$('#notice');el.textContent=text;el.className='show'+(warning?' storage-warning':'');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>el.className='',warning?7000:3000)}
-function sound(f=500,d=.1,type='sine'){if(!state.sound)return;try{audio ||=new(window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(f,audio.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(40,f*.55),audio.currentTime+d);g.gain.setValueAtTime(.045,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+d);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+d)}catch{}}
-function soundUI(){$('#sound').textContent=state.sound?'♫':'♪';$('#sound').setAttribute('aria-label',state.sound?'Mute sound':'Enable sound');$('#sound').setAttribute('aria-pressed',String(state.sound))}
-$('#sound').onclick=()=>{state.sound=!state.sound;persist();soundUI();sound()};soundUI();
-$('#close-modal').onclick=()=>modal.close();modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close()}});
-function show(html){content.innerHTML=html;if(!modal.open)modal.showModal()}
+import{Battle,SLING,launchVelocity,launchOrigin}from'./battle.js';
+import{GROUND,predict,step}from'./physics.js';
+import{prepareMonster,paintMonster,react,kick,mood}from'./renderer.js';
+import*as art from'./art.js';
+
+export const VERSION='17.0';
+const $=(s,r=document)=>r.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,ease=t=>1-Math.pow(1-clamp(t,0,1),3);
+const app=$('#app');
+let storage;try{storage=localStorage;storage.getItem('x')}catch{storage={getItem:()=>null,setItem:()=>{throw Error('Storage unavailable')}}}
+let state=load(storage),game=null,noticeTimer;
+const UNLOCK_AT=[0,0,2,4,0,7,10,13,16,20,25];
+const reduced=()=>state.effects==='reduced'||art.reducedMotionQuery.matches;
+function persist(){if(!save(storage,state))notify('Storage unavailable. Your progress cannot be saved on this browser.',true)}
+function notify(text,warning=false){const el=$('#notice');el.textContent=text;el.className='show'+(warning?' storage-warning':'');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>el.className='',warning?7000:2600)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+
+// ───────────────────────────── Audio (synthesised, no files) ─────────────────────────────
+const Sound={ctx:null,noise:null,last:new Map(),master:null,
+ ensure(){if(!state.sound)return null;try{if(!this.ctx){this.ctx=new(window.AudioContext||window.webkitAudioContext)();this.master=this.ctx.createGain();this.master.gain.value=.55;this.master.connect(this.ctx.destination);const n=this.ctx.createBuffer(1,this.ctx.sampleRate*.6,this.ctx.sampleRate),d=n.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;this.noise=n}if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});return this.ctx}catch{return null}},
+ tone(f,d,type='sine',g=.12,to=f*.5,delay=0){const c=this.ensure();if(!c)return;const t=c.currentTime+delay,o=c.createOscillator(),a=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,to),t+d);a.gain.setValueAtTime(g,t);a.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(a);a.connect(this.master);o.start(t);o.stop(t+d+.02)},
+ hiss(d,type='lowpass',f=800,g=.15,q=.8,delay=0,to){const c=this.ensure();if(!c)return;const t=c.currentTime+delay,s=c.createBufferSource(),fl=c.createBiquadFilter(),a=c.createGain();s.buffer=this.noise;fl.type=type;fl.frequency.setValueAtTime(f,t);if(to)fl.frequency.exponentialRampToValueAtTime(to,t+d);fl.Q.value=q;a.gain.setValueAtTime(g,t);a.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(fl);fl.connect(a);a.connect(this.master);s.start(t,Math.random()*.3);s.stop(t+d+.02)},
+ play(name,k=1){if(!state.sound)return;const now=performance.now(),gap={stretch:70,wood:45,stone:55,glass:45,ground:80}[name]||25;if(now-(this.last.get(name)||0)<gap)return;this.last.set(name,now);
+  switch(name){
+   case'ui':this.tone(660,.07,'triangle',.07,520);break;
+   case'grab':this.tone(220,.08,'triangle',.08,260);break;
+   case'stretch':k=clamp(k,0,1);this.tone(90+k*120,.06,'sawtooth',.025,110+k*130);break;
+   case'launch':k=clamp(k,.5,1.3);this.hiss(.32,'bandpass',500,.22*k,1.2,0,2400);this.tone(190,.22,'triangle',.14,85);break;
+   case'snap':this.tone(150,.12,'triangle',.08,70);break;
+   case'wood':k=clamp(k,.2,1.2);this.hiss(.12,'lowpass',700,.18*k);this.tone(150,.12,'sine',.12*k,90);break;
+   case'woodBreak':this.hiss(.22,'highpass',1300,.22);this.hiss(.18,'lowpass',500,.2);this.tone(120,.18,'triangle',.12,60);break;
+   case'stone':k=clamp(k,.2,1.2);this.hiss(.14,'lowpass',380,.22*k);this.tone(90,.16,'sine',.16*k,55);break;
+   case'stoneBreak':this.hiss(.4,'lowpass',900,.26,.7,0,200);this.tone(70,.32,'sine',.2,40);break;
+   case'glass':k=clamp(k,.2,1.2);this.tone(1900+Math.random()*500,.18,'triangle',.06*k,1700);break;
+   case'glassBreak':this.hiss(.35,'highpass',3200,.18);for(let i=0;i<4;i++)this.tone(1800+Math.random()*1800,.25,'triangle',.05,1500,i*.03);break;
+   case'ground':k=clamp(k,.2,1.2);this.hiss(.16,'lowpass',300,.18*k);break;
+   case'thud':k=clamp(k,.2,1.2);this.tone(110,.14,'sine',.16*k,60);this.hiss(.1,'lowpass',500,.12*k);break;
+   case'pop':this.tone(720,.16,'sine',.14,200);this.hiss(.12,'bandpass',1600,.12,2);this.tone(1100,.09,'triangle',.06,1300,.05);break;
+   case'boss':this.tone(300,.5,'sawtooth',.1,80);this.hiss(.5,'lowpass',700,.22);break;
+   case'hurt':this.tone(420,.1,'square',.03,300);break;
+   case'skill':{const f=[520,620,700,560,180,880,300,140,330,980,160][k|0]||600;this.tone(f,.28,'triangle',.12,f*1.6);this.hiss(.25,'bandpass',f*2,.1,2);if([4,7,10].includes(k|0)){this.tone(70,.45,'sine',.22,35);this.hiss(.5,'lowpass',600,.25)}break}
+   case'star':this.tone(880+k*220,.22,'triangle',.11,1320+k*220);break;
+   case'win':[523,659,784,1046].forEach((f,i)=>this.tone(f,.32,'triangle',.11,f*1.01,i*.11));break;
+   case'lose':[440,370,311,262].forEach((f,i)=>this.tone(f,.32,'triangle',.09,f*.98,i*.14));break;
+   case'unlock':[660,880,990,1320].forEach((f,i)=>this.tone(f,.35,'sine',.1,f,i*.09));break;
+   case'hop':this.tone(380,.1,'sine',.08,620);break;
+  }},
+ suspend(){this.ctx?.suspend().catch(()=>{})},
+ resume(){if(state.sound&&this.ctx)this.ctx.resume().catch(()=>{})}
+};
+
+// ───────────────────────────── Shared bits ─────────────────────────────
+const ICON={
+ pause:'<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
+ back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ sound:'<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+ mute:'<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+ retry:'<svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 11-2.05-4.95M19 4v4h-4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ map:'<svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+ play:'<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>',
+ next:'<svg viewBox="0 0 24 24"><path d="M6 5l9 7-9 7zM17 5h2.5v14H17z"/></svg>',
+ target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="2.2"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+ help:'<svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 115 2.2c-1.2.8-2 1.4-2 2.8M12 18h.01" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+ full:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+ sparkle:'<svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg>',
+ lock:'<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 018 0V10" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>',
+ crown:'<svg viewBox="0 0 24 24"><path d="M3 18l1.5-10 5 4.5L12 5l2.5 7.5 5-4.5L21 18z"/></svg>',
+ bandit:'<svg viewBox="0 0 24 24"><ellipse cx="13" cy="13" rx="9" ry="8" fill="#6fa83f"/><circle cx="7" cy="12" r="5" fill="#c6e48a"/><path d="M2 10.5q5-2 10 0v2.2q-5-1.6-10 0z" fill="#b8323f"/><circle cx="5.6" cy="11.4" r="1.1" fill="#fff"/><circle cx="8.6" cy="11.4" r="1.1" fill="#fff"/></svg>'
+};
+function heroCard(d,open,extra=''){return`<button class="hero-tile ${open?'':'locked'} ${extra}" data-hero="${d.id}" ${open?'':'aria-disabled="true"'} aria-label="${esc(d.name)}${open?'':' (locked)'}"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt="" draggable="false"></span><b>${esc(d.name)}</b><small>${open?esc(d.skill):UNLOCK_AT[d.id]?`Clear ${UNLOCK_AT[d.id]} levels`:'Find it in Merge'}</small></button>`}
+
+// Overlay helper: one panel at a time inside a host element.
+function overlay(host,html,cls=''){
+ let el=host.querySelector(':scope > .overlay');if(!el){el=document.createElement('div');el.className='overlay';host.append(el)}
+ el.className='overlay show '+cls;el.innerHTML=`<div class="panel" role="dialog" aria-modal="true">${html}</div>`;
+ requestAnimationFrame(()=>el.querySelector('[autofocus], .panel button')?.focus({preventScroll:true}));return el}
+function closeOverlay(host){const el=host?.querySelector(':scope > .overlay');if(el){el.className='overlay';el.innerHTML='';el.onclick=null}}
+const overlayOpen=host=>!!host?.querySelector(':scope > .overlay.show');
+
+function helpHTML(){return`<h2>How to sling</h2><div class="help-grid">
+ <div><i class="help-ico pull"></i><b>Pull back</b><span>Grab your monster and drag away from the forts. The dots show the flight.</span></div>
+ <div><i class="help-ico release"></i><b>Let go</b><span>A longer pull flies further. Drag back to the sling to cancel.</span></div>
+ <div><i class="help-ico tap"></i><b>Tap in flight</b><span>Use your hero's skill once per launch. Timing is everything.</span></div>
+ <div><i class="help-ico look"></i><b>Look around</b><span>Drag the sky to pan, pinch to zoom, then tap ${ICON.target.replace('<svg','<svg class="inline"')} to recenter.</span></div>
+ </div><p class="help-foot">Defeat every shell bandit to rescue the crystal. Spare monsters earn stars: 2 spare = ★★★, 1 spare = ★★.</p>`}
+
+// ───────────────────────────── Campaign map ─────────────────────────────
+const NODES=[[22,86],[56,76],[80,60],[50,47],[20,32],[60,15]];
+function islandArt(i){const th=art.THEMES[i],props={palm:p=>`<g transform="translate(${p[0]} ${p[1]})"><path d="M0 0q4-22 2-44" stroke="${th.midDark}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M2-44q-18-6-26 4q14-4 26-4zM2-44q18-8 27 2q-14-4-27-2zM2-44q-4-16-16-18q8 8 16 18zM2-44q6-16 18-16q-10 6-18 16z" fill="${th.mid}"/></g>`,
+ bamboo:p=>`<g transform="translate(${p[0]} ${p[1]})" stroke="${th.midDark}" stroke-width="3.5" stroke-linecap="round"><path d="M0 0v-52M7 0v-40"/><path d="M0-30q10-6 14-2M7-24q-10-4-13 0" fill="none" stroke-width="2"/></g>`,
+ ice:p=>`<path transform="translate(${p[0]} ${p[1]})" d="M-9 0l7-36 4 8 4-20 6 48z" fill="${th.mid}" opacity=".85"/>`,
+ grove:p=>`<g transform="translate(${p[0]} ${p[1]})"><rect x="-2" y="-18" width="4" height="18" fill="${th.midDark}"/><circle cy="-26" r="14" fill="${th.mid}"/><circle cx="-5" cy="-28" r="2" fill="#ffe9a0"/><circle cx="6" cy="-22" r="1.6" fill="#ffe9a0"/></g>`,
+ ember:p=>`<path transform="translate(${p[0]} ${p[1]})" d="M-26 0l18-34h12l20 34z" fill="${th.mid}"/><path transform="translate(${p[0]} ${p[1]})" d="M-8-34h12l-3 8h-6z" fill="#ffb36b"/>`}[th.props];
+ const deco=[[30,250],[318,180],[300,382],[42,118],[200,410]].map(props).join('');
+ return`<svg class="island-art" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="sand${i}" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="${th.soil[0]}"/><stop offset="1" stop-color="${th.soil[1]}"/></radialGradient></defs>
+  <path d="M30 400C-10 330 10 240 30 170S70 40 150 22s170 0 190 70-10 140 10 200-40 120-120 128-190 40-200-20z" fill="${th.sea[2]}" opacity=".5"/>
+  <path d="M42 388C8 322 26 240 44 176S84 54 156 36s156 4 174 68-8 134 8 190-34 108-110 114-176 34-186-20z" fill="url(#sand${i})"/>
+  <path d="M60 360C34 300 50 236 64 186S100 76 160 62s132 8 146 60-6 120 6 168-28 86-92 90-150 30-160-20z" fill="${th.top}" opacity=".85"/>${deco}</svg>`}
+function routePath(){const p=NODES.map(([x,y])=>[x*3.6,y*4.3]);let d=`M${p[0][0]} ${p[0][1]}`;for(let i=1;i<p.length;i++){const [x0,y0]=p[i-1],[x1,y1]=p[i];d+=` C${x0} ${(y0+y1)/2} ${x1} ${(y0+y1)/2} ${x1} ${y1}`}return d}
+function mapScreen(){
+ document.body.classList.remove('in-level');const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;
+ const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,hero=SPECIES[state.selected];
+ app.innerHTML=`<div class="map-screen">
+ <header class="map-top"><a class="icon-btn" href="./index.html" aria-label="Back to Monster Island">${ICON.back}</a><div class="map-title"><small>ISLAND RESCUE</small><h1>Monster <em>Sling</em></h1></div><div class="star-total" aria-label="${stars} of 90 stars"><span>★</span>${stars}<small>/90</small></div><button class="icon-btn" id="sound" aria-label="${state.sound?'Mute sound':'Turn sound on'}" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}</button></header>
+ <div class="sea" id="sea">${ISLANDS.map(([name,note],i)=>{const done=LEVELS.filter(l=>l.island===i&&state.results[l.id]).length,open=available(state,i*6);return`<section class="island ${open?'':'island-locked'}" style="--sea:${art.THEMES[i].sea[1]};--sea2:${art.THEMES[i].sea[0]}" id="island-${i}"><div class="island-label"><small>ISLAND ${i+1}</small><h2>${esc(name)}</h2><p>${esc(note)} · ${done}/6</p></div><div class="island-stage">${islandArt(i)}<svg class="route" viewBox="0 0 360 430" preserveAspectRatio="none" aria-hidden="true"><path d="${routePath()}"/></svg>${LEVELS.filter(l=>l.island===i).map((l,k)=>{const ok=available(state,l.id),r=state.results[l.id],cur=l.id===next;return`<button class="level node ${l.boss?'boss':''} ${ok?'':'locked'} ${cur?'current':''} ${r?'done':''}" style="left:${NODES[k][0]}%;top:${NODES[k][1]}%" data-level="${l.id}" ${ok?'':'disabled'} aria-label="Level ${l.number}: ${esc(l.title)}${l.boss?' (boss)':''}${r?`, ${r.stars} stars`:ok?'':', locked'}">${cur?`<img class="node-hero" src="${hero.asset}" alt="">`:''}<span class="node-face">${ok?l.boss?ICON.crown:l.number:ICON.lock}</span><span class="node-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</span></button>`}).join('')}</div></section>`}).join('')}</div>
+ <footer class="map-bar"><button class="squad-btn" id="squad" aria-label="Choose your hero. Current: ${esc(hero.name)}"><span class="hero-art" style="--hc:${hero.color}"><img src="${hero.asset}" alt=""></span><span><small>HERO</small><b>${esc(hero.name)}</b></span></button><button class="btn primary play-next" data-level="${next}">${ICON.play}<span>${wins?'Continue':'Play'} · ${LEVELS[next].number}</span></button></footer>
+ <p class="build">Monster Sling v${VERSION} · progress saved on this device</p></div>`;
+ const host=$('.map-screen');
+ $('#sound').onclick=()=>{state.sound=!state.sound;persist();Sound.play('ui');mapScreen()};
+ $('#squad').onclick=()=>squad(host);
+ host.addEventListener('click',e=>{const b=e.target.closest('[data-level]');if(!b||b.disabled)return;const id=+b.dataset.level;if(b.classList.contains('play-next'))return go('#level-'+(id+1));levelCard(host,LEVELS[id])});
+ requestAnimationFrame(()=>{const cur=$('.node.current');if(cur){const r=cur.getBoundingClientRect();window.scrollTo({top:Math.max(0,scrollY+r.top-innerHeight*.55),behavior:'instant'})}});
+}
+function levelCard(host,l){const r=state.results[l.id],d=SPECIES[state.selected];Sound.play('ui');
+ const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">${esc(ISLANDS[l.island][0])} · ${l.boss?'Boss level':'Level '+l.number}</small><h2>${esc(l.title)}</h2><div class="card-stars">${[1,2,3].map(s=>`<i class="${r&&r.stars>=s?'on':''}">★</i>`).join('')}</div><p class="muted">${r?`Best score ${r.score.toLocaleString()}`:'Not rescued yet'} · ${l.shots} monsters</p><div class="card-hero"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt=""></span><div><b>${esc(d.name)} · ${esc(d.skill)}</b><span>${esc(d.description)}</span></div></div><div class="actions"><button class="btn ghost" data-squad>Change hero</button><button class="btn primary" data-play autofocus>${ICON.play} Play</button></div>`,'card');
+ el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]'))closeOverlay(host);else if(e.target.closest('[data-play]'))go('#level-'+l.number);else if(e.target.closest('[data-squad]'))squad(host,()=>levelCard(host,l))}}
+function squad(host,after){const heroes=unlocked(state,storage);Sound.play('ui');
+ const el=overlay(host,`<button class="icon-btn close" data-close aria-label="Close">✕</button><small class="eyebrow">YOUR SLING SQUAD · ${heroes.length}/11</small><h2>Choose a hero</h2><div class="hero-grid">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===state.selected?'selected':'')).join('')}</div><p class="muted small">Switch heroes between every launch. Discovering a monster in Monster Merge unlocks it here too.</p>`,'card wide');
+ el.onclick=e=>{if(e.target===el||e.target.closest('[data-close]')){closeOverlay(host);after?.();return}const t=e.target.closest('[data-hero]');if(!t)return;const id=+t.dataset.hero;if(!heroes.includes(id)){Sound.play('hurt');t.classList.remove('nudge');void t.offsetWidth;t.classList.add('nudge');return}state.selected=id;persist();Sound.play('hop');if(after){closeOverlay(host);after()}else mapScreen()}}
+
+// ───────────────────────────── Routing ─────────────────────────────
 function go(hash){if(location.hash===hash)route();else location.hash=hash}
-function route(){stop();stop=()=>{};current=null;modal.close();state=load(storage);soundUI();const match=location.hash.match(/^#level-(\d+)$/);if(match){const id=+match[1]-1;if(LEVELS[id]&&available(state,id)){battleScreen(LEVELS[id]);return}}mapScreen()}
-addEventListener('hashchange',route);addEventListener('pagehide',()=>{stop();audio?.suspend().catch(()=>{})});addEventListener('pageshow',e=>{if(e.persisted)route()});
-function mapScreen(){const stars=state.results.reduce((n,r)=>n+(r?.stars||0),0),wins=state.results.filter(Boolean).length,next=LEVELS.find(l=>available(state,l.id)&&!state.results[l.id])?.id??29,heroes=unlocked(state,storage);
- screen.innerHTML=`<section class="hero"><small>A TINY HERO. A MIGHTY LAUNCH.</small><h2>Ready. Aim.<br>Island rescue!</h2><p>The shell bandits stole our island crystals. Send your monsters flying and bring them home.</p><img src="${SPECIES[state.selected].asset}" alt="${SPECIES[state.selected].name}"></section><div class="summary"><span>★ ${stars} / 90 &nbsp; · &nbsp; ${wins} / 30 cleared</span><button class="primary" data-level="${next}">${wins?'Continue':'Let’s sling!'} ➜</button></div><div class="campaign-islands">${ISLANDS.map(([name,note,sky,sand],i)=>`<section class="island" style="--sky:${sky};--sand:${sand}"><div class="island-head"><div><h3>${name}</h3><p>${note}</p></div><b>Island ${i+1}</b></div><div class="levels">${LEVELS.filter(l=>l.island===i).map(l=>{const open=available(state,l.id),r=state.results[l.id];return `<button class="level ${!open?'locked':!r?'current':''}" data-level="${l.id}" ${!open?'disabled':''} aria-label="Level ${l.number}, ${l.title}${r?', '+r.stars+' stars':!open?', locked':''}">${open?l.boss?'♛':l.number:'•'}<small>${r?'★'.repeat(r.stars)+'☆'.repeat(3-r.stars):open?l.boss?'BOSS':'PLAY':'LOCKED'}</small></button>`}).join('')}</div></section>`).join('')}</div><div class="summary"><span>Your sling squad · ${heroes.length}/11</span><button class="secondary" data-help>How to play</button></div><div class="hero-rack">${SPECIES.map(d=>`<button class="hero-card ${heroes.includes(d.id)?'':'locked'}" data-hero-info="${d.id}"><img src="${d.asset}" loading="lazy" alt=""><span>${d.name}</span></button>`).join('')}</div><p class="guide">Unlock heroes by rescuing islands or discovering them in Monster Merge.<br>Stars reward efficient rescues. Revisit any cleared level to try a new strategy.</p><p class="build">Monster Sling v16.0 · Progress stays on this device · Works offline</p>`;
-}
-function help(){show(`<div class="help"><h2>A little aim. A big adventure.</h2><p><b>1. Pick a hero.</b> Each monster has a different skill. Choose before every shot.</p><p><b>2. Pull back and release.</b> Drag your monster to the left and down to launch right and up. Dots show your flight path. A short drag cancels safely.</p><p><b>3. Tap during flight.</b> Activate your hero’s skill once per shot. Timing matters!</p><p><b>4. Rescue the crystal.</b> Defeat every shell bandit. Hit supports, topple towers and set off chain reactions.</p><p><b>5. Save shots, earn stars.</b> Finish with 2+ spare shots for 3 stars, 1 spare shot for 2 stars. You can always retry.</p><p>Use <b>+</b> to zoom and <b>↔</b> to pan the world. The camera follows a flying monster while zoomed. Rotate your phone for a wider battlefield.</p></div>`)}
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.level!==undefined)go('#level-'+(+b.dataset.level+1));if(b.hasAttribute('data-help'))help();if(b.dataset.heroInfo!==undefined){const d=SPECIES[+b.dataset.heroInfo],open=unlocked(state,storage).includes(d.id);show(`<div class="result"><img class="result-art" src="${d.asset}" alt=""><small>${open?'READY TO SLING':'A HERO TO DISCOVER'}</small><h2>${d.name}</h2><p><b>${d.skill}</b><br>${d.description}</p><p>${open?'Choose this hero in any level.':'Clear more Sling levels or discover this species in Monster Merge.'}</p></div>`)}});
-function battleScreen(level){const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;const world=new Battle(level,state.selected);current=world;
- screen.innerHTML=`<section class="battle-shell"><div class="battle-top"><div><h2>${ISLANDS[level.island][0]} · ${level.number}</h2><p>${level.title}${level.boss?' · BOSS':''}</p></div><div class="battle-numbers"><span><small>SCORE</small><b id="score">0</b></span><span><small>BANDITS</small><b id="enemies">${world.remaining}</b></span><span><small>SHOTS</small><b id="shots">${world.shots}</b></span></div></div><div class="scene"><canvas id="field" role="application" tabindex="0" aria-label="Monster Sling battlefield. Drag back and release to launch. Tap during flight to use skill. Space activates skill."></canvas><p class="scene-hint" id="hint">Pull your monster back. Release to fly!</p><div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">+</button><button class="pan-control" id="pan" aria-label="Toggle drag to pan" aria-pressed="false">↔</button></div></div><div class="controls"><button class="round" id="map" aria-label="Level map">☷</button><button class="secondary" id="skill" disabled>✦ ${SPECIES[world.species].skill}</button><button class="primary" id="next" disabled>Next monster</button><button class="round" id="retry" aria-label="Retry level">↻</button><button class="round" data-help aria-label="How to play">?</button></div></section><section class="loadout"><div class="loadout-title"><b>Pick your next hero</b><span id="rack-status">${world.shots} launches to save the island</span></div><div class="hero-rack">${heroes.map(id=>`<button class="hero-card ${id===world.species?'selected':''}" data-pick="${id}" aria-label="Select ${SPECIES[id].name}"><img src="${SPECIES[id].asset}" alt=""><span>${SPECIES[id].name}</span></button>`).join('')}</div><div class="skill-note" id="skill-note"></div></section><p class="bottom-tip">Break the supports. Let gravity do the rest.<br>Tap a skill in flight · Zoom for precision · Every hero comes home safely</p>`;
- const canvas=$('#field'),c=canvas.getContext('2d'),hint=$('#hint');let alive=true,raf=0,last=0,acc=0,w=0,h=0,ratio=1,zoom=1,cam=0,drag=null,pull={x:0,y:0},panMode=false,ready=false,resultShown=false,pointer=null,trail=[],lastTrail=0;
- const visual={id:2,level:world.species,x:190,y:430,r:36,vx:0,vy:0,rot:0,contact:true};
- const skillBtn=$('#skill'),nextBtn=$('#next');
- function note(){const d=SPECIES[world.species];$('#skill-note').innerHTML=`<img src="${d.asset}" alt=""><div><h3>${d.name} · ${d.skill}</h3><p>${d.description}</p></div>`;skillBtn.textContent='✦ '+d.skill;document.querySelectorAll('[data-pick]').forEach(b=>{b.classList.toggle('selected',+b.dataset.pick===world.species);b.disabled=world.status!=='ready'})}note();
- async function prepare(id){ready=false;hint.textContent='Getting your monster ready…';try{await prepareMonster(id);if(alive){ready=true;hint.textContent='Pull back and release. Tap in flight for your skill.'}}catch{if(alive){hint.textContent='Artwork could not load. Reconnect and retry.';notify('Reconnect to download your monster artwork.')}}}
- prepare(world.species);
- function resize(){const r=canvas.getBoundingClientRect();w=r.width;h=r.height;ratio=Math.min(2,devicePixelRatio||1);canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio)}resize();const observer=new ResizeObserver(resize);observer.observe(canvas);
- function transform(){const scale=w/1200*zoom;return {scale,ox:-cam*scale,oy:h-35-GROUND*scale}}
- function point(e){const r=canvas.getBoundingClientRect(),t=transform();return{x:((e.clientX-r.left)-t.ox)/t.scale,y:((e.clientY-r.top)-t.oy)/t.scale}}
- function ability(){if(world.skill()){react(visual,'happy',1200);sound(780,.2,'triangle');sync()}}
- function sync(){skillBtn.disabled=world.status!=='flight'||world.used;nextBtn.disabled=world.status!=='flight'||world.age<1;$('#score').textContent=world.score;$('#enemies').textContent=world.remaining;$('#shots').textContent=world.shots;$('#rack-status').textContent=world.status==='ready'?'Choose a hero before launching':world.used?'Skill used. Watch the chain reaction!':'Tap in flight to use your skill';document.querySelectorAll('[data-pick]').forEach(b=>b.disabled=world.status!=='ready')}
- function clampCam(){cam=Math.max(0,Math.min(1200-1200/zoom,cam))}
- canvas.onpointerdown=e=>{if(!ready||modal.open)return;e.preventDefault();const p=point(e);pointer=p;canvas.setPointerCapture(e.pointerId);if(panMode){drag={id:e.pointerId,pan:true,start:p,cam};return}if(world.status==='flight'){ability();return}if(world.status!=='ready')return;const t=transform(),dist=Math.hypot((p.x-190)*t.scale,(p.y-430)*t.scale);if(dist>85&&e.clientX-canvas.getBoundingClientRect().left>w*.45)return;drag={id:e.pointerId,start:p,pan:false};pull={x:0,y:0};sound(220,.04)};
- canvas.onpointermove=e=>{const p=point(e);pointer=p;if(!drag||drag.id!==e.pointerId)return;if(drag.pan){cam+=drag.start.x-p.x;clampCam();return}let dx=p.x-drag.start.x,dy=p.y-drag.start.y,n=Math.hypot(dx,dy);if(n>100){dx*=100/n;dy*=100/n}pull={x:dx,y:dy}};
- canvas.onpointerup=e=>{if(!drag||drag.id!==e.pointerId)return;if(!drag.pan&&world.launch(-pull.x,-pull.y)){trail=[];react(visual,'surprise',900);sound(440,.16);hint.textContent='Tap now to activate '+SPECIES[world.species].skill+'!'}drag=null;pull={x:0,y:0};sync()};
- canvas.onpointercancel=()=>{drag=null;pull={x:0,y:0}};canvas.onlostpointercapture=e=>{if(drag?.id===e.pointerId){drag=null;pull={x:0,y:0}}};canvas.onkeydown=e=>{if(e.code==='Space'){e.preventDefault();ability()}if(e.code==='ArrowLeft'){cam-=60;clampCam()}if(e.code==='ArrowRight'){cam+=60;clampCam()}};
- skillBtn.onclick=ability;nextBtn.onclick=()=>{if(world.next()){note();prepare(world.species);cam=0;clampCam();sync()}};$('#map').onclick=()=>go('#map');$('#retry').onclick=()=>confirmRetry();
- function confirmRetry(){show('<div class="result"><h2>One more launch?</h2><p>Restart this level with a fresh squad.<br>Your earned stars stay safe.</p><button class="primary" id="confirm-retry">Retry level</button><button class="secondary" id="keep-playing">Keep playing</button></div>');$('#confirm-retry').onclick=()=>{modal.close();route()};$('#keep-playing').onclick=()=>modal.close()}
- $('#zoom-in').onclick=()=>{zoom=Math.min(2.3,zoom+.4);cam=world.status==='flight'?Math.max(0,(world.projectile?.x||190)-600/zoom):0;clampCam()};$('#zoom-out').onclick=()=>{zoom=Math.max(1,zoom-.4);clampCam()};$('#pan').onclick=e=>{panMode=!panMode;e.currentTarget.setAttribute('aria-pressed',String(panMode));e.currentTarget.style.background=panMode?'#9fdac3':'';hint.textContent=panMode?'Drag the world to look around. Tap ↔ to aim again.':'Pull your monster back. Release to fly!'};
- screen.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=()=>{if(world.status!=='ready')return;world.species=+btn.dataset.pick;visual.level=world.species;state.selected=world.species;persist();note();prepare(world.species)});
- function result(){if(resultShown)return;resultShown=true;const won=world.status==='won';let stars=0;if(won){stars=record(state,level.id,world.score,world.shots);persist();sound(1000,.3,'triangle')}else sound(190,.3,'triangle');show(`<div class="result"><img class="result-art" src="${SPECIES[world.species].asset}" alt=""><small>${won?'CRYSTAL RESCUED':'EVERY HERO GETS ANOTHER TRY'}</small><h2>${won?'Island saved!':'So close, little hero!'}</h2>${won?`<div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>`:''}<p>${won?world.score.toLocaleString()+' points · '+world.shots+' spare launches':world.remaining+' bandit'+(world.remaining===1?'':'s')+' still guarding the crystal.<br>Try a different hero or aim for the supports.'}</p>${won&&level.id<29?'<button class="primary" id="result-next">Next level ➜</button>':''}<button class="secondary" id="result-retry">Try again</button><button class="secondary" id="result-map">Island map</button>${won&&level.id===29?'<p>You rescued every island! Replay levels to collect all 90 stars.</p>':''}</div>`);$('#result-next')?.addEventListener('click',()=>go('#level-'+(level.number+1)));$('#result-retry').onclick=()=>{modal.close();route()};$('#result-map').onclick=()=>go('#map');hint.textContent=won?'Crystal rescued! Your whole squad is safe.':'Aim for the supports. You can always retry.';sync()}
- function rect(x,y,bw,bh,r,fill,stroke){c.beginPath();c.roundRect(x,y,bw,bh,r);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.stroke()}}
- function drawBlock(b){c.save();c.translate(b.x,b.y);c.rotate(b.a);const color=b.frozen?'#b6edfa':b.kind==='wood'?'#c18a4d':b.kind==='glass'?'#b5e8e9':'#9ca3a1',dark=b.kind==='wood'?'#85552e':b.kind==='glass'?'#5aadb9':'#666f70';c.lineWidth=2;rect(-b.w/2,-b.h/2,b.w,b.h,3,color,dark);c.strokeStyle='#fff6cf77';c.beginPath();c.moveTo(-b.w/2+4,b.h/2-4);c.lineTo(-b.w/2+4,-b.h/2+4);c.lineTo(b.w/2-4,-b.h/2+4);c.stroke();if(b.kind==='wood'){c.strokeStyle='#86562b55';c.lineWidth=1;for(let j=0;j<3;j++){const yy=-b.h/2+8+j*(b.h-16)/3;c.beginPath();c.moveTo(-b.w/2+8,yy);c.quadraticCurveTo(0,yy-5,b.w/2-8,yy);c.stroke()}c.fillStyle='#73512e';for(const xx of[-b.w/2+5,b.w/2-5])for(const yy of[-b.h/2+5,b.h/2-5]){c.beginPath();c.arc(xx,yy,1.8,0,Math.PI*2);c.fill()}}if(b.kind==='glass'){c.strokeStyle='#ffffffa0';c.lineWidth=3;c.beginPath();c.moveTo(-b.w*.3,b.h*.3);c.lineTo(b.w*.3,-b.h*.3);c.stroke()}const max=b.kind==='stone'?180:b.kind==='glass'?55:95;if(b.hp<max*.55){c.strokeStyle='#4f493d99';c.lineWidth=2;c.beginPath();c.moveTo(-b.w*.25,-b.h*.5);c.lineTo(2,0);c.lineTo(-5,b.h*.2);c.lineTo(b.w*.25,b.h*.5);c.stroke()}c.restore()}
- function drawEnemy(b,t){c.save();c.translate(b.x,b.y);c.rotate(b.a*.3);const r=b.r;c.fillStyle='#5e6c4040';c.beginPath();c.ellipse(0,r*.8,r,5,0,0,Math.PI*2);c.fill();c.fillStyle=b.boss?'#b77bc2':'#b5ce73';c.strokeStyle=b.boss?'#65456e':'#667846';c.lineWidth=2.5;c.beginPath();c.ellipse(0,1,r,r*.85,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=b.boss?'#d8a3dc':'#d5e898';c.beginPath();c.ellipse(-r*.28,-r*.22,r*.5,r*.26,-.3,0,Math.PI*2);c.fill();c.strokeStyle='#485b36';for(const x of[-1,1]){c.beginPath();c.moveTo(x*r*.55,r*.4);c.lineTo(x*r*1.2,r*.65);c.stroke()}for(const x of[-.35,.35]){c.fillStyle='#fffbed';c.beginPath();c.ellipse(x*r,-r*.22,r*.24,r*.31,0,0,Math.PI*2);c.fill();c.fillStyle='#384b31';c.beginPath();c.ellipse(x*r-r*.04,-r*.18,r*.11,Math.abs(Math.sin(t*.001+b.id))<.05?1:r*.17,0,0,Math.PI*2);c.fill()}c.strokeStyle='#52613b';c.lineWidth=2;c.beginPath();c.arc(0,r*.25,r*.22,0,Math.PI);c.stroke();if(b.boss){c.fillStyle='#ffdb6e';c.strokeStyle='#a77b37';c.beginPath();c.moveTo(-20,-r*.7);c.lineTo(-24,-r-16);c.lineTo(-8,-r-8);c.lineTo(0,-r-24);c.lineTo(9,-r-8);c.lineTo(24,-r-16);c.lineTo(20,-r*.7);c.closePath();c.fill();c.stroke();rect(-30,r+10,60,5,3,'#765164');rect(-30,r+10,Math.max(0,b.hp/240)*60,5,3,'#e2adcb')}c.restore()}
- function draw(t){c.setTransform(ratio,0,0,ratio,0,0);c.clearRect(0,0,w,h);const palette=ISLANDS[level.island];c.fillStyle=palette[2];c.fillRect(0,0,w,h);if(background.complete&&background.naturalWidth){const scale=Math.max(w/background.width,h/background.height);c.globalAlpha=level.island===3?.55:.9;c.drawImage(background,(w-background.width*scale)/2,(h-background.height*scale)/2,background.width*scale,background.height*scale);c.globalAlpha=1}if(level.island===3){c.fillStyle='#5c568f44';c.fillRect(0,0,w,h)}const tr=transform();c.save();c.translate(tr.ox,tr.oy);c.scale(tr.scale,tr.scale);c.lineWidth=2;
- const grd=c.createLinearGradient(0,GROUND,0,GROUND+150);grd.addColorStop(0,'#dbc88d');grd.addColorStop(1,palette[3]);c.fillStyle=grd;c.fillRect(-300,GROUND,1800,500);c.fillStyle=level.island===2?'#e1f4ef':'#7cad64';c.beginPath();c.moveTo(-300,GROUND);for(let x=-300;x<=1500;x+=25)c.lineTo(x,GROUND-4+Math.sin(x*.07)*3);c.lineTo(1500,GROUND+8);c.lineTo(-300,GROUND+8);c.closePath();c.fill();c.strokeStyle='#bd9d6055';for(let i=0;i<30;i++){const x=i*53;c.beginPath();c.moveTo(x,GROUND+30+i%3*18);c.lineTo(x+25,GROUND+25+i%3*18);c.stroke()}
- // The crystal remains visible behind the fort as the rescue objective.
- c.save();c.translate(930,GROUND-18);c.fillStyle='#8be9ee';c.strokeStyle='#377f99';c.lineWidth=3;c.beginPath();c.moveTo(0,-32);c.lineTo(17,-12);c.lineTo(12,12);c.lineTo(0,25);c.lineTo(-14,10);c.lineTo(-17,-12);c.closePath();c.fill();c.stroke();c.strokeStyle='#e4ffff';c.beginPath();c.moveTo(-10,-8);c.lineTo(0,-22);c.lineTo(7,-10);c.stroke();c.restore();
- for(const b of world.blocks)if(!b.dead)drawBlock(b);for(const b of world.enemies)if(!b.dead)drawEnemy(b,t);
- // Wooden slingshot and elastic bands.
- c.strokeStyle='#78502d';c.lineWidth=21;c.lineCap='round';c.beginPath();c.moveTo(188,GROUND);c.lineTo(190,468);c.lineTo(162,425);c.moveTo(190,468);c.lineTo(214,425);c.stroke();c.strokeStyle='#cca16a';c.lineWidth=9;c.beginPath();c.moveTo(184,GROUND-10);c.lineTo(184,470);c.lineTo(158,426);c.stroke();
- if(world.status==='ready'){const px=190+pull.x,py=430+pull.y;c.strokeStyle='#774b40';c.lineWidth=8;c.beginPath();c.moveTo(162,425);c.lineTo(px,py);c.lineTo(214,425);c.stroke();visual.x=px;visual.y=py;visual.level=world.species;visual.vx=0;visual.vy=0;visual.r=36;if(ready)paintMonster(c,visual,t,pointer);if(drag&&!drag.pan&&Math.hypot(pull.x,pull.y)>8){const vx=-pull.x*7,vy=-pull.y*7;for(let i=1;i<=34;i++){const tt=i*.065,x=190+vx*tt,y=430+vy*tt+.5*GRAVITY*tt*tt;if(y>GROUND)break;c.globalAlpha=1-i/40;c.fillStyle='#fffce0';c.beginPath();c.arc(x,y,i%3===0?5:3,0,Math.PI*2);c.fill()}c.globalAlpha=1}}
- for(const b of world.bodies)if(!b.dead&&(b.kind==='monster'||b.kind==='seed')){if(b.kind==='seed'){c.fillStyle='#c2e36b';c.strokeStyle='#61933f';c.beginPath();c.arc(b.x,b.y,b.r,0,Math.PI*2);c.fill();c.stroke()}else{visual.x=b.x;visual.y=b.y;visual.vx=b.vx;visual.vy=b.vy;visual.level=b.species;visual.r=34;c.save();if(b.phase>0)c.globalAlpha=.4;paintMonster(c,visual,t,pointer);c.restore()}}
- for(let i=0;i<trail.length;i++){const p=trail[i];c.globalAlpha=(i/trail.length)*.5;c.fillStyle='#fffce9';c.beginPath();c.arc(p.x,p.y,3,0,Math.PI*2);c.fill()}c.globalAlpha=1;
- for(const e of world.effects){const progress=1-e.life/.65;c.globalAlpha=Math.max(0,e.life/.65);c.strokeStyle=e.color;c.lineWidth=5;c.beginPath();c.arc(e.x,e.y,Math.max(2,e.r*progress),0,Math.PI*2);c.stroke();for(let i=0;i<8;i++){const a=i*Math.PI/4,r=e.r*progress;c.fillStyle=e.color;c.beginPath();c.arc(e.x+Math.cos(a)*r,e.y+Math.sin(a)*r,5,0,Math.PI*2);c.fill()}}c.globalAlpha=1;c.restore();
- if(drag&&!drag.pan){c.fillStyle='#fff9df';c.strokeStyle='#d1a76b';c.lineWidth=1;const power=Math.round(Math.hypot(pull.x,pull.y));rect(12,h-28,100,13,7,'#fff8df','#d7bd81');rect(14,h-26,Math.max(1,power*.96),9,5,'#edb64c')}
+function route(){game?.destroy();game=null;state=load(storage);const m=location.hash.match(/^#level-(\d+)$/);if(m){const id=+m[1]-1;if(LEVELS[id]&&available(state,id)){game=new Game(LEVELS[id]);return}}mapScreen()}
+addEventListener('hashchange',route);
+addEventListener('pageshow',e=>{if(e.persisted)route()});
+addEventListener('pagehide',()=>{game?.pause(true);Sound.suspend()});
+
+// ───────────────────────────── Battle stage ─────────────────────────────
+const MAXPULL=100,GRAB_PX=58;
+class Game{
+ constructor(level){
+  this.level=level;this.abort=new AbortController();this.alive=true;
+  const heroes=unlocked(state,storage);if(!heroes.includes(state.selected))state.selected=0;this.heroesBefore=heroes;
+  this.world=new Battle(level,state.selected);this.scenery=new art.Scenery(level.island);this.fx=new art.Particles();
+  this.fortBox=this.bounds();
+  this.cam={cx:0,cy:0,z:1,userZ:1,mode:'intro',t:0,shake:0,minZ:.4,maxZ:2};
+  this.pointers=new Map();this.gesture=null;this.pull={x:0,y:0};this.pouch={x:0,y:0,vx:0,vy:0};
+  this.load={t:1};this.loaded=false;this.ready=false;this.trails=[];this.trail=null;this.lastTrail=0;
+  this.vis=new Map();this.squad=[];this.time=0;this.acc=0;this.last=0;this.result=null;this.frameTimes=[];this.quality=1;this.paused=false;this.trayOpen=false;
+  this.firstFlightHint=!state.tutorial;this.score=0;
+  this.build();this.resize();this.camToIntro();this.prepare(this.world.species);this.fx.setBudget(this.budget());this.syncSquad();
+  this.raf=requestAnimationFrame(t=>this.frame(t));
+  this.updateHud(true);
  }
- function frame(t){if(!alive)return;raf=requestAnimationFrame(frame);if(document.hidden||modal.open){last=t;acc=0;return}let dt=last?Math.min(.05,(t-last)/1000):0;last=t;acc+=dt;const beforeStatus=world.status;let ticks=0;while(acc>=1/60&&ticks++<4){world.tick(1/60);acc-=1/60}if(beforeStatus==='flight'&&world.status==='ready'){cam=0;note();hint.textContent='Choose a hero. Pull back and release!'}if(world.status==='flight'&&world.projectile){const p=world.projectile;if(zoom>1&&!drag&&!panMode){cam+=(Math.max(0,p.x-600/zoom)-cam)*.04;clampCam()}if(t-lastTrail>65){trail.push({x:p.x,y:p.y});if(trail.length>45)trail.shift();lastTrail=t}}if(world.events.length){for(const event of world.events.splice(0)){if(event==='pop')sound(600,.08,'triangle');if(event==='break')sound(130,.05,'triangle')}}draw(t);sync();if(world.status==='won'||world.status==='lost')result()}
- raf=requestAnimationFrame(frame);
- const visibility=()=>{last=0;acc=0;if(document.hidden){drag=null;pull={x:0,y:0};audio?.suspend().catch(()=>{})}};document.addEventListener('visibilitychange',visibility);
- stop=()=>{alive=false;cancelAnimationFrame(raf);observer.disconnect();document.removeEventListener('visibilitychange',visibility);canvas.onpointerdown=canvas.onpointermove=canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=canvas.onkeydown=null;drag=null};
+ bounds(){const xs=[],ys=[];for(const b of[...this.world.blocks,...this.world.enemies]){const e=b.r||Math.max(b.w,b.h)/2;xs.push(b.x-e,b.x+e);ys.push(b.y-e)}return{x0:Math.min(...xs),x1:Math.max(...xs,this.world.crystal+30),top:Math.min(...ys)}}
+ // ── DOM ──
+ build(){
+  document.body.classList.add('in-level');window.scrollTo(0,0);const l=this.level,d=SPECIES[this.world.species];
+  app.innerHTML=`<section class="stage" id="stage" aria-label="Monster Sling level ${l.number}">
+  <canvas id="field" tabindex="0" role="application" aria-label="Battlefield. Drag your monster back and release to launch. Tap during flight or press Space for the skill."></canvas>
+  <div class="hud">
+   <div class="hud-top">
+    <button class="hud-btn" id="pause" aria-label="Pause">${ICON.pause}</button>
+    <div class="hud-level"><b>${l.island+1}-${l.number-l.island*6}</b><span>${esc(l.title)}</span></div>
+    <div class="hud-mid"><div class="hud-chip" id="bandits" aria-label="Bandits left">${ICON.bandit}<b>${this.world.remaining}</b></div><div class="hud-shots" id="shots" aria-label="Monsters left"></div></div>
+    <div class="hud-score"><small>SCORE</small><b id="score">0</b></div>
+   </div>
+   <p class="hud-toast" id="toast" role="status"></p>
+   <button class="hud-btn cam-reset" id="cam-reset" aria-label="Recenter camera" hidden>${ICON.target}</button>
+   <div class="hud-bottom">
+    <button class="hero-btn" id="hero-btn" aria-label="Change hero"><span class="hero-art" style="--hc:${d.color}"><img src="${d.asset}" alt=""></span><span class="hero-name">${esc(d.name)}</span></button>
+    <button class="next-btn" id="next" hidden aria-label="End this shot">${ICON.next}</button>
+    <button class="skill-btn" id="skill" aria-label="Use skill"><span class="skill-ring"></span><span class="skill-ico">${ICON.sparkle}</span><small id="skill-name">${esc(d.skill)}</small></button>
+   </div>
+  </div>
+  <div class="hand" id="hand" aria-hidden="true"></div>
+  <div class="tray" id="tray" aria-hidden="true"></div>
+  </section>`;
+  this.stage=$('#stage');this.canvas=$('#field');this.c=this.canvas.getContext('2d');
+  const sig={signal:this.abort.signal},cv=this.canvas;
+  cv.addEventListener('pointerdown',e=>this.down(e),sig);cv.addEventListener('pointermove',e=>this.move(e),sig);
+  cv.addEventListener('pointerup',e=>this.up(e,false),sig);cv.addEventListener('pointercancel',e=>this.up(e,true),sig);
+  cv.addEventListener('lostpointercapture',e=>{if(this.pointers.has(e.pointerId))this.up(e,true)},sig);
+  cv.addEventListener('wheel',e=>{e.preventDefault();if(this.gesture?.type==='aim')return;this.zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*.0015))},{passive:false,...sig});
+  cv.addEventListener('contextmenu',e=>e.preventDefault(),sig);
+  addEventListener('keydown',e=>this.key(e),sig);
+  addEventListener('blur',()=>this.cancelGestures(),sig);
+  addEventListener('resize',()=>{this.cancelGestures();this.resize()},sig);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){this.cancelGestures();this.pause(true);Sound.suspend()}else{this.last=0}},sig);
+  this.ro=new ResizeObserver(()=>this.resize());this.ro.observe(this.stage);
+  $('#pause').onclick=()=>this.pause();
+  $('#skill').onclick=()=>this.useSkill();
+  $('#next').onclick=()=>{if(this.world.next())this.afterShot()};
+  $('#hero-btn').onclick=()=>this.trayOpen?this.closeTray():this.openTray();
+  $('#cam-reset').onclick=()=>{Sound.play('ui');this.cam.userZ=1;this.cam.mode=this.world.status==='flight'?'follow':this.result?'result':'aim';this.updateHud()};
+ }
+ destroy(){this.alive=false;cancelAnimationFrame(this.raf);clearTimeout(this.toastT);this.abort.abort();this.ro?.disconnect();this.pointers.clear();this.gesture=null;document.body.classList.remove('in-level')}
+ resize(){if(!this.alive)return;const r=this.stage.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);
+  // Cap the backing store: crisp on phones, but never more than ~2.4M pixels.
+  let dpr=Math.min(2,devicePixelRatio||1)*this.quality;if(w*h*dpr*dpr>2.4e6)dpr=Math.sqrt(2.4e6/(w*h));
+  const changed=w!==this.w||h!==this.h||dpr!==this.dpr;this.w=w;this.h=h;this.dpr=dpr;if(changed){this.canvas.width=Math.round(w*dpr);this.canvas.height=Math.round(h*dpr)}
+  const wasPortrait=this.portrait;this.portrait=h>w*1.05;if(wasPortrait!==undefined&&wasPortrait!==this.portrait&&this.cam.mode==='free'){this.cam.mode=this.world.status==='flight'?'follow':'aim';this.cam.userZ=1}this.base=this.portrait?clamp(w/420,.45,1.4):clamp(h/490,.45,1.6);this.groundFrac=this.portrait?.74:clamp(1-(Math.min(86,h*.2)+14)/h,.74,.84);
+  this.cam.minZ=clamp((w/this.base)/1650,.3,1);this.cam.maxZ=this.portrait?1.9:2.2;this.cam.z=clamp(this.cam.z,this.cam.minZ,this.cam.maxZ);this.cam.userZ=clamp(this.cam.userZ,this.cam.minZ,this.cam.maxZ);this.clampCam()}
+ get S(){return this.base*this.cam.z}
+ cy0(z=this.cam.z){const S=this.base*z;return GROUND-(this.h*this.groundFrac-this.h/2)/S}
+ toScreen(x,y){return{x:this.w/2+(x-this.cam.cx)*this.S,y:this.h/2+(y-this.cam.cy)*this.S}}
+ toWorld(sx,sy){const r=this.canvas.getBoundingClientRect();return{x:this.cam.cx+(sx-r.left-this.w/2)/this.S,y:this.cam.cy+(sy-r.top-this.h/2)/this.S}}
+ clampCam(c=this.cam){const S=this.base*c.z,half=this.w/2/S;const lo=-180+half,hi=1520-half;c.cx=lo>hi?(lo+hi)/2:clamp(c.cx,lo,hi);c.cy=clamp(c.cy,this.cy0(c.z)-700,this.cy0(c.z))}
+ // Camera targets
+ aimTarget(z=this.cam.userZ){const S=this.base*z,frac=this.portrait?.3:.22;return{cx:SLING.x+(.5-frac)*this.w/S,cy:this.cy0(z),z}}
+ fortTarget(){const f=this.fortBox,width=f.x1-f.x0+220,tall=GROUND-f.top+60,fitW=(this.w/this.base)/width,fitH=(this.h*this.groundFrac-84)/(tall*this.base),fit=clamp(Math.min(fitW,fitH),this.cam.minZ,1.05);return{cx:(f.x0+f.x1)/2,cy:this.cy0(fit),z:fit}}
+ camToIntro(){const f=this.fortTarget();Object.assign(this.cam,{cx:f.cx,cy:f.cy,z:f.z,mode:'intro',t:0});this.clampCam()}
+ updateCamera(dt){
+  const c=this.cam,w=this.world;c.t+=dt;if(this.gesture?.type==='aim'||c.mode==='free'){this.clampCam();return}
+  let T,k=4;
+  switch(c.mode){
+   case'intro':{const hold=reduced()?.5:1.2,pan=reduced()?.4:1.1;T=c.t<hold?this.fortTarget():this.aimTarget();k=c.t<hold?6:2.6;if(c.t>hold+pan){c.mode='aim';this.hopIn()}break}
+   case'aim':T=this.aimTarget();k=3.4;if(!this.loaded&&w.status==='ready')this.hopIn();break;
+   case'follow':{const p=w.projectile;if(!p){c.mode='impact';c.t=0;T=this.impactTarget();break}const z=c.userZ,S=this.base*z,ahead=clamp(p.vx*.22,-120,240);T={cx:p.x+ahead,cy:Math.min(this.cy0(z),p.y+(this.h/2-90)/S),z};
+    // Keep the fort in frame on wide screens whenever it fits alongside the monster.
+    const f=this.fortBox,half=this.w/2/S;if(f.x1-p.x<2*half-160&&p.x>SLING.x+60)T.cx=Math.max(T.cx,Math.min(f.x1+60-half,p.x+half-120));k=5.5;break}
+   case'impact':T=this.impactTarget();k=3.2;if(w.status==='ready'&&((c.t>.9&&!w.busy(30))||c.t>2.8)){c.mode='aim';c.t=0}break;
+   case'result':T=this.fortTarget();k=2.2;break;
+   default:T={cx:c.cx,cy:c.cy,z:c.z};
+  }
+  const a=1-Math.exp(-dt*k);c.cx+=(T.cx-c.cx)*a;c.cy+=(T.cy-c.cy)*a;c.z+=(T.z-c.z)*a;this.clampCam();
+ }
+ impactTarget(){const f=this.world.focus,z=this.portrait?Math.min(this.cam.userZ,Math.max(this.cam.minZ,this.fortTarget().z*1.1)):this.cam.userZ,S=this.base*z;const x=f?f.x:(this.fortBox.x0+this.fortBox.x1)/2;return{cx:clamp(x,SLING.x+this.w/2/S*.4,1500),cy:this.cy0(z),z}}
+ shake(px){if(reduced())return;this.cam.shake=Math.min(14,Math.max(this.cam.shake,px))}
+ zoomAt(sx,sy,f){const c=this.cam,before=this.toWorld(sx,sy);c.z=clamp(c.z*f,c.minZ,c.maxZ);c.userZ=c.z;const after=this.toWorld(sx,sy);c.cx+=before.x-after.x;c.cy+=before.y-after.y;c.mode='free';this.clampCam();this.updateHud()}
+ // ── Loaded monster ──
+ async prepare(id){this.ready=false;try{await prepareMonster(id);if(this.alive&&this.world.species===id)this.ready=true}catch{if(this.alive)notify('Reconnect to download your monster artwork.')}}
+ hopIn(){if(this.world.status!=='ready'||this.loaded||this.result)return;this.loaded=true;this.load={t:0};this.pull={x:0,y:0};this.pouch={x:0,y:0,vx:0,vy:0};Sound.play('hop');const v=this.visual('loaded');mood(v,'excited',900);this.syncSquad();this.updateHud()}
+ visual(key,species=this.world.species){let v=this.vis.get(key);if(!v){v={id:key==='loaded'?2:key,level:species,r:29,x:SLING.x,y:SLING.y,vx:0,vy:0,contact:true};this.vis.set(key,v)}if(key==='loaded')v.level=species;return v}
+ syncSquad(){const n=Math.max(0,this.world.shots-(this.loaded?1:0));while(this.squad.length<n)this.squad.push({id:900+this.squad.length,level:this.world.species,r:19,x:0,y:0,vx:0,vy:0,contact:true});this.squad.length=n;this.squad.forEach(s=>s.level=this.world.species)}
+ monsterPos(){if(!this.loaded)return null;if(this.load.t<1){const t=ease(this.load.t),from={x:128,y:GROUND-21};return{x:lerp(from.x,SLING.x,t),y:lerp(from.y,SLING.y,t)-Math.sin(Math.min(1,this.load.t)*Math.PI)*70}}return{x:SLING.x+this.pull.x,y:SLING.y+this.pull.y}}
+ // ── Input ──
+ down(e){
+  if(overlayOpen(this.stage)||this.paused)return;if(this.trayOpen){this.closeTray();return}e.preventDefault();this.canvas.focus({preventScroll:true});
+  try{this.canvas.setPointerCapture(e.pointerId)}catch{}
+  this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  // A second finger always means "look around": it cancels an aim without launching.
+  if(this.pointers.size>=2){if(this.gesture?.type==='aim')this.cancelAim();const [a,b]=[...this.pointers.values()];this.gesture={type:'pinch',d:Math.hypot(a.x-b.x,a.y-b.y)||1,z:this.cam.z,mid:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};this.cam.mode='free';this.updateHud();return}
+  if(this.gesture?.type==='pinch-end')return;
+  const w=this.world;
+  if(this.result)return;
+  if(w.status==='flight'){this.useSkill();this.gesture={type:'tap'};return}
+  if(this.cam.mode==='intro'){this.cam.mode='aim';this.cam.t=0;this.hopIn();this.gesture={type:'tap'};return}
+  const p=this.toWorld(e.clientX,e.clientY),m=this.monsterPos();
+  if(w.status==='ready'&&this.ready&&this.loaded&&this.load.t>=1&&m){const d=Math.hypot(p.x-m.x,p.y-m.y)*this.S;if(d<=Math.max(GRAB_PX,44*this.S)){// grab relative to the resting pouch, so a still-wobbling band never adds hidden pull
+   this.gesture={type:'aim',id:e.pointerId,ox:p.x-SLING.x,oy:p.y-SLING.y};this.pouch={x:0,y:0,vx:0,vy:0};this.pull={x:0,y:0};this.hideHand();Sound.play('grab');mood(this.visual('loaded'),'excited',1500);this.updateHud();return}}
+  this.gesture={type:'pan',id:e.pointerId,x:e.clientX,y:e.clientY,moved:0};
+ }
+ move(e){const pt=this.pointers.get(e.pointerId);if(!pt)return;pt.x=e.clientX;pt.y=e.clientY;const g=this.gesture;if(!g)return;
+  if(g.type==='aim'&&g.id===e.pointerId){const p=this.toWorld(e.clientX,e.clientY);let dx=p.x-g.ox-SLING.x,dy=p.y-g.oy-SLING.y;const n=Math.hypot(dx,dy);if(n>MAXPULL){dx*=MAXPULL/n;dy*=MAXPULL/n}dy=Math.min(dy,GROUND-30-SLING.y);const before=Math.hypot(this.pull.x,this.pull.y);this.pull={x:dx,y:dy};const after=Math.hypot(dx,dy);if(Math.abs(after-before)>4)Sound.play('stretch',after/MAXPULL)}
+  else if(g.type==='pan'&&g.id===e.pointerId){const dx=e.clientX-g.x,dy=e.clientY-g.y;g.moved+=Math.abs(dx)+Math.abs(dy);g.x=e.clientX;g.y=e.clientY;if(g.moved>6){this.cam.mode='free';this.cam.cx-=dx/this.S;this.cam.cy-=dy/this.S;this.clampCam();this.updateHud()}}
+  else if(g.type==='pinch'&&this.pointers.size>=2){const [a,b]=[...this.pointers.values()],d=Math.hypot(a.x-b.x,a.y-b.y)||1,mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};const before=this.toWorld(g.mid.x,g.mid.y);this.cam.z=clamp(g.z*d/g.d,this.cam.minZ,this.cam.maxZ);this.cam.userZ=this.cam.z;const after=this.toWorld(mid.x,mid.y);this.cam.cx+=before.x-after.x;this.cam.cy+=before.y-after.y;g.mid=mid;g.z=this.cam.z;g.d=d;this.clampCam()}
+ }
+ up(e,cancelled){if(!this.pointers.has(e.pointerId))return;this.pointers.delete(e.pointerId);const g=this.gesture;
+  if(g?.type==='aim'&&g.id===e.pointerId){if(cancelled)this.cancelAim();else this.release()}
+  else if(g?.type==='pinch'){this.gesture=this.pointers.size?{type:'pinch-end'}:null}
+  if(!this.pointers.size&&this.gesture?.type!=='aim')this.gesture=null;
+ }
+ cancelGestures(){if(this.gesture?.type==='aim')this.cancelAim();this.gesture=null;this.pointers.clear()}
+ cancelAim(){this.springBack();this.gesture=null}
+ springBack(){this.pouch={x:this.pull.x,y:this.pull.y,vx:0,vy:0}}
+ release(){const w=this.world,dx=-this.pull.x,dy=-this.pull.y;this.gesture=null;
+  if(Math.hypot(dx,dy)<8||!w.launch(dx,dy)){this.springBack();Sound.play('snap');return}
+  this.pouch={x:this.pull.x,y:this.pull.y,vx:dx*12,vy:dy*12};this.pull={x:0,y:0};
+  const p=w.projectile,v=this.visual('loaded');this.vis.delete('loaded');v.id=p.id;this.vis.set(p.id,v);v.x=p.x;v.y=p.y;this.loaded=false;mood(v,'surprise',700);
+  if(this.trail)this.trails.push(this.trail);if(this.trails.length>1)this.trails.shift();this.trail={pts:[]};
+  this.cam.mode='follow';this.cam.t=0;Sound.play('launch',.8+Math.hypot(dx,dy)/MAXPULL*.4);this.syncSquad();this.updateHud();
+  if(this.firstFlightHint)this.toast('Tap anywhere to use '+SPECIES[w.species].skill+'!',2400);
+ }
+ useSkill(){const w=this.world,p=w.projectile;if(!w.skill())return;const v=p&&this.vis.get(p.id);if(v){react(v,'happy',900);v.skillT=performance.now()}
+  art.skillBurst(this.fx,p.species,p.x,p.y,this.fxScale());Sound.play('skill',p.species);if([4,7,10].includes(p.species))this.shake(p.species===10?10:7);
+  this.firstFlightHint=false;$('#toast')?.classList.remove('show');if(!state.tutorial){state.tutorial=1;persist()}this.updateHud()}
+ fxScale(){return reduced()?.45:this.quality<1?.65:1}
+ key(e){if(this.trayOpen&&e.key==='Escape'){this.closeTray();return}if(overlayOpen(this.stage)){if(e.key==='Escape'&&this.paused)this.resume();return}
+  if(e.code==='Space'){e.preventDefault();this.useSkill()}else if(e.key==='Escape'||e.key==='p'){this.pause()}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){this.cam.mode='free';this.cam.cx+=(e.key==='ArrowLeft'?-80:80)/this.cam.z;this.clampCam();this.updateHud()}else if(e.key==='0'){this.cam.userZ=1;this.cam.mode='aim'}}
+ // ── Shot lifecycle ──
+ afterShot(){const c=this.cam;if(c.mode==='follow'||c.mode==='free'){c.mode='impact';c.t=0}this.updateHud()}
+ handleEvents(){const w=this.world,scale=this.fxScale();
+  for(const ev of w.events.splice(0)){
+   switch(ev.t){
+    case'break':art.breakBurst(this.fx,ev,scale);Sound.play(ev.kind+'Break');if(ev.kind==='stone')this.shake(3);this.fx.add({type:'text',x:ev.x,y:ev.y-10,vy:-36,drag:1.4,size:13,text:'+'+ev.points,color:'#fff4cf',life:1});break;
+    case'pop':art.popBurst(this.fx,ev,scale);Sound.play(ev.boss?'boss':'pop');if(ev.boss)this.shake(9);break;
+    case'hurt':if(ev.kind==='enemy')Sound.play('hurt');break;
+    case'impact':art.impactDust(this.fx,ev.x,ev.y,ev.kind,ev.speed,scale);Sound.play(ev.ground?'ground':ev.kind==='enemy'?'thud':ev.kind,ev.speed/400);break;
+    case'thud':{const p=w.projectile,v=p&&this.vis.get(p.id);if(v){kick(v,clamp(ev.speed/1400,.08,.42));if(ev.speed>380)mood(v,'hurt',500)}Sound.play('thud',ev.speed/500);break}
+    case'shotEnd':this.afterShot();break;
+    case'win':this.finish(true);break;
+    case'lose':this.finish(false);break;
+   }}
+ }
+ // ── Tray (hero selection between shots) ──
+ openTray(){if(this.world.status!=='ready'||this.gesture?.type==='aim'||overlayOpen(this.stage)||this.result)return;const heroes=unlocked(state,storage);Sound.play('ui');this.trayOpen=true;const t=$('#tray');t.setAttribute('aria-hidden','false');t.classList.add('open');
+  t.innerHTML=`<div class="tray-head"><b>Next hero</b><span id="tray-skill">${esc(SPECIES[this.world.species].skill)} · ${esc(SPECIES[this.world.species].description)}</span><button class="icon-btn" data-close aria-label="Close hero tray">✕</button></div><div class="tray-row">${SPECIES.map(d=>heroCard(d,heroes.includes(d.id),d.id===this.world.species?'selected':'')).join('')}</div>`;
+  t.onclick=e=>{if(e.target.closest('[data-close]'))return this.closeTray();const b=e.target.closest('[data-hero]');if(!b)return;const id=+b.dataset.hero;if(!heroes.includes(id)){b.classList.remove('nudge');void b.offsetWidth;b.classList.add('nudge');Sound.play('hurt');return}this.pick(id);this.closeTray()};
+  const sel=t.querySelector('.selected');if(sel)sel.parentElement.scrollLeft=sel.offsetLeft-sel.parentElement.clientWidth/2+sel.offsetWidth/2;(sel||t.querySelector('[data-hero]'))?.focus({preventScroll:true});this.updateHud()}
+ closeTray(){const t=$('#tray');this.trayOpen=false;if(!t)return;t.classList.remove('open');t.setAttribute('aria-hidden','true');this.canvas?.focus({preventScroll:true})}
+ pick(id){if(this.world.status!=='ready')return;this.world.species=id;state.selected=id;persist();const v=this.visual('loaded');v.level=id;react(v,'happy',900);this.syncSquad();this.prepare(id);Sound.play('hop');this.updateHud(true)}
+ // ── Pause / results ──
+ pause(auto=false){if(!this.alive||this.result||overlayOpen(this.stage))return;this.cancelGestures();this.closeTray();this.paused=true;Sound.suspend();
+  const fs=document.fullscreenEnabled?`<button class="toggle" data-act="full">${ICON.full}<span>${document.fullscreenElement?'Exit full screen':'Full screen'}</span></button>`:'';
+  const el=overlay(this.stage,`<small class="eyebrow">${auto?'GAME PAUSED':'PAUSED'} · ${esc(ISLANDS[this.level.island][0])} ${this.level.number}</small><h2>${esc(this.level.title)}</h2><div class="pause-list"><button class="btn primary big" data-act="resume" autofocus>${ICON.play} Resume</button><button class="btn" data-act="retry">${ICON.retry} Restart level</button><button class="btn" data-act="map">${ICON.map} Island map</button><button class="btn ghost" data-act="help">${ICON.help} How to play</button></div><div class="toggles"><button class="toggle ${state.sound?'on':''}" data-act="sound" aria-pressed="${!!state.sound}">${state.sound?ICON.sound:ICON.mute}<span>Sound ${state.sound?'on':'off'}</span></button><button class="toggle ${state.effects!=='reduced'?'on':''}" data-act="fx" aria-pressed="${state.effects!=='reduced'}">${ICON.sparkle}<span>${state.effects==='reduced'?'Calm effects':'Full effects'}</span></button>${fs}</div>`,'pause');
+  el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(!a)return;Sound.resume();Sound.play('ui');
+   if(a==='resume')this.resume();else if(a==='retry')this.restart();else if(a==='map')go('#map');
+   else if(a==='help'){closeOverlay(this.stage);const h=overlay(this.stage,helpHTML()+'<div class="actions"><button class="btn primary" data-back autofocus>Got it</button></div>','help');h.onclick=ev=>{if(ev.target.closest('[data-back]')){closeOverlay(this.stage);this.paused=false;this.pause(auto)}}}
+   else if(a==='sound'){state.sound=!state.sound;persist();closeOverlay(this.stage);this.paused=false;this.pause(auto)}
+   else if(a==='fx'){state.effects=state.effects==='reduced'?'full':'reduced';persist();this.fx.setBudget(this.budget());closeOverlay(this.stage);this.paused=false;this.pause(auto)}
+   else if(a==='full'){const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen({navigationUI:'hide'});Promise.resolve(p).catch(()=>notify('Full screen is not available here.')).finally(()=>{if(this.alive){closeOverlay(this.stage);this.paused=false;this.pause(auto)}})}}}
+ resume(){closeOverlay(this.stage);this.paused=false;this.last=0;Sound.resume();this.canvas.focus({preventScroll:true})}
+ restart(){closeOverlay(this.stage);route()}
+ budget(){return reduced()?70:this.quality<1?130:260}
+ finish(won){if(this.result)return;this.result={won};this.cancelGestures();this.closeTray();this.cam.mode='result';this.cam.t=0;const w=this.world,l=this.level;
+  if(won){const scale=this.fxScale();for(let i=0;i<40*scale;i++)this.fx.add({type:i%2?'star':'chip',x:w.crystal+(Math.random()-.5)*200,y:GROUND-260-Math.random()*120,vx:(Math.random()-.5)*160,vy:-60+Math.random()*80,g:220,drag:.8,va:(Math.random()-.5)*10,size:3+Math.random()*4,color:['#ffd45e','#7fe0ff','#ff8cc8','#9be36b'][i%4],life:2.4})}
+  this.resultTimer=setTimeout(()=>{if(!this.alive)return;let html;
+   if(won){const before=state.results[l.id];const stars=record(state,l.id,w.score,w.shots);persist();const best=!before||w.score>before.score;const after=unlocked(state,storage),fresh=after.filter(id=>!this.heroesBefore.includes(id));
+    html=`<div class="burst" aria-hidden="true"></div><small class="eyebrow">${esc(ISLANDS[l.island][0])} · ${l.boss?'BOSS DEFEATED':'LEVEL '+l.number}</small><h2>Crystal rescued!</h2><div class="result-stars" aria-label="${stars} of 3 stars">${[1,2,3].map(s=>`<i class="${s<=stars?'on':''}" style="--d:${s*.32}s">★</i>`).join('')}</div><div class="result-score"><b id="count">0</b>${best?'<span class="best">New best!</span>':''}</div><p class="muted">${w.shots?`${w.shots} spare monster${w.shots>1?'s':''} · +${w.shots*350} bonus`:'Every monster used'}</p>`+
+     (fresh.length?`<div class="unlock">${fresh.map(id=>`<div class="unlock-hero"><span class="hero-art" style="--hc:${SPECIES[id].color}"><img src="${SPECIES[id].asset}" alt=""></span><div><small>NEW HERO JOINED!</small><b>${esc(SPECIES[id].name)}</b><span>${esc(SPECIES[id].skill)} · ${esc(SPECIES[id].description)}</span></div></div>`).join('')}</div>`:'')+
+     `<div class="actions"><button class="btn ghost" data-act="map" aria-label="Island map">${ICON.map}</button><button class="btn" data-act="retry">${ICON.retry} Replay</button>${l.id<29?`<button class="btn primary" data-act="next" autofocus>Next ${ICON.play}</button>`:`<button class="btn primary" data-act="map" autofocus>All islands saved!</button>`}</div>`;
+    const el=overlay(this.stage,html,'result win'+(reduced()?' calm':''));this.countUp(el.querySelector('#count'),w.score);[1,2,3].forEach(s=>s<=stars&&setTimeout(()=>this.alive&&Sound.play('star',s),320*s+150));if(fresh.length)setTimeout(()=>this.alive&&Sound.play('unlock'),1300);Sound.play('win');
+    el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='next')go('#level-'+(l.number+1));else if(a==='retry')this.restart();else if(a==='map')go('#map')};
+   }else{const left=w.remaining;
+    html=`<small class="eyebrow">${esc(ISLANDS[l.island][0])} · LEVEL ${l.number}</small><h2>So close!</h2><p class="lose-line">${left} bandit${left>1?'s':''} still guard${left>1?'':'s'} the crystal.</p><p class="tip">${this.tip()}</p><div class="actions"><button class="btn ghost" data-act="map" aria-label="Island map">${ICON.map}</button><button class="btn primary big" data-act="retry" autofocus>${ICON.retry} Try again</button></div>`;
+    const el=overlay(this.stage,html,'result lose');Sound.play('lose');el.onclick=e=>{const a=e.target.closest('[data-act]')?.dataset.act;if(a==='retry')this.restart();else if(a==='map')go('#map')}}
+  },won?(reduced()?500:1300):900)}
+ tip(){const heroes=unlocked(state,storage),stone=this.world.blocks.some(b=>!b.dead&&b.kind==='stone'),glass=this.world.blocks.some(b=>!b.dead&&b.kind==='glass');
+  if(stone&&heroes.includes(10))return'Tip: Infernodon’s Inferno blast breaks stone. Tap it right above the fortress.';
+  if(stone)return'Tip: Rockro’s Boulder smash cracks stone. Tap just above the fortress.';
+  if(glass)return'Tip: Bubblo’s Bubble blast shatters glass from a distance.';
+  return'Tip: hit the lowest supports and let the tower fall onto the bandits.'}
+ countUp(el,to){const t0=performance.now(),d=reduced()?200:900;const step=t=>{if(!this.alive||!el?.isConnected)return;const k=ease((t-t0)/d);el.textContent=Math.round(to*k).toLocaleString();if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
+ // ── HUD ──
+ toast(text,ms=1800){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(this.toastT);this.toastT=setTimeout(()=>t.classList.remove('show'),ms)}
+ updateHud(full=false){if(!this.alive)return;const w=this.world,d=SPECIES[w.species];
+  $('#bandits b').textContent=w.remaining;
+  const shots=$('#shots');const used=w.level.shots-w.shots;if(full||shots.childElementCount!==w.level.shots)shots.innerHTML=Array.from({length:w.level.shots},()=>'<i></i>').join('');[...shots.children].forEach((p,i)=>p.className=i<used?'used':'');
+  const sk=$('#skill');sk.dataset.state=w.status==='flight'?(w.used?'used':'ready'):'idle';sk.style.setProperty('--hc',d.color);$('#skill-name').textContent=w.status==='flight'&&w.used?'Used':d.skill;sk.disabled=!(w.status==='flight'&&!w.used);
+  const hb=$('#hero-btn');hb.disabled=w.status!=='ready'||!!this.result;hb.setAttribute('aria-expanded',String(this.trayOpen));if(full){hb.querySelector('img').src=d.asset;hb.querySelector('.hero-art').style.setProperty('--hc',d.color);hb.querySelector('.hero-name').textContent=d.name}
+  $('#next').hidden=!(w.status==='flight'&&w.age>=1);
+  $('#cam-reset').hidden=!(this.cam.mode==='free'||Math.abs(this.cam.userZ-1)>.05);
+  this.stage.dataset.status=w.status;
+ }
+ showHand(){if(state.tutorial||this.level.id!==0||this.handShown)return;this.handShown=true;$('#hand')?.classList.add('show')}
+ hideHand(){$('#hand')?.classList.remove('show')}
+ // ── Main loop ──
+ frame(t){if(!this.alive)return;this.raf=requestAnimationFrame(tt=>this.frame(tt));
+  const dtReal=this.last?Math.min(.1,(t-this.last)/1000):0;this.last=t;if(document.hidden)return;
+  // Adaptive quality: if frames are consistently slow, lower resolution and particle count.
+  if(dtReal){this.frameTimes.push(dtReal);if(this.frameTimes.length>=120){const avg=this.frameTimes.reduce((a,b)=>a+b)/this.frameTimes.length;this.frameTimes.length=0;if(avg>.026&&this.quality>.7){this.quality=.7;this.resize();this.fx.setBudget(this.budget())}}}
+  const paused=this.paused;
+  if(!paused){this.acc+=Math.min(.05,dtReal);let n=0;while(this.acc>=1/60&&n++<4){if(this.result)step(this.world.bodies,1/60);else this.world.tick(1/60);this.acc-=1/60}this.handleEvents()}
+  const dt=paused?0:dtReal;this.time+=dt;this.score=lerp(this.score,this.world.score,1-Math.exp(-dt*8));
+  if(!paused){this.updateCamera(dt);this.fx.update(dt);this.tickVisuals(dt,t)}
+  this.draw(t);
+  if(!paused&&(this._hudT=(this._hudT||0)+dt)>.1){this._hudT=0;$('#score').textContent=Math.round(this.score).toLocaleString();this.updateHud()}
+ }
+ tickVisuals(dt,now){const w=this.world;
+  if(this.loaded&&this.load.t<1){this.load.t=Math.min(1,this.load.t+dt/.45);if(this.load.t>=1){kick(this.visual('loaded'),.25);this.showHand()}}
+  // Pouch spring: recoil after a launch, snap back after a cancelled pull.
+  if(this.gesture?.type!=='aim'){const p=this.pouch,k=320,damp=reduced()?18:9;p.vx+=(-k*p.x-damp*p.vx)*dt;p.vy+=(-k*p.y-damp*p.vy)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(Math.hypot(p.x,p.y)<.3&&Math.hypot(p.vx,p.vy)<3){p.x=p.y=p.vx=p.vy=0}
+   if(this.loaded&&this.load.t>=1){this.pull.x=p.x;this.pull.y=p.y}}
+  const p=w.projectile;if(p&&this.trail&&now-this.lastTrail>(reduced()?90:45)){this.lastTrail=now;this.trail.pts.push({x:p.x,y:p.y,s:this.trail.pts.length%3===0?5:3})}
+  const amb=reduced()?0:this.quality<1?.5:1;if(p&&Math.random()<.5*amb)art.ambient(this.fx,p.species,p.x,p.y,true);
+  if(this.loaded&&Math.random()<.03*amb){const m=this.monsterPos();if(m)art.ambient(this.fx,w.species,m.x,m.y,false)}
+  for(const k of this.vis.keys())if(typeof k==='number'&&!w.bodies.some(b=>b.id===k))this.vis.delete(k);
+ }
+ // ── Rendering ──
+ draw(now){const c=this.c,w=this.world,S=this.S,dpr=this.dpr,cam=this.cam;
+  let sx=0,sy=0;if(cam.shake>.2){sx=(Math.random()-.5)*cam.shake;sy=(Math.random()-.5)*cam.shake;cam.shake*=.86}else cam.shake=0;
+  const view={w:this.w,h:this.h,S,cx:cam.cx,cy:cam.cy,cy0:this.cy0(),horizon:this.h*this.groundFrac-150*this.base,groundScreen:cy=>this.h/2+(GROUND-cy)*S};
+  c.setTransform(dpr,0,0,dpr,0,0);this.scenery.back(c,view,now);
+  c.setTransform(dpr*S,0,0,dpr*S,dpr*(this.w/2-cam.cx*S+sx),dpr*(this.h/2-cam.cy*S+sy));
+  this.scenery.ground(c,S);
+  art.drawCrystal(c,w.crystal,now,this.result?.won?Math.min(1,cam.t/1.2):0);
+  for(const b of w.blocks)if(!b.dead){const half=Math.abs(Math.cos(b.a))*b.h/2+Math.abs(Math.sin(b.a))*b.w/2;art.drawShadow(c,b.x,b.y+half,b.w/2+4,.22)}
+  for(const e of w.enemies)if(!e.dead)art.drawShadow(c,e.x,e.y+e.r,e.r,.28);
+  for(const tr of[...this.trails,this.trail])if(tr){c.fillStyle=tr===this.trail?'rgba(255,255,255,.85)':'rgba(255,255,255,.4)';for(const q of tr.pts){c.beginPath();c.arc(q.x,q.y,q.s,0,Math.PI*2);c.fill()}}
+  for(const b of w.blocks)if(!b.dead)art.drawBlock(c,b,w.time);
+  const p=w.projectile,look=p?{x:p.x,y:p.y}:{x:SLING.x,y:SLING.y};
+  for(const e of w.enemies)if(!e.dead)art.drawBandit(c,e,{now,time:w.time,look,scared:!!p&&Math.abs(p.x-e.x)<260&&p.vx>0});
+  this.drawSling(c,now);
+  for(const b of w.bodies){if(b.dead)continue;if(b.kind==='seed')this.drawSeed(c,b);else if(b.kind==='monster')this.drawFlying(c,b,now)}
+  this.fx.draw(c);
+  for(const e of w.effects){const k=1-e.life/.65;c.save();c.globalAlpha=clamp(e.life/.65,0,1)*.6;c.strokeStyle=e.color;c.lineWidth=4;c.beginPath();c.arc(e.x,e.y,Math.max(2,e.r*ease(k)),0,Math.PI*2);c.stroke();c.restore()}
+  if(this.gesture?.type==='aim')this.drawAim(c);
+  c.setTransform(dpr,0,0,dpr,0,0);this.scenery.front(c,view,now);
+  this.drawPointer(c,now);this.drawHand();
+ }
+ drawSling(c,now){const F=art.FORK,m=this.monsterPos(),aiming=this.gesture?.type==='aim';
+  art.drawSlingBack(c);
+  // The rest of the squad waits behind the sling, one per remaining launch.
+  if(this.ready)this.squad.forEach((s,i)=>{s.x=124-i*34;const hop=reduced()?0:Math.max(0,Math.sin(now/260+i*1.9))*6;s.y=GROUND-19-hop;s.vy=hop?-40:0;paintMonster(c,s,now,{x:900,y:480})});
+  const pull=Math.hypot(this.pull.x,this.pull.y),tension=clamp(pull/MAXPULL,0,1);
+  let pouch;if(this.loaded&&m&&this.load.t>=1){const dir=pull>2?{x:this.pull.x/pull,y:this.pull.y/pull}:{x:-1,y:.15};pouch={x:m.x+dir.x*22,y:m.y+dir.y*22+4,a:Math.atan2(dir.y,dir.x)}}else{pouch={x:SLING.x+this.pouch.x-16,y:SLING.y+this.pouch.y+4,a:Math.PI}}
+  art.drawBand(c,F.back,pouch,tension);art.drawPouch(c,pouch.x,pouch.y,pouch.a,26);
+  if(this.loaded&&m&&this.ready){const v=this.visual('loaded');v.x=m.x;v.y=m.y;
+   if(aiming&&pull>1){v.vx=-this.pull.x*5;v.vy=0}else{v.vx=0;v.vy=this.load.t<1?-300:0}
+   const look={x:(this.fortBox.x0+this.fortBox.x1)/2,y:GROUND-80};c.save();
+   if(pull>2&&!reduced()){const a=Math.atan2(this.pull.y,this.pull.x),sq=tension*.16;c.translate(m.x,m.y);c.rotate(a);c.scale(1-sq,1+sq*.7);c.rotate(-a);c.translate(-m.x,-m.y)}
+   paintMonster(c,v,now,look);c.restore();
+   if(aiming&&pull>4){c.save();c.lineCap='round';c.lineWidth=3.2;c.strokeStyle='rgba(255,255,255,.35)';c.beginPath();c.arc(m.x,m.y,v.r+11,0,Math.PI*2);c.stroke();c.strokeStyle=tension<.5?'#9be36b':tension<.85?'#ffd25e':'#ff8a4a';c.beginPath();c.arc(m.x,m.y,v.r+11,-Math.PI/2,-Math.PI/2+tension*Math.PI*2);c.stroke();c.restore()}}
+  art.drawBand(c,F.front,{x:pouch.x+Math.cos(pouch.a+Math.PI/2)*8,y:pouch.y+Math.sin(pouch.a+Math.PI/2)*8},tension);art.drawSlingFront(c)}
+ drawFlying(c,b,now){const v=this.visual(b.id,b.species);v.level=b.species;v.x=b.x;v.y=b.y;v.vx=b.vx;v.vy=b.vy;v.contact=Math.hypot(b.vx,b.vy)<60;
+  const sp=Math.hypot(b.vx,b.vy),st=reduced()?0:clamp(sp/3200,0,.2)*(b.phase>0?1.4:1);c.save();
+  if(b.phase>0){c.globalAlpha=.55;for(let i=1;i<=3;i++){c.save();c.globalAlpha=.15;c.translate(-b.vx*.018*i,-b.vy*.018*i);paintMonster(c,v,now,null);c.restore()}}
+  if(st>.01){const a=Math.atan2(b.vy,b.vx);c.translate(b.x,b.y);c.rotate(a);c.scale(1+st,1-st*.8);c.rotate(-a);c.translate(-b.x,-b.y)}
+  if(v.skillT&&now-v.skillT<350){const k=(now-v.skillT)/350;c.save();c.globalAlpha=(1-k)*.8;c.strokeStyle='#fff';c.lineWidth=4;c.beginPath();c.arc(b.x,b.y,v.r+8+k*30,0,Math.PI*2);c.stroke();c.restore()}
+  paintMonster(c,v,now,{x:b.x+b.vx,y:b.y+b.vy});c.restore()}
+ drawSeed(c,b){c.save();c.translate(b.x,b.y);c.rotate(b.a);c.fillStyle='#e6d55a';c.strokeStyle='#8a7a24';c.lineWidth=1.6;c.beginPath();c.ellipse(0,0,b.r,b.r*.8,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#6fc048';c.beginPath();c.ellipse(-b.r*.2,-b.r*.85,b.r*.55,b.r*.25,-.5,0,Math.PI*2);c.fill();c.restore()}
+ // Trajectory preview: the same integrator as the simulation, from the same release point.
+ drawAim(c){const n=Math.hypot(this.pull.x,this.pull.y);if(n<8)return;const dx=-this.pull.x,dy=-this.pull.y,o=launchOrigin(dx,dy),v=launchVelocity(dx,dy),pts=predict(o.x,o.y,v.vx,v.vy,150,3),solids=this.world.bodies.filter(b=>!b.static&&!b.dead&&b.kind!=='monster');
+  c.save();let hit=null;pts.some((q,i)=>{if(solids.some(b=>Math.hypot(b.x-q.x,b.y-q.y)<(b.r||Math.hypot(b.w,b.h)/2*.8)+22)){hit=q;return true}c.globalAlpha=clamp(1-i/pts.length,.18,.95);c.fillStyle='#fffbe6';c.strokeStyle='rgba(80,50,20,.35)';c.lineWidth=1;c.beginPath();c.arc(q.x,q.y,i%4===0?4.2:2.8,0,Math.PI*2);c.fill();c.stroke();return false});
+  if(hit){c.globalAlpha=.9;c.strokeStyle='#fffbe6';c.lineWidth=2.5;c.beginPath();c.arc(hit.x,hit.y,9,0,Math.PI*2);c.stroke()}c.restore()}
+ // When the fort is off-screen, a small marker on the edge shows where the bandits are and how far.
+ drawPointer(c,now){const w=this.world;if(this.result||w.status==='flight'||this.cam.mode==='intro')return;const alive=w.enemies.filter(e=>!e.dead);if(!alive.length)return;const right=this.cam.cx+this.w/2/this.S;const nearest=Math.min(...alive.map(e=>e.x-e.r));if(nearest<right-10)return;
+  const ty=alive.reduce((a,e)=>a+e.y,0)/alive.length,s=this.toScreen(0,ty),y=clamp(s.y,90,this.h*this.groundFrac-20),x=this.w-14-(this.portrait?0:0),bob=reduced()?0:Math.sin(now/300)*3,dist=Math.round((nearest-right)/10)*10;
+  c.save();c.translate(x+bob,y);c.fillStyle='rgba(255,250,238,.92)';c.strokeStyle='#b9894c';c.lineWidth=2;c.beginPath();c.moveTo(0,0);c.lineTo(-16,-15);c.lineTo(-58,-15);c.quadraticCurveTo(-66,-15,-66,-7);c.lineTo(-66,7);c.quadraticCurveTo(-66,15,-58,15);c.lineTo(-16,15);c.closePath();c.fill();c.stroke();
+  c.fillStyle='#6fa83f';c.beginPath();c.arc(-48,0,8,0,Math.PI*2);c.fill();c.fillStyle='#b8323f';c.fillRect(-56,-3,12,3.5);c.fillStyle='#4a2e1b';c.font='900 12px ui-rounded,system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillText('×'+alive.length,-37,1);c.restore()}
+ drawHand(){const h=$('#hand');if(!h||!h.classList.contains('show'))return;const m=this.monsterPos();if(!m)return;const s=this.toScreen(m.x,m.y);h.style.setProperty('--hx',s.x+'px');h.style.setProperty('--hy',s.y+'px');h.style.setProperty('--dx',-Math.round(70*this.S)+'px');h.style.setProperty('--dy',Math.round(32*this.S)+'px')}
 }
+
+// Inspection hook for automated browser tests only (enabled by ?test in the URL).
+if(new URLSearchParams(location.search).has('test'))window.__sling={get game(){return game},Sound,LEVELS};
 route();

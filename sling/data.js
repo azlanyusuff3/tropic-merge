@@ -1,3 +1,4 @@
+import{LAYOUTS}from'./levels.js';
 export const SPECIES=[
  ['Slimelet','Jelly bounce','Bounces harder; tap for a forward jelly dash.','#81dc43',1,0.78],
  ['Bubblo','Bubble blast','Tap to push nearby structures apart.','#62d9ff',0.9,0.35],
@@ -12,7 +13,7 @@ export const SPECIES=[
  ['Infernodon','Inferno blast','Tap for a powerful fiery explosion.','#fb9842',2,0.2]
 ].map(([name,skill,description,color,mass,bounce],id)=>({id,name,skill,description,color,mass,bounce,asset:`./assets/monsters/${String(id+1).padStart(2,'0')}-${name.toLowerCase()}.webp`}));
 export const ISLANDS=[['Sunlit Shores','Learn the sling','#7bd9df','#e9e9a8'],['Bamboo Bluffs','Tall towers & tricky angles','#9ed6aa','#e8cf8e'],['Frost Lagoon','Glass bridges & icy ruins','#a5ddec','#daeced'],['Twilight Grove','Hidden supports & shadow tricks','#b4b2df','#c3bdce'],['Ember Summit','Bosses & volcanic strongholds','#e9ae83','#e5ba85']];
-export const LEVELS=Array.from({length:30},(_,i)=>({id:i,island:Math.floor(i/6),number:i+1,title:['Beachside bandits','Double trouble','Sky bridge','Crystal keep','The leaning fort','Guardian showdown'][i%6],pattern:i%6,rank:Math.floor(i/6),shots:i%6===5?5:4,boss:i%6===5}));
+export const LEVELS=Array.from({length:30},(_,i)=>({id:i,island:Math.floor(i/6),number:i+1,title:LAYOUTS[i][0],pattern:i%6,rank:Math.floor(i/6),shots:i%6===5?5:4,boss:i%6===5}));
 export const SAVE='monsterSlingSaveV1',BACKUP='monsterSlingBackupV1';
 function parse(storage,key){try{return JSON.parse(storage.getItem(key))}catch{return null}}
 function valid(s){return s?.version===1&&Array.isArray(s.results)&&s.results.length<=30&&s.results.every(x=>x===null||x&&Number.isFinite(x.score)&&Number.isInteger(x.stars)&&x.stars>=1&&x.stars<=3)&&Number.isInteger(s.selected)&&s.selected>=0&&s.selected<11}
