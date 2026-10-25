@@ -1,13 +1,13 @@
 {
-  "name": "Ball Merge Offline v11",
-  "short_name": "Ball Merge",
-  "description": "Universal offline ball merge game v11 with battery-optimized rendering, sleeping physics and adaptive frame rate.",
+  "name": "Monster Merge",
+  "short_name": "Monster Merge",
+  "description": "Drop, bounce and merge 11 magical monsters on a sunny tropical island. Play offline.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#10251d",
-  "theme_color": "#10251d",
+  "background_color": "#72d8ed",
+  "theme_color": "#53c8ee",
   "icons": [
     {
       "src": "./icons/icon-192.png",

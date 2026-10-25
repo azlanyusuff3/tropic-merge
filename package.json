@@ -1,0 +1,11 @@
+{
+  "name": "monster-merge",
+  "version": "12.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/playable.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
