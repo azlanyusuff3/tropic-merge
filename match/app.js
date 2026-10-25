@@ -8,6 +8,14 @@ const SPRITES = [
   ['Rockro', './assets/monsters/05-rockro.webp'],
   ['Frostbop', './match/assets/frostbop-match.webp']
 ];
+// Match-only evolved characters; the artwork of Monster Merge and Sling is unchanged.
+const EVOLVED_SPRITES = Object.freeze({
+  groveling: ['Groveling', './assets/monsters/08-groveling.webp'],
+  bubblo: ['Bubblo', './assets/monsters/02-bubblo.webp'],
+  shadebub: ['Shadebub', './assets/monsters/07-shadebub.webp'],
+  lumiorb: ['Lumiorb', './assets/monsters/10-lumiorb.webp'],
+  infernodon: ['Infernodon', './assets/monsters/11-infernodon.webp']
+});
 const SAVE_KEY = 'monsterMatchSaveV1';
 const BEST_KEY = 'monsterMatchBestV1';
 const AUDIO_KEY = 'monsterMatchSoundV1';
@@ -69,9 +77,13 @@ function updateHud() {
   el('sound-btn').setAttribute('aria-label', soundOn ? 'Mute sound' : 'Enable sound');
   el('sound-btn').setAttribute('aria-pressed', String(soundOn));
 }
+function artwork(cell) {
+  return cell.special === 'evolved' ? EVOLVED_SPRITES[cell.evolution] : SPRITES[cell.kind];
+}
 function faceHTML(cell) {
   const icon = { row: '&#8596;', col: '&#8597;', bomb: '&#10022;', rainbow: '&#9733;' }[cell.special] || '';
-  return `<span class="tile-well"><img src="${SPRITES[cell.kind][1]}" alt="" draggable="false" loading="eager"><span class="power-icon" aria-hidden="true">${icon}</span></span>`;
+  const evolved = cell.special === 'evolved';
+  return `<span class="tile-well"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager">${evolved ? '<span class="evolution-spark" aria-hidden="true">&#10022;</span>' : ''}<span class="power-icon" aria-hidden="true">${icon}</span></span>`;
 }
 function render(board) {
   const used = new Set();
@@ -89,13 +101,14 @@ function render(board) {
     button.style.setProperty('--c', c);
     button.style.setProperty('--r', r);
     button.dataset.r = r; button.dataset.c = c;
-    const appearance = `${cell.kind}|${cell.special || ''}`;
+    const appearance = `${cell.kind}|${cell.special || ''}|${cell.evolution || ''}`;
     if (button.dataset.appearance !== appearance) {
       button.dataset.appearance = appearance;
       button.innerHTML = faceHTML(cell);
       button.classList.toggle('is-power', !!cell.special);
       button.classList.toggle('is-rainbow', cell.special === 'rainbow');
-      button.setAttribute('aria-label', `${SPRITES[cell.kind][0]}${cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
+      button.classList.toggle('is-evolved', cell.special === 'evolved');
+      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', evolved blast power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
     }
     button.classList.toggle('chosen', !!selected && selected[0] === r && selected[1] === c);
   }));
@@ -122,6 +135,29 @@ function setBusy(value) {
   boardEl.classList.toggle('busy', busy);
   for (const id of ['hint-btn', 'shuffle-btn', 'new-btn']) el(id).disabled = busy;
 }
+function showBlast(effect) {
+  const span = effect.radius * 2 + 1;
+  const ring = document.createElement('div');
+  ring.className = `blast-fx${effect.type === 'mega' ? ' is-mega' : ''}`;
+  ring.style.left = `${(effect.c + .5) * 100 / SIZE}%`;
+  ring.style.top = `${(effect.r + .5) * 100 / SIZE}%`;
+  ring.style.width = `${span * 100 / SIZE}%`;
+  ring.style.height = `${span * 100 / SIZE}%`;
+  ring.setAttribute('aria-hidden', 'true');
+  boardEl.append(ring);
+  ring.addEventListener('animationend', () => ring.remove(), { once: true });
+  setTimeout(() => ring.remove(), 1000);
+}
+function showEvolution(created) {
+  for (const item of created) {
+    if (item.special !== 'evolved') continue;
+    const tile = boardEl.querySelector(`.tile[data-r="${item.r}"][data-c="${item.c}"]`);
+    tile?.classList.add('evolve-born');
+    setTimeout(() => tile?.classList.remove('evolve-born'), 950);
+    popup('EVOLVE!', [item.r, item.c]);
+    tone(720, .15);
+  }
+}
 async function playMove(from, to) {
   if (busy || !adjacent(from, to)) return;
   setBusy(true); clearHints(); clearSelection();
@@ -140,19 +176,30 @@ async function playMove(from, to) {
   await delay(180);
   for (const stage of result.stages) {
     highlight(stage.clear, 'clearing');
-    if (stage.chain > 1) {
-      el('chain-badge').textContent = `COMBO x${stage.chain}!`;
+    const mega = stage.effects.some(effect => effect.type === 'mega');
+    const blast = stage.effects.some(effect => effect.type === 'evolved');
+    const evolution = stage.created.some(item => item.special === 'evolved');
+    if (mega || blast || evolution || stage.chain > 1) {
+      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? 'POWER BLAST!' : evolution ? 'EVOLUTION!' : `COMBO x${stage.chain}!`;
       el('chain-badge').classList.add('combo-live');
     }
+    for (const effect of stage.effects) showBlast(effect);
     popup(`+${stage.points.toLocaleString()}`, stage.clear[Math.floor(stage.clear.length / 2)] || [3, 3]);
     tone(400 + stage.chain * 95, .12);
     await delay(210);
     render(stage.afterClear);
-    await delay(85);
+    showEvolution(stage.created);
+    await delay(evolution ? 330 : 85);
     render(stage.afterFall);
     await delay(215);
   }
+  const newEvolution = result.stages.flatMap(stage => stage.created).find(item => item.special === 'evolved');
+  const megaBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'mega'));
+  const powerBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'evolved'));
   if (result.reshuffled) { render(game.board); showMessage('Fresh board! No more available moves.'); }
+  else if (megaBlast) showMessage('MEGA BLAST! Two evolved monsters combined!');
+  else if (newEvolution) showMessage(`${EVOLVED_SPRITES[newEvolution.evolution][0]} evolved! Swap it to blast 3×3.`, 3100);
+  else if (powerBlast) showMessage('Power explosion! Keep matching.');
   else if (result.chains > 1) showMessage(`Amazing! ${result.chains} chain combos!`);
   else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');

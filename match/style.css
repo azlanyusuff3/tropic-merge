@@ -23,3 +23,42 @@ body:after{position:fixed;content:'';inset:0;z-index:-1;background:radial-gradie
 .tile[data-appearance^="1"] .tile-well::after,.tile[data-appearance^="5"] .tile-well::after{position:absolute;right:1px;top:0;line-height:1;text-shadow:0 1px #fff9;pointer-events:none;z-index:1;font-weight:900;font-size:clamp(10px,2.3vw,15px)}
 .tile[data-appearance^="1"] .tile-well::after{content:'≈';color:#d4faff}
 .tile[data-appearance^="5"] .tile-well::after{content:'❄';color:#54b7e2}
+
+/* Monster Evolution: Match 5 creates a collectible power tile; no new game mode. */
+.tile.is-evolved{z-index:2}
+.tile.is-evolved .tile-well{
+  background:conic-gradient(from 25deg,#fff5b2,#ae86e9,#84e5f3,#e9a8d8,#fff5b2);
+  border:2px solid #fffbd7;
+  box-shadow:0 0 0 2px #efb956,0 0 14px #ffec9999,inset 0 2px #ffffffdf;
+  animation:evolved-glow 2s ease-in-out infinite alternate;
+}
+.tile.is-evolved img{
+  position:relative;z-index:1;width:125%;height:125%;
+  filter:drop-shadow(0 3px 2px #36295577) saturate(1.13);
+}
+.evolution-spark{
+  position:absolute;z-index:2;right:-3px;top:-4px;
+  display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  border:1px solid #ffffff;background:#f9cd63;
+  color:#fffdf1;font-size:16px;line-height:18px;text-shadow:0 1px 3px #975c2b;
+  box-shadow:0 1px 4px #825a5688;pointer-events:none;
+}
+.tile.evolve-born .tile-well{animation:evolution-born .7s cubic-bezier(.22,.78,.32,1.02) both}
+.blast-fx{
+  position:absolute;z-index:8;pointer-events:none;border-radius:20%;
+  transform:translate(-50%,-50%) scale(.15);opacity:0;
+  border:3px solid #fff6d2;
+  background:radial-gradient(circle,#fff9a8e8 0%,#ffbd769e 29%,#ff825c55 59%,transparent 74%);
+  box-shadow:0 0 18px #fff6aff0,inset 0 0 18px #ffcb93a0;
+  animation:monster-blast .55s ease-out forwards;
+}
+.blast-fx.is-mega{
+  border-color:#ffe899;
+  background:radial-gradient(circle,#fff8e2e8,#ffc577b8 26%,#d58cf880 53%,transparent 75%);
+  box-shadow:0 0 24px #fff1a8,inset 0 0 26px #dd9bfa88;
+  animation-duration:.67s;
+}
+@keyframes evolved-glow{from{filter:brightness(1)}to{filter:brightness(1.08) drop-shadow(0 0 3px #ffd772)}}
+@keyframes evolution-born{0%{transform:scale(.35) rotate(-16deg);opacity:.15;filter:brightness(2)}55%{transform:scale(1.22) rotate(7deg);opacity:1;filter:brightness(1.6)}100%{transform:scale(1) rotate(0);filter:brightness(1)}}
+@keyframes monster-blast{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}25%{opacity:.85}100%{opacity:0;transform:translate(-50%,-50%) scale(1.13)}}
+@media(prefers-reduced-motion:reduce){.tile.is-evolved .tile-well{animation:none}.blast-fx{animation-duration:.01ms!important}}

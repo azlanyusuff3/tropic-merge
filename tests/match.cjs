@@ -72,5 +72,59 @@ const server = http.createServer((req, res) => {
       await context.close();
       console.log(`PASS Monster Match ${width}x${height}: menu, sprites, touch, save, restart`);
     }
+
+    // End-to-end Match 5 evolution, power use, persistence, and the 5x5 mega blast.
+    {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await page.goto(base + '/match.html');
+      await page.evaluate(async () => {
+        const {createBoard,findRuns} = await import('./match/engine.mjs');
+        let board;
+        for(let i=0;i<3000&&!board;i++){
+          const b=createBoard();
+          for(const c of [1,2,4,5]) b[3][c].kind=4;
+          b[3][3].kind=0;b[4][3].kind=4;
+          if(!findRuns(b).length)board=b;
+        }
+        if(!board)throw Error('No Rockro evolution test board');
+        localStorage.setItem('monsterMatchSaveV1',JSON.stringify({version:1,board,score:123,best:123,matches:0,moves:0}));
+      });
+      await page.reload();
+      await page.locator('.tile[data-r="4"][data-c="3"]').tap();
+      await page.locator('.tile[data-r="3"][data-c="3"]').tap();
+      await page.waitForFunction(() => window.__monsterMatch.state().moves===1&&!window.__monsterMatch.state().busy);
+      assert.ok(await page.locator('.tile.is-evolved').count()>=1);
+      const names=await page.locator('.tile.is-evolved').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('aria-label')));
+      assert.ok(names.some(name=>name.startsWith('Infernodon')),'Rockro evolves to Infernodon');
+      const score=await page.evaluate(()=>window.__monsterMatch.state().score);
+      await page.reload();
+      assert.equal(await page.evaluate(()=>window.__monsterMatch.state().score),score);
+      const pos=await page.locator('.tile.is-evolved').first.evaluate(n=>({r:+n.dataset.r,c:+n.dataset.c}));
+      const neighbour=pos.c<7?pos.c+1:pos.c-1;
+      await page.locator('.tile[data-r="'+pos.r+'"][data-c="'+pos.c+'"]').tap();
+      await page.locator('.tile[data-r="'+pos.r+'"][data-c="'+neighbour+'"]').tap();
+      await page.waitForFunction(() => window.__monsterMatch.state().moves===2&&!window.__monsterMatch.state().busy);
+      assert.ok(await page.evaluate(()=>window.__monsterMatch.state().score)>score,'3x3 blast scores points');
+      await page.evaluate(async () => {
+        const {createBoard}=await import('./match/engine.mjs');
+        const board=createBoard();
+        board[3][3]={...board[3][3],kind:2,special:'evolved',evolution:'shadebub'};
+        board[3][4]={...board[3][4],kind:4,special:'evolved',evolution:'infernodon'};
+        localStorage.setItem('monsterMatchSaveV1',JSON.stringify({version:1,board,score:0,best:10000,matches:0,moves:0}));
+      });
+      await page.reload();
+      assert.equal(await page.locator('.tile.is-evolved').count(),2);
+      await page.locator('.tile[data-r="3"][data-c="3"]').tap();
+      await page.locator('.tile[data-r="3"][data-c="4"]').tap();
+      await page.waitForFunction(() => window.__monsterMatch.state().moves===1&&!window.__monsterMatch.state().busy);
+      assert.match(await page.locator('#game-message').textContent(),/MEGA BLAST/);
+      assert.equal(await page.locator('.tile').count(),64);
+      assert.deepEqual(errors,[]);
+      await context.close();
+      console.log('PASS Monster Evolution browser: Match5, Infernodon, save, 3x3, 5x5');
+    }
   } finally { await browser.close(); }
 })().then(() => server.close()).catch(error => { console.error(error); server.close(); process.exitCode = 1; });

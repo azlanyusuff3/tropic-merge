@@ -1,7 +1,18 @@
 // Monster Match: pure 8x8 match-three rules, independent of Merge and Sling.
 export const SIZE = 8;
 export const COLORS = 6;
-export const POWERS = ['row', 'col', 'bomb', 'rainbow'];
+// Six ordinary tiles stay on the board. Match 5 turns one into a rare evolved monster.
+// Original monster IDs stay untouched; no separate rescue, levels or energy system.
+export const EVOLUTIONS = Object.freeze([
+  'groveling', // Slimelet
+  'bubblo',    // Tidalon
+  'shadebub',  // Puffling
+  'groveling', // Sproutiball
+  'infernodon',// Rockro
+  'lumiorb'   // Frostbop
+]);
+export const POWERS = ['row', 'col', 'bomb', 'rainbow', 'evolved'];
+const EVOLUTION_SET = new Set(EVOLUTIONS);
 let lastId = 0;
 const posKey = (r, c) => r * SIZE + c;
 const position = key => [Math.floor(key / SIZE), key % SIZE];
@@ -9,7 +20,8 @@ const within = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE;
 const pick = (max, rng) => Math.max(0, Math.min(max - 1, Math.floor(rng() * max)));
 const newTile = (kind, special = null) => ({ id: ++lastId, kind, special });
 export const cloneBoard = board => board.map(row => row.map(cell => cell ? { ...cell } : null));
-const kindAt = cell => cell && cell.special !== 'rainbow' ? cell.kind : -1;
+// Evolved and legacy rainbow pieces are power tiles, not a seventh match color.
+const kindAt = cell => cell && cell.special !== 'rainbow' && cell.special !== 'evolved' ? cell.kind : -1;
 
 export function isValidBoard(board) {
   if (!Array.isArray(board) || board.length !== SIZE) return false;
@@ -17,7 +29,9 @@ export function isValidBoard(board) {
   return board.every(row => Array.isArray(row) && row.length === SIZE && row.every(cell => {
     if (!cell || !Number.isSafeInteger(cell.id) || cell.id <= 0 || seen.has(cell.id) ||
         !Number.isInteger(cell.kind) || cell.kind < 0 || cell.kind >= COLORS ||
-        (cell.special !== null && !POWERS.includes(cell.special))) return false;
+        (cell.special !== null && !POWERS.includes(cell.special)) ||
+        (cell.special === 'evolved' && (cell.evolution !== EVOLUTIONS[cell.kind] || !EVOLUTION_SET.has(cell.evolution))) ||
+        (cell.special !== 'evolved' && cell.evolution !== undefined)) return false;
     seen.add(cell.id);
     return true;
   }));
@@ -67,7 +81,7 @@ function groupedRuns(runs) {
   return groups;
 }
 function powerFor(group) {
-  if (group.runs.some(run => run.keys.length >= 5)) return 'rainbow';
+  if (group.runs.some(run => run.keys.length >= 5)) return 'evolved';
   if (group.runs.some(run => run.axis === 'row') && group.runs.some(run => run.axis === 'col')) return 'bomb';
   const four = group.runs.find(run => run.keys.length >= 4);
   return four ? four.axis : null;
@@ -127,7 +141,7 @@ function fallAndFill(board, rng) {
     for (let r = SIZE - 1; r >= 0; r--) board[r][c] = survivors[SIZE - 1 - r] || newTile(pick(COLORS, rng));
   }
 }
-function collectPowerEffects(board, initial) {
+function collectPowerEffects(board, initial, effects = []) {
   const clear = new Set(initial);
   const queue = [...initial];
   const activated = new Set();
@@ -146,6 +160,10 @@ function collectPowerEffects(board, initial) {
     if (tile.special === 'col') for (let y = 0; y < SIZE; y++) add(y, c);
     if (tile.special === 'bomb') for (let y = r - 1; y <= r + 1; y++) for (let x = c - 1; x <= c + 1; x++) add(y, x);
     if (tile.special === 'rainbow') for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (board[y][x]?.kind === tile.kind) add(y, x);
+    if (tile.special === 'evolved') {
+      effects.push({ type: 'evolved', r, c, radius: 1, evolution: tile.evolution });
+      for (let y = r - 1; y <= r + 1; y++) for (let x = c - 1; x <= c + 1; x++) add(y, x);
+    }
   }
   return clear;
 }
@@ -155,8 +173,16 @@ export function makeMove(board, from, to, rng = Math.random) {
   restoreIds(board);
   let working = swap(board, from, to);
   const swapped = cloneBoard(working), a = working[from[0]][from[1]], b = working[to[0]][to[1]];
-  const direct = new Set();
-  if (a.special === 'rainbow' || b.special === 'rainbow') {
+  const direct = new Set(), initialEffects = [];
+  if (a.special === 'evolved' && b.special === 'evolved') {
+    // Two evolved monsters swapped together trigger one 5x5 mega blast.
+    const [centerR, centerC] = to;
+    initialEffects.push({ type: 'mega', r: centerR, c: centerC, radius: 2 });
+    for (let r = centerR - 2; r <= centerR + 2; r++) for (let c = centerC - 2; c <= centerC + 2; c++) {
+      if (within(r, c)) direct.add(posKey(r, c));
+    }
+    direct.add(posKey(...from)); direct.add(posKey(...to));
+  } else if (a.special === 'rainbow' || b.special === 'rainbow') {
     const rainbowA = a.special === 'rainbow', rainbowB = b.special === 'rainbow';
     if (rainbowA && rainbowB) for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) direct.add(posKey(r, c));
     else {
@@ -178,7 +204,8 @@ export function makeMove(board, from, to, rng = Math.random) {
     if (!groups.length && !(chain === 1 && direct.size)) break;
     const seedClear = new Set(chain === 1 ? direct : []);
     for (const group of groups) for (const key of group.keys) seedClear.add(key);
-    const clears = collectPowerEffects(working, seedClear);
+    const effects = chain === 1 ? [...initialEffects] : [];
+    const clears = collectPowerEffects(working, seedClear, effects);
     const upgrades = [];
     const blockedAnchors = direct.size && chain === 1 ? collectPowerEffects(working, direct) : new Set();
     for (const group of groups) {
@@ -203,14 +230,20 @@ export function makeMove(board, from, to, rng = Math.random) {
     const created = [];
     for (const { key, special } of upgrades) if (anchored.has(key)) {
       const [r, c] = position(key), cell = working[r][c];
-      if (cell) { cell.special = special; created.push({ r, c, special }); }
+      if (cell) {
+        cell.special = special;
+        if (special === 'evolved') cell.evolution = EVOLUTIONS[cell.kind];
+        created.push({ r, c, special, ...(special === 'evolved' ? { evolution: cell.evolution } : {}) });
+      }
     }
     const afterClear = cloneBoard(working);
     const removed = clears.size;
-    const points = removed * 70 * chain + created.length * 160 + (chain > 1 ? (chain - 1) * 100 : 0);
+    const points = removed * 70 * chain + created.length * 160 + (chain > 1 ? (chain - 1) * 100 : 0) +
+      effects.filter(effect => effect.type === 'evolved').length * 200 +
+      effects.filter(effect => effect.type === 'mega').length * 500;
     score += points;
     fallAndFill(working, rng);
-    stages.push({ clear: [...clears].map(position), created, points, chain, afterClear, afterFall: cloneBoard(working), removed });
+    stages.push({ clear: [...clears].map(position), created, effects, points, chain, afterClear, afterFall: cloneBoard(working), removed });
   }
   let reshuffled = false;
   if (findRuns(working).length || !hasMove(working)) {

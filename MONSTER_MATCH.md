@@ -1,29 +1,34 @@
-# Monster Match - Classic Endless
+# Monster Match — Classic Endless + Monster Evolution
 
-Monster Match is a third independent Monster Island game. Monster Merge (`merge.html`) and Monster Sling (`sling.html`) engines, assets, and stored progress remain unchanged.
+Monster Match is the lightweight match-3 game in Monster Island. The home screen still displays only Monster Merge and Monster Match. Monster Sling remains hidden and is not deleted.
 
 ## Gameplay
 
-An 8x8 puzzle of six familiar monster faces. Swipe a monster to swap it with its neighbor, or tap two adjacent monsters. Match three or more of one kind horizontally or vertically; matches vanish, gravity refills the board, cascades score extra points. There are no turns, time limits, lives, or paid resources.
+- **Match 3:** clear three identical base monsters and earn points.
+- **Match 4:** creates a horizontal or vertical blast as before.
+- **Match 5 or more:** creates one **evolved monster** at the matched location. It stays on the board.
+- **Swap evolved + normal:** trigger a **3×3 blast** centered on the evolved monster's new position.
+- **Swap two evolved monsters:** trigger a **5×5 MEGA BLAST** centered on the first evolved monster's destination.
+- Blast effects can chain-trigger other evolved monsters. T/L matches create the existing 3×3 bomb. Existing saved rainbow pieces remain usable; newly created Match 5 powers evolve instead.
+- No level system, timer, lives, energy, rescue requirements, or external server. Classic Endless, hints, shuffling, high score, sound and automatic saves remain.
 
-- Match four to produce a row or column blast; match five to produce a rainbow clear.
-- T/L-shaped matches produce a 3x3 bomb.
-- Swap a power piece to trigger it. Multiple effects can chain.
-- No moves left? The board automatically reshuffles without losing score.
-- Hint highlights one playable swap, and Shuffle starts a fresh board without erasing score.
-- New Game starts over while retaining the all-time best.
-- Optional sound is off by default.
+## Six normal tile kinds, five evolved monster identities
 
-The pure, deterministic rules and generator are in `match/engine.mjs`; the UI is `match.html`, `match/app.js` and `match/style.css`. The original six WebP assets and tropical background are reused with no duplicate images or new dependencies. Progress saves to `monsterMatchSaveV1` and `monsterMatchBestV1` without touching any Monster Merge or Monster Sling keys. The service worker caches all required pages for offline play.
+| Match 5 of | Evolved character |
+|---|---|
+| Slimelet | Groveling |
+| Tidalon | Bubblo |
+| Puffling | Shadebub |
+| Sproutiball | Groveling |
+| Rockro | Infernodon |
+| Frostbop | Lumiorb |
 
-## Verification
+All evolved monsters share the same explosion mechanics for this version. There are still only six normal matching colors on the 8×8 board. Evolved characters are special power tiles, not a seventh match color, and all 11 existing monster identities appear.
 
-Run `npm run test:match` for the model tests and the Playwright browser check across four screen sizes (320x568, 390x844, 430x932, 768x1024), touch input, images, persistence and reset. `npm test` also runs the existing Merge and Sling suites.
+## Implementation and compatibility
 
-The implementation was exercised in isolated headless Chromium (using placeholder monster art) and with 334 engine checks. Real Android GPU performance, system gestures, audio and installed-PWA behavior still need device verification.
+Rules: `match/engine.mjs`. UI: `match/app.js`, `match/style.css`, `match.html`. Sprite paths for Tidalon and Frostbop remain Match-specific, while five evolved monster images reuse existing unchanged source sprites. No added assets, libraries, or large downloads are needed.
 
-## Monster element visual identities (Match-only)
+Existing local save keys `monsterMatchSaveV1` and `monsterMatchBestV1` remain unchanged. Previous valid board saves load as before. Evolved pieces store `special: "evolved"` and a validated `evolution` identity. The service worker cache version is updated for offline delivery, without affecting Monster Merge or un-hiding Sling.
 
-For the 8x8 board, the former cyan Bubblo kind (index 1) is now visibly represented by **Tidalon**, using its deep-blue/aqua sea-creature artwork, tail, waves and bubbles. Frostbop (index 5) is shown in bright icy-white/cyan with the original pronounced crystal spikes. To prevent unintended changes to other games, their source sprites are copied without modifying the originals to `match/assets/tidalon-match.webp` and `match/assets/frostbop-match.webp`; these are referenced **only** from the Monster Match board and Monster Match's menu preview. Match-only CSS increases contrast between ocean-blue and ice-white tiles, with discrete wave/snowflake symbols at tile corners.
-
-The six-kind match algorithm, kind indices, saved boards, high score and all other mechanics remain unchanged. `merge.html`, `sling.html` and their art paths are unchanged. The service worker pre-caches both Match-only art files; install activates the new cache without clearing local game progress.
+Tests: `npm run test:match` for model and browser regressions, including all six evolution mappings, 3×3/5×5 blasts, chain reactions, old saves, simulated touch, and mobile layouts. Tested locally in headless Chromium; real-device PWA QA is still recommended.
