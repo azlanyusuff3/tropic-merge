@@ -37,6 +37,7 @@ function valid(s){return s?.version===1&&Array.isArray(s.pets)&&s.pets.length>0&
 export function load(storage,now=Date.now()){
  const a=readJSON(storage,KEY,null),b=readJSON(storage,BACKUP,null);let s=valid(a)?a:valid(b)?b:fresh(now);
  if(!s.pets.some(p=>p.id===s.active))s.active=s.pets[0].id;
+ s.dailyClaims=Array.isArray(s.dailyClaims)?s.dailyClaims.filter(x=>typeof x==='string'):[];if(s.daily&&!s.dailyClaims.includes(s.daily))s.dailyClaims.push(s.daily);
  s.games ||= {};s.settings ||= {sound:true};s.gardenVisits ||=0;
  s.owned=s.owned.filter(x=>SHOP.some(y=>y.id===x));
  for(const [k,v]of Object.entries(s.slots))if(!s.owned.includes(v))delete s.slots[k];
@@ -44,14 +45,15 @@ export function load(storage,now=Date.now()){
  s.pets.forEach(p=>{for(const k of ['hunger','happiness','energy','cleanliness','friendship'])p[k]=clamp(p[k]);p.careDays=Array.isArray(p.careDays)?p.careDays.filter(x=>typeof x==='string'):[];p.feeds=Number(p.feeds)||0;p.plays=Number(p.plays)||0;p.baths=Number(p.baths)||0;advance(p,now,s)});return s;
 }
 export function save(storage,s,now=Date.now()){
- try{if(!valid(s))throw Error('Invalid care save');s.last=now;s.revision=(s.revision||0)+1;const data=JSON.stringify(s),old=storage.getItem(KEY);if(valid(readJSON(storage,KEY,null)))storage.setItem(BACKUP,old);storage.setItem(KEY,data);return true}catch{return false}
+ try{if(!valid(s))throw Error('Invalid care save');const current=readJSON(storage,KEY,null);if(valid(current)&&(current.revision||0)>(s.revision||0))return false;s.last=now;s.revision=(s.revision||0)+1;const data=JSON.stringify(s),old=storage.getItem(KEY);if(valid(readJSON(storage,KEY,null)))storage.setItem(BACKUP,old);storage.setItem(KEY,data);return true}catch{return false}
 }
 export function active(s){return s.pets.find(p=>p.id===s.active)||s.pets[0]}
 export function advance(p,now=Date.now(),s={slots:{}}){
  // Cap a long absence to 12 hours. A backwards clock only rebases time; pets never die.
+ for(const key of ['lastAction','lastTouch','lastCareReward'])if(p[key]>now)p[key]=0;
  const hours=clamp((now-p.last)/3600000,0,12),d=SPECIES[p.species];
- p.hunger=Math.max(15,p.hunger-hours*3.2*(d.activity*.4+.6));p.happiness=Math.max(25,p.happiness-hours*1.7);p.cleanliness=Math.max(20,p.cleanliness-hours*2.3);
- p.energy=p.sleeping?clamp(p.energy+hours*(s.slots.bed?28:22)):Math.max(20,p.energy-hours*2.4*d.tiredness);
+ p.hunger=Math.max(Math.min(15,p.hunger),p.hunger-hours*3.2*(d.activity*.4+.6));p.happiness=Math.max(Math.min(25,p.happiness),p.happiness-hours*1.7);p.cleanliness=Math.max(Math.min(20,p.cleanliness),p.cleanliness-hours*2.3);
+ p.energy=p.sleeping?clamp(p.energy+hours*(s.slots.bed?28:22)):Math.max(Math.min(20,p.energy),p.energy-hours*2.4*d.tiredness);
  p.last=now;
 }
 export const level=p=>1+Math.floor(p.xp/80);
@@ -87,7 +89,8 @@ export function adopt(s,i,storage,now=Date.now()){
  const p=newPet(i,now);s.pets.push(p);s.active=p.id;return true;
 }
 export function purchase(s,id){const f=FOODS[id],item=SHOP.find(x=>x.id===id);if(!f&&!item)return false;if(item&&s.owned.includes(id)){s.slots[item.slot]=id;return true}const price=f?.price??item.price;if(s.coins<price)return false;s.coins-=price;if(f)s.foods[id]=Math.min(999,s.foods[id]+1);else{s.owned.push(id);s.slots[item.slot]=id}return true}
-export function daily(s,now=Date.now()){const day=dayKey(now);if(s.daily===day)return false;s.daily=day;s.coins+=25;s.foods.mango+=2;return true}
+export function dailyClaimed(s,now=Date.now()){return s.daily===dayKey(now)||(s.dailyClaims||[]).includes(dayKey(now))}
+export function daily(s,now=Date.now()){const day=dayKey(now);if(dailyClaimed(s,now))return false;s.dailyClaims ||= [];if(s.daily&&!s.dailyClaims.includes(s.daily))s.dailyClaims.push(s.daily);s.dailyClaims.push(day);s.daily=day;s.coins+=25;s.foods.mango+=2;return true}
 export function milestones(s,storage){let reward=0;const best=Number(storage.getItem('tropicBest'))||0;for(const n of [500,1500,5000,10000,25000])if(best>=n&&!s.claimed.includes('score'+n)){s.claimed.push('score'+n);s.coins+=25;reward+=25}return reward}
 export const ACHIEVEMENTS=[
  ['first','Island family','Adopt your first friend',s=>s.pets.length>0],

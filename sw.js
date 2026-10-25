@@ -1,4 +1,4 @@
-const CACHE='monster-merge-v15-0-care-20261025-1';
+const CACHE='monster-merge-v15-0-care-20261025-2';
 const CORE=[
  './','./index.html','./merge.html','./care.html','./manifest.webmanifest',
  './care/style.css','./care/model.js','./care/art.js','./care/renderer.js','./care/minigames.js','./care/app.js','./care/pwa.js','./care/room.svg',
