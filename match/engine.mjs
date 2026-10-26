@@ -13,6 +13,9 @@ export const EVOLUTIONS = Object.freeze([
 ]);
 export const POWERS = ['row', 'col', 'bomb', 'rainbow', 'evolved'];
 const EVOLUTION_SET = new Set(EVOLUTIONS);
+export const EVOLUTION_TITLES = Object.freeze({ 1: 'Evolution', 2: 'Enhanced Evolution', 3: 'Super Evolution' });
+const rankForCount = count => count >= 7 ? 3 : count === 6 ? 2 : 1;
+const tileRank = cell => cell?.special === 'evolved' && [1, 2, 3].includes(cell.rank) ? cell.rank : 1;
 let lastId = 0;
 const posKey = (r, c) => r * SIZE + c;
 const position = key => [Math.floor(key / SIZE), key % SIZE];
@@ -31,7 +34,9 @@ export function isValidBoard(board) {
         !Number.isInteger(cell.kind) || cell.kind < 0 || cell.kind >= COLORS ||
         (cell.special !== null && !POWERS.includes(cell.special)) ||
         (cell.special === 'evolved' && (cell.evolution !== EVOLUTIONS[cell.kind] || !EVOLUTION_SET.has(cell.evolution))) ||
-        (cell.special !== 'evolved' && cell.evolution !== undefined)) return false;
+        (cell.special !== 'evolved' && cell.evolution !== undefined) ||
+        (cell.special === 'evolved' && cell.rank !== undefined && ![1, 2, 3].includes(cell.rank)) ||
+        (cell.special !== 'evolved' && cell.rank !== undefined)) return false;
     seen.add(cell.id);
     return true;
   }));
@@ -176,29 +181,37 @@ function squareKeys(r, c, radius) {
   }
   return keys;
 }
-export function powerCells(board, r, c, evolution, partnerKind = null) {
+export function powerCells(board, r, c, evolution, partnerKind = null, rank = 1) {
   if (!within(r, c) || !ABILITY_NAMES[evolution]) return [];
+  const strength = [1, 2, 3].includes(rank) ? rank : 1;
   const keys = new Set([posKey(r, c)]);
   const add = (y, x) => { if (within(y, x)) keys.add(posKey(y, x)); };
+  // Extra evolution strength changes only the footprint, not the control scheme.
+  const nearest = center => Array.from({ length: SIZE }, (_, i) => i).sort((a, b) =>
+    Math.abs(a - center) - Math.abs(b - center) || (a >= center ? 0 : 1) - (b >= center ? 0 : 1) || a - b);
   if (evolution === 'bubblo') {
     // Sweep two full horizontal rows, keeping the effect within the board.
-    const second = r < SIZE - 1 ? r + 1 : r - 1;
-    for (const row of [r, second]) for (let x = 0; x < SIZE; x++) add(row, x);
+    for (const row of nearest(r).slice(0, strength + 1)) for (let x = 0; x < SIZE; x++) add(row, x);
   } else if (evolution === 'shadebub') {
-    for (const key of squareKeys(r, c, 1)) keys.add(key);
+    for (const key of squareKeys(r, c, strength)) keys.add(key);
   } else if (evolution === 'groveling') {
     // Two diagonals cross the evolved tile, even at the board edges.
     for (let d = -SIZE + 1; d < SIZE; d++) { add(r + d, c + d); add(r + d, c - d); }
+    if (strength > 1) for (const key of squareKeys(r, c, strength - 1)) keys.add(key);
   } else if (evolution === 'lumiorb') {
     const kind = Number.isInteger(partnerKind) && partnerKind >= 0 && partnerKind < COLORS
       ? partnerKind : majorityKind(board);
+    const counts = Array(COLORS).fill(0);
+    for (const row of board) for (const tile of row) if (tile && !tile.special) counts[tile.kind]++;
+    const types = [kind, ...Array.from({ length: COLORS }, (_, k) => k)
+      .filter(k => k !== kind).sort((a, b) => counts[b] - counts[a] || a - b)].slice(0, strength);
     for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
       // Star Magic removes ordinary monsters only; other evolved pieces are preserved.
-      if (board[y][x] && !board[y][x].special && board[y][x].kind === kind) add(y, x);
+      if (board[y][x] && !board[y][x].special && types.includes(board[y][x].kind)) add(y, x);
     }
   } else if (evolution === 'infernodon') {
-    for (let x = 0; x < SIZE; x++) add(r, x);
-    for (let y = 0; y < SIZE; y++) add(y, c);
+    for (const row of nearest(r).slice(0, strength)) for (let x = 0; x < SIZE; x++) add(row, x);
+    for (const col of nearest(c).slice(0, strength)) for (let y = 0; y < SIZE; y++) add(y, col);
   }
   return [...keys].sort((a, b) => a - b).map(position);
 }
@@ -208,8 +221,8 @@ export function previewPower(board, from, to = null) {
   const first = board[from[0]][from[1]];
   if (!to) {
     if (first?.special !== 'evolved') return null;
-    return { type: 'evolved', evolution: first.evolution, r: from[0], c: from[1],
-      precise: false, cells: powerCells(board, ...from, first.evolution) };
+    return { type: 'evolved', evolution: first.evolution, rank: tileRank(first), r: from[0], c: from[1],
+      precise: false, cells: powerCells(board, ...from, first.evolution, null, tileRank(first)) };
   }
   if (!adjacent(from, to)) return null;
   const second = board[to[0]][to[1]];
@@ -222,9 +235,9 @@ export function previewPower(board, from, to = null) {
   const landing = first.special === 'evolved' ? to : from;
   const partner = first.special === 'evolved' ? second : first;
   const swapped = swap(board, from, to);
-  return { type: 'evolved', evolution: evolved.evolution, r: landing[0], c: landing[1],
+  return { type: 'evolved', evolution: evolved.evolution, rank: tileRank(evolved), r: landing[0], c: landing[1],
     precise: true, targetKind: partner.kind,
-    cells: powerCells(swapped, ...landing, evolved.evolution, partner.kind) };
+    cells: powerCells(swapped, ...landing, evolved.evolution, partner.kind, tileRank(evolved)) };
 }
 
 function collectPowerEffects(board, initial, effects = [], targetKinds = new Map(), skipEvolved = new Set()) {
@@ -248,8 +261,9 @@ function collectPowerEffects(board, initial, effects = [], targetKinds = new Map
     if (tile.special === 'rainbow') for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (board[y][x]?.kind === tile.kind) add(y, x);
     if (tile.special === 'evolved' && !skipEvolved.has(key)) {
       const targetKind = targetKinds.get(key) ?? null;
-      const cells = powerCells(board, r, c, tile.evolution, targetKind);
-      effects.push({ type: 'evolved', r, c, evolution: tile.evolution,
+      const rank = tileRank(tile);
+      const cells = powerCells(board, r, c, tile.evolution, targetKind, rank);
+      effects.push({ type: 'evolved', r, c, evolution: tile.evolution, rank,
         ability: ABILITY_NAMES[tile.evolution], targetKind, cells });
       for (const [y, x] of cells) add(y, x);
     }
@@ -303,7 +317,7 @@ export function makeMove(board, from, to, rng = Math.random) {
       const [firstR, firstC] = cells[0];
       const special = powerFor(group);
       return { kind: working[firstR][firstC].kind, cells,
-        tier: special === 'evolved' ? 5 : special ? 4 : 3 };
+        tier: special === 'evolved' ? Math.min(7, group.keys.size) : special ? 4 : 3 };
     });
     const seedClear = new Set(chain === 1 ? direct : []);
     for (const group of groups) for (const key of group.keys) seedClear.add(key);
@@ -320,7 +334,7 @@ export function makeMove(board, from, to, rng = Math.random) {
       const anchor = preferred.find(k => group.keys.has(k)) ?? centerAnchor(group);
       // Specials spawned by a matched group must not survive a simultaneous blast.
       if (!blockedAnchors.has(anchor)) {
-        upgrades.push({ key: anchor, special });
+        upgrades.push({ key: anchor, special, rank: special === 'evolved' ? rankForCount(group.keys.size) : null });
       }
     }
     const anchored = new Set();
@@ -333,19 +347,20 @@ export function makeMove(board, from, to, rng = Math.random) {
       working[r][c] = null;
     }
     const created = [];
-    for (const { key, special } of upgrades) if (anchored.has(key)) {
+    for (const { key, special, rank } of upgrades) if (anchored.has(key)) {
       const [r, c] = position(key), cell = working[r][c];
       if (cell) {
         cell.special = special;
-        if (special === 'evolved') cell.evolution = EVOLUTIONS[cell.kind];
-        created.push({ r, c, special, ...(special === 'evolved' ? { evolution: cell.evolution } : {}) });
+        if (special === 'evolved') { cell.evolution = EVOLUTIONS[cell.kind]; cell.rank = rank; }
+        created.push({ r, c, special, ...(special === 'evolved' ? { evolution: cell.evolution, rank } : {}) });
       }
     }
     const afterClear = cloneBoard(working);
     const removed = clears.size;
     const points = removed * 70 * chain + created.length * 160 + (chain > 1 ? (chain - 1) * 100 : 0) +
       effects.filter(effect => effect.type === 'evolved').length * 200 +
-      effects.filter(effect => effect.type === 'mega').length * 500;
+      effects.filter(effect => effect.type === 'mega').length * 500 +
+      created.reduce((bonus, tile) => bonus + (tile.rank === 2 ? 360 : tile.rank === 3 ? 950 : 0), 0);
     score += points;
     fallAndFill(working, rng);
     stages.push({ clear: [...clears].map(position), matches, created, effects, points, chain, afterClear, afterFall: cloneBoard(working), removed });

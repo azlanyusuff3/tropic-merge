@@ -66,7 +66,14 @@ const seedAndTap = async (page, kind, tier) => {
       await page.waitForFunction(s => !!document.querySelector(s), selector, { timeout: 3000 });
       assert.ok(await page.locator(selector + ' .elemental-particle').count() >= 5);
       assert.equal(await page.locator(selector).evaluate(node => getComputedStyle(node).animationName), 'element-cast-life');
-      await page.waitForFunction(() => !window.__monsterMatch.state().busy, null, { timeout: 11000 });
+      const duration = await page.locator(selector).evaluate(node => parseFloat(getComputedStyle(node).animationDuration));
+      assert.ok(duration >= 1.1, `Elemental effect should be visible beyond 1 second: ${duration}s`);
+      await page.waitForTimeout(560);
+      assert.ok(await page.locator(selector).count() > 0, 'Effect must still be present after 560ms');
+      const titleOpacity = await page.locator(selector + ' .elemental-title').evaluate(node => parseFloat(getComputedStyle(node).opacity));
+      assert.ok(titleOpacity > .6, 'Attack name must be readable during the visual effect');
+      assert.ok(await page.locator(selector + ' .elemental-beam').count() >= 1, 'Attack follows the matching tile line');
+      await page.waitForFunction(() => !window.__monsterMatch.state().busy, null, { timeout: 16000 });
       assert.ok((await page.evaluate(() => window.__monsterMatch.state().score)) > 0);
       assert.equal(await page.locator('.tile').count(), 64);
       assert.equal(await page.locator('.tile.element-charged').count(), 0);

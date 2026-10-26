@@ -1,4 +1,4 @@
-# Monster Match — Elemental FX + Match-5 Clarity v18.6
+# Monster Match — Visible Elemental FX + Enhanced/Super Evolution v18.7
 
 This release improves **every ordinary match** without adding gameplay complexity.
 The 8x8 Classic Endless board, six normal monster types, five evolved characters,
@@ -80,3 +80,42 @@ matches, all six base kinds, correct placement and evolution identity, power
 activation, 1,464 cases total and 448 automatic cascade stages. Additional
 mobile Chromium tests validated the UI at 320, 390, 430 and 768 px wide and
 checked that saved star pieces upgrade with scores preserved.
+
+## Longer attacks and stronger Match 6/7 evolution (v18.7)
+
+Earlier effects lasted only about 0.5 seconds and often faded during tile
+clearing. Now the clearing phase waits for the real attack animation. Actual
+matched tiles glow, an elemental streak connects the matched row/column, and a
+larger text label remains readable through the attack.
+
+- Match 3: about 1.18 seconds visible elemental casting.
+- Match 4: about 1.28 seconds, then a standard line power.
+- Match 5: about 1.42 seconds, then normal Evolved rank 1.
+- Match 6: about 1.51 seconds, then Enhanced Evolved rank 2.
+- Match 7+: about 1.63 seconds, then Super Evolved rank 3.
+- Long cascades use a shorter 0.82-second effect to preserve responsiveness.
+- Evolved power blasts display for roughly 1.05 seconds, Mega Blast for 1.18.
+- Respect operating-system Reduced Motion settings (no particle animation).
+
+The board remains the same 8x8 Classic Endless mode. There are still six
+ordinary matching monsters and five evolved characters, with no new buttons
+or separate game modes. Enhanced/Super use the same swipe/tap power activation.
+
+| Monster | Normal (5) | Enhanced (6) | Super (7+) |
+|---|---|---|---|
+| Bubblo | 2 rows | 3 rows | 4 rows |
+| Shadebub | 3x3 | 5x5 | 7x7 |
+| Groveling | X diagonals | X plus 3x3 | X plus 5x5 |
+| Lumiorb | Clear 1 normal type | Clear 2 normal types | Clear 3 normal types |
+| Infernodon | 1 row + column | 2 rows + columns | 3 rows + columns |
+
+Match 6/7+ award one-time enhanced-evolution creation bonus. Older saved
+evolved tiles lacking `rank` are treated as normal rank 1. Valid ranks are
+1, 2, or 3; existing `monsterMatchSaveV1` and `monsterMatchBestV1` keys are
+preserved. Monster Merge and hidden Monster Sling remain unchanged.
+
+Regression: `tests/match-ranks.mjs` validates 5/6/7 combinations, the five
+powers' stronger footprints, exact-preview equivalence, and older saves.
+The browser FX tests measure visible animation duration and attack-title
+opacity; mobile-size tests cover 320, 390, 430 and 768 px widths. Physical
+Android PWA testing is still recommended.

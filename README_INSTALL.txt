@@ -1,4 +1,4 @@
-MONSTER ISLAND v18.6 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
+MONSTER ISLAND v18.7 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
 
 Play: https://azlanyusuff3.github.io/tropic-merge/
 
@@ -40,3 +40,18 @@ MATCH 5 EVOLUTION FIX (v18.6):
   feedback is now anchored on the actual matched area.
 
 Run: npm run test:match (includes tests/match5-evolution.mjs).
+
+VISIBLE ELEMENTAL ATTACKS & EVOLUTION RANKS (v18.7):
+- Match 3: elemental attack stays visible approximately 1.18 seconds, with a
+  glowing line over matched monsters and a legible attack title.
+- Match 4: enhanced elemental flash approximately 1.28 seconds.
+- Match 5: evolution sequence approximately 1.42 seconds.
+- Match 6: Enhanced Evolution approximately 1.51 seconds; stronger power.
+- Match 7+: Super Evolution approximately 1.63 seconds; biggest unique power.
+- Long cascades show slightly faster effects to keep gameplay responsive.
+- Existing evolved attacks are shown for longer too (about 1.05 seconds).
+- Five unique evolved abilities now scale with the evolution rank.
+- Progress and scores are preserved. Older evolved monsters are normal rank 1.
+- Reduced-motion accessibility setting is respected.
+
+Run: npm run test:match (includes tests/match-ranks.mjs).

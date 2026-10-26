@@ -115,3 +115,128 @@
 
 .tile.is-evolved .power-icon{display:none!important}
 .tile.is-evolved .tile-well::after{content:none!important}
+
+/* v18.7 — readable, synchronized elemental attacks (previously ~0.5 seconds).
+   The renderer holds the matched creatures until the attack has been seen. */
+.tile.element-charged:not(.clearing) .tile-well{
+  animation:element-charge var(--cast-duration,1180ms) ease-in-out both;
+  box-shadow:0 0 0 3px var(--element-glow),0 0 17px var(--element-glow),inset 0 2px #ffffffe5;
+}
+.elemental-cast{
+  animation-duration:var(--cast-duration,1180ms)!important;
+}
+.elemental-ring,.elemental-core,.elemental-particle,.elemental-title{
+  animation-duration:var(--cast-duration,1180ms)!important;
+}
+.elemental-ring{
+  border-width:3px;
+  box-shadow:0 0 17px var(--fx-tint),inset 0 0 15px var(--fx-tint);
+}
+.elemental-title{
+  top:-12px;
+  padding:5px 10px 6px;
+  color:#fffefa;
+  border-radius:999px;
+  border:2px solid var(--fx-tint);
+  background:linear-gradient(125deg,#304552ec,#1d4949e8);
+  font-size:clamp(11px,3.6vw,18px);
+  font-weight:700;
+  letter-spacing:.35px;
+  text-shadow:0 1px 4px #102c2e,0 0 8px var(--fx-tint);
+  box-shadow:0 2px 8px #244a528c,0 0 10px var(--fx-tint);
+}
+.elemental-cast[data-tier="5"] .elemental-title,
+.elemental-cast[data-tier="6"] .elemental-title{
+  border-width:2.5px;
+  box-shadow:0 0 16px #fff5bb,0 1px 12px var(--fx-tint);
+}
+.elemental-cast[data-tier="7"] .elemental-title{
+  border-color:#ffe17b;
+  background:linear-gradient(120deg,#6b3d77eb,#b57c36eb);
+  box-shadow:0 0 24px #ffe17ac9,0 3px 12px #7c456ab0;
+}
+.elemental-cast[data-tier="6"] .elemental-ring{border-width:5px;filter:brightness(1.35)}
+.elemental-cast[data-tier="7"] .elemental-ring{border-width:6px;filter:brightness(1.6)}
+@keyframes element-charge{
+  0%{filter:brightness(1);transform:scale(1)}
+  15%{filter:brightness(1.26);transform:scale(1.055)}
+  45%{filter:brightness(1.45);transform:scale(1.09)}
+  76%{filter:brightness(1.3);transform:scale(1.045)}
+  100%{filter:brightness(1.12);transform:scale(1)}
+}
+@keyframes element-cast-life{
+  0%{opacity:0}10%{opacity:1}85%{opacity:1}100%{opacity:0}
+}
+@keyframes element-ring{
+  0%{transform:translate(-50%,-50%) scale(.18) rotate(-10deg);opacity:0}
+  20%{transform:translate(-50%,-50%) scale(.58);opacity:1}
+  62%{transform:translate(-50%,-50%) scale(.97) rotate(10deg);opacity:.92}
+  100%{transform:translate(-50%,-50%) scale(1.19) rotate(19deg);opacity:0}
+}
+@keyframes element-core{
+  0%{transform:translate(-50%,-50%) scale(.25);opacity:0}
+  20%{opacity:.84}
+  62%{transform:translate(-50%,-50%) scale(1.12);opacity:.74}
+  100%{transform:translate(-50%,-50%) scale(1.52);opacity:0}
+}
+@keyframes element-particle{
+  0%{transform:translate(-50%,-50%) scale(.2) rotate(0);opacity:0}
+  19%{opacity:1}
+  66%{transform:translate(calc(var(--dx) - 50%),calc(var(--dy) - 50%)) scale(.96) rotate(var(--turn));opacity:1}
+  100%{transform:translate(calc(var(--dx) - 50%),calc(var(--dy) - 50%)) scale(.68) rotate(var(--turn));opacity:0}
+}
+@keyframes element-title{
+  0%{opacity:0;transform:translate(-50%,4px) scale(.8)}
+  18%{opacity:1;transform:translate(-50%,-9px) scale(1.06)}
+  70%{opacity:1;transform:translate(-50%,-12px) scale(1)}
+  89%{opacity:.94;transform:translate(-50%,-16px) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-24px) scale(.92)}
+}
+/* Evolved power attacks were previously cleared after ~200ms. */
+.tile.power-hit .tile-well{animation-duration:920ms!important}
+.blast-fx{animation-duration:1050ms!important}
+.blast-fx.is-mega{animation-duration:1180ms!important}
+.blast-fx[data-rank="2"]{filter:brightness(1.17) saturate(1.2)}
+.blast-fx[data-rank="3"]{filter:brightness(1.35) saturate(1.35) drop-shadow(0 0 12px #ffdf85)}
+.tile.is-evolved[data-rank="2"] .tile-well{
+  outline:2px solid #bdecff;outline-offset:-1px;
+  box-shadow:0 0 0 2px #6fc9f4,0 0 16px #a7e8ff;
+}
+.tile.is-evolved[data-rank="3"] .tile-well{
+  outline:2px solid #fff6b4;outline-offset:-1px;
+  box-shadow:0 0 0 3px #f1b64b,0 0 22px #fff0a8;
+  animation:super-evolution-glow 1.8s ease-in-out infinite alternate;
+}
+@keyframes super-evolution-glow{to{filter:brightness(1.2) drop-shadow(0 0 5px #ffd675)}}
+@media(prefers-reduced-motion:reduce){
+  .elemental-cast,.elemental-ring,.elemental-core,.elemental-particle,.elemental-title,
+  .tile.element-charged .tile-well,.tile.is-evolved[data-rank="3"] .tile-well,
+  .tile.power-hit .tile-well,.blast-fx{animation-duration:.01ms!important}
+}
+/* The glowing beam follows only the actually matched row(s) and column(s). */
+.elemental-beam{
+  position:absolute;pointer-events:none;z-index:-1;
+  background:linear-gradient(90deg,transparent,var(--fx-tint) 35%,#ffffffdb 50%,var(--fx-tint) 65%,transparent);
+  border-radius:999px;
+  box-shadow:0 0 12px var(--fx-tint),0 0 5px #fff;
+  animation:elemental-beam var(--cast-duration,1180ms) ease-out both;
+}
+.elemental-beam[data-axis="col"]{
+  background:linear-gradient(180deg,transparent,var(--fx-tint) 35%,#ffffffdb 50%,var(--fx-tint) 65%,transparent);
+  animation-name:elemental-beam-vertical;
+}
+@keyframes elemental-beam{
+  0%{transform:translate(-50%,-50%) scaleX(.03);opacity:0}
+  18%{transform:translate(-50%,-50%) scaleX(.65);opacity:.95}
+  39%{transform:translate(-50%,-50%) scaleX(1);opacity:1}
+  75%{transform:translate(-50%,-50%) scaleX(1);opacity:.87}
+  100%{transform:translate(-50%,-50%) scaleX(1.07);opacity:0}
+}
+@keyframes elemental-beam-vertical{
+  0%{transform:translate(-50%,-50%) scaleY(.03);opacity:0}
+  18%{transform:translate(-50%,-50%) scaleY(.65);opacity:.95}
+  39%{transform:translate(-50%,-50%) scaleY(1);opacity:1}
+  75%{transform:translate(-50%,-50%) scaleY(1);opacity:.87}
+  100%{transform:translate(-50%,-50%) scaleY(1.07);opacity:0}
+}
+@media(prefers-reduced-motion:reduce){.elemental-beam{display:none!important}}

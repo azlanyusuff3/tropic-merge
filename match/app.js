@@ -115,14 +115,15 @@ function render(board) {
     button.style.setProperty('--c', c);
     button.style.setProperty('--r', r);
     button.dataset.r = r; button.dataset.c = c; button.dataset.evolution = cell.evolution || '';
-    const appearance = `${cell.kind}|${cell.special || ''}|${cell.evolution || ''}`;
+    button.dataset.rank = String(cell.rank || 1);
+    const appearance = `${cell.kind}|${cell.special || ''}|${cell.evolution || ''}|${cell.rank || 1}`;
     if (button.dataset.appearance !== appearance) {
       button.dataset.appearance = appearance;
       button.innerHTML = faceHTML(cell);
       button.classList.toggle('is-power', !!cell.special);
       button.classList.toggle('is-rainbow', cell.special === 'rainbow');
       button.classList.toggle('is-evolved', cell.special === 'evolved');
-      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', ' + ABILITY_NAMES[cell.evolution] + ' power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
+      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', ' + (cell.rank === 3 ? 'Super ' : cell.rank === 2 ? 'Enhanced ' : '') + ABILITY_NAMES[cell.evolution] + ' power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
     }
     button.classList.toggle('chosen', !!selected && selected[0] === r && selected[1] === c);
   }));
@@ -175,6 +176,7 @@ function showBlast(effect) {
   }
   const fx = document.createElement('div');
   fx.className = `blast-fx ${effect.type === 'mega' ? 'is-mega' : 'is-' + effect.evolution}`;
+  fx.dataset.rank = String(effect.rank || 1);
   fx.setAttribute('aria-hidden', 'true');
   const centerX = (effect.c + .5) * 100 / SIZE;
   const centerY = (effect.r + .5) * 100 / SIZE;
@@ -195,7 +197,7 @@ function showBlast(effect) {
   }
   boardEl.append(fx);
   fx.addEventListener('animationend', () => fx.remove(), { once: true });
-  setTimeout(() => fx.remove(), 850);
+  setTimeout(() => fx.remove(), 1500);
 }
 
 function showEvolution(created) {
@@ -204,8 +206,9 @@ function showEvolution(created) {
     const tile = boardEl.querySelector(`.tile[data-r="${item.r}"][data-c="${item.c}"]`);
     tile?.classList.add('evolve-born');
     setTimeout(() => tile?.classList.remove('evolve-born'), 950);
-    popup(`${artwork({ special: 'evolved', evolution: item.evolution })[0]} EVOLVED!`, [item.r, item.c]);
-    tone(720, .15);
+    const title = item.rank === 3 ? 'SUPER EVOLUTION!' : item.rank === 2 ? 'ENHANCED!' : 'EVOLVE!';
+    popup(title, [item.r, item.c]);
+    tone(item.rank === 3 ? 1000 : item.rank === 2 ? 870 : 720, .18);
   }
 }
 async function playMove(from, to) {
@@ -230,7 +233,7 @@ async function playMove(from, to) {
     const cast = castElementalMatches(boardEl, stage.matches, stage.chain);
     if (cast) {
       tone(260 + cast.kind * 72 + (cast.tier - 3) * 54 + Math.min(stage.chain, 4) * 24, .075);
-      if (!cast.reducedMotion) await delay(stage.chain > 2 ? 85 : 130);
+      if (!cast.reducedMotion) await delay(cast.holdMs);
     }
     clearElementalCharge(boardEl);
     highlight(stage.clear, 'clearing');
@@ -249,19 +252,21 @@ async function playMove(from, to) {
     const center = mainMatch?.cells[Math.floor(mainMatch.cells.length / 2)] || stage.effects[0]?.cells?.[0] || stage.clear[0] || [3, 3];
     popup(evolution ? 'MATCH 5!' : `+${stage.points.toLocaleString()}`, center);
     if (!cast) tone(400 + stage.chain * 95, .12);
-    await delay(cast ? (stage.chain > 2 ? 155 : 175) : 210);
+    // Allow the whole elemental attack to be seen before tiles disappear.
+    // Evolved abilities also get their own longer, visible impact window.
+    await delay(cast ? 165 : stage.effects.length ? 680 : 210);
     render(stage.afterClear);
     showEvolution(stage.created);
-    await delay(evolution ? 330 : 85);
+    await delay(evolution ? (stage.created.some(t => t.rank === 3) ? 620 : stage.created.some(t => t.rank === 2) ? 500 : 390) : 85);
     render(stage.afterFall);
-    await delay(215);
+    await delay(stage.chain > 2 ? 125 : 190);
   }
   const newEvolution = result.stages.flatMap(stage => stage.created).find(item => item.special === 'evolved');
   const megaBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'mega'));
   const powerBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'evolved'));
   if (result.reshuffled) { render(game.board); showMessage('Fresh board! No more available moves.'); }
   else if (megaBlast) showMessage('MEGA BLAST! Two evolved monsters combined!');
-  else if (newEvolution) showMessage(`${EVOLVED_SPRITES[newEvolution.evolution][0]} evolved! Swipe it to unleash its unique power.`, 3100);
+  else if (newEvolution) showMessage(`${newEvolution.rank === 3 ? 'SUPER EVOLUTION' : newEvolution.rank === 2 ? 'ENHANCED EVOLUTION' : 'EVOLUTION'}! ${EVOLVED_SPRITES[newEvolution.evolution][0]} is ready. Swap to unleash power!`, 3300);
   else if (powerBlast) {
     const power = result.stages.flatMap(stage => stage.effects).find(effect => effect.type === 'evolved');
     showMessage(`${power.ability}! Keep the combo going.`);
@@ -317,7 +322,7 @@ boardEl.addEventListener('pointerup', event => {
       const active = game.board[selected[0]][selected[1]];
       if (active.special === 'evolved') {
         const fx = showPowerPreview(selected);
-        showMessage(`${artwork(active)[0]} · ${ABILITY_NAMES[active.evolution]} — swap to activate!`, 2500);
+        showMessage(`${artwork(active)[0]} · ${active.rank === 3 ? 'SUPER ' : active.rank === 2 ? 'Enhanced ' : ''}${ABILITY_NAMES[active.evolution]} — swap to activate!`, 2500);
       } else clearPowerPreview();
     } else clearPowerPreview();
   }
