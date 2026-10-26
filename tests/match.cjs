@@ -120,7 +120,7 @@ const server = http.createServer((req, res) => {
       await page.locator('.tile[data-r="3"][data-c="3"]').tap();
       await page.locator('.tile[data-r="3"][data-c="4"]').tap();
       await page.waitForFunction(() => window.__monsterMatch.state().moves===1&&!window.__monsterMatch.state().busy);
-      assert.match(await page.locator('#game-message').textContent(),/MEGA BLAST/);
+      assert.match(await page.locator('#game-message').textContent(),/Nice combo/);
       assert.equal(await page.locator('.tile').count(),64);
       assert.deepEqual(errors,[]);
       await context.close();
@@ -151,7 +151,7 @@ const server = http.createServer((req, res) => {
       assert.equal(await page.locator('.tile.is-evolved').count(),1);
       await page.locator('.tile[data-r="3"][data-c="3"]').tap();
       assert.ok(await page.locator('.tile.power-preview').count()>0,name+' must preview affected cells');
-      assert.ok((await page.locator('#game-message').textContent()).includes(label),name+' should identify its unique power');
+      assert.match(await page.locator('#game-message').textContent(),/Swap this monster/,name+' should show a generic activation hint without an attack title');
       await page.locator('.tile[data-r="3"][data-c="4"]').tap();
       await page.waitForFunction(()=>window.__monsterMatch.state().moves===1&&!window.__monsterMatch.state().busy);
       assert.ok(await page.evaluate(()=>window.__monsterMatch.state().score)>0,name+' should score points');

@@ -206,8 +206,6 @@ function showEvolution(created) {
     const tile = boardEl.querySelector(`.tile[data-r="${item.r}"][data-c="${item.c}"]`);
     tile?.classList.add('evolve-born');
     setTimeout(() => tile?.classList.remove('evolve-born'), 950);
-    const title = item.rank === 3 ? 'SUPER EVOLUTION!' : item.rank === 2 ? 'ENHANCED!' : 'EVOLVE!';
-    popup(title, [item.r, item.c]);
     tone(item.rank === 3 ? 1000 : item.rank === 2 ? 870 : 720, .18);
   }
 }
@@ -241,8 +239,9 @@ async function playMove(from, to) {
     const powers = stage.effects.filter(effect => effect.type === 'evolved');
     const blast = powers.length > 0;
     const evolution = stage.created.some(item => item.special === 'evolved');
-    if (mega || blast || evolution || stage.chain > 1) {
-      el('chain-badge').textContent = mega ? 'MEGA BLAST!' : blast ? `${powers[0].ability.toUpperCase()}!` : evolution ? 'EVOLUTION!' : `CHAIN x${stage.chain}!`;
+    // Only a genuine cascade shows its multiplier; powers rely on their visual effects.
+    if (stage.chain > 1) {
+      el('chain-badge').textContent = `CHAIN x${stage.chain}!`;
       el('chain-badge').classList.add('combo-live');
     }
     for (const effect of stage.effects) showBlast(effect);
@@ -250,7 +249,7 @@ async function playMove(from, to) {
     // could belong to an unrelated simultaneous cascade or a wide power blast.
     const mainMatch = stage.matches.find(group => group.tier === 5) || stage.matches[0];
     const center = mainMatch?.cells[Math.floor(mainMatch.cells.length / 2)] || stage.effects[0]?.cells?.[0] || stage.clear[0] || [3, 3];
-    popup(evolution ? 'MATCH 5!' : `+${stage.points.toLocaleString()}`, center);
+    popup(`+${stage.points.toLocaleString()}`, center);
     if (!cast) tone(400 + stage.chain * 95, .12);
     // Allow the whole elemental attack to be seen before tiles disappear.
     // Evolved abilities also get their own longer, visible impact window.
@@ -265,17 +264,10 @@ async function playMove(from, to) {
   const megaBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'mega'));
   const powerBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'evolved'));
   if (result.reshuffled) { render(game.board); showMessage('Fresh board! No more available moves.'); }
-  else if (megaBlast) showMessage('MEGA BLAST! Two evolved monsters combined!');
-  else if (newEvolution) showMessage(`${newEvolution.rank === 3 ? 'SUPER EVOLUTION' : newEvolution.rank === 2 ? 'ENHANCED EVOLUTION' : 'EVOLUTION'}! ${EVOLVED_SPRITES[newEvolution.evolution][0]} is ready. Swap to unleash power!`, 3300);
-  else if (powerBlast) {
-    const power = result.stages.flatMap(stage => stage.effects).find(effect => effect.type === 'evolved');
-    showMessage(`${power.ability}! Keep the combo going.`);
-  }
-  else if (result.chains > 1) showMessage(`CHAIN x${result.chains}! Extra monsters matched automatically as they fell.`);
-  else if (result.stages[0]?.matches?.length) {
-    const kind = result.stages[0].matches[0].kind;
-    showMessage(['Slime Splash!', 'Water Splash!', 'Puff Burst!', 'Leaf Storm!', 'Rock Smash!', 'Ice Shatter!'][kind] + ' Keep going.');
-  } else showMessage('Nice match! Keep going.');
+  else if (newEvolution) showMessage('Evolved monster ready! Swap it to use its power.', 2600);
+  else if (megaBlast || powerBlast) showMessage('Nice combo! Keep going.');
+  else if (result.chains > 1) showMessage(`CHAIN x${result.chains}! Extra monsters matched automatically.`);
+  else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');
   el('chain-badge').textContent = 'NO MOVE LIMIT';
   setBusy(false);
@@ -322,7 +314,7 @@ boardEl.addEventListener('pointerup', event => {
       const active = game.board[selected[0]][selected[1]];
       if (active.special === 'evolved') {
         const fx = showPowerPreview(selected);
-        showMessage(`${artwork(active)[0]} · ${active.rank === 3 ? 'SUPER ' : active.rank === 2 ? 'Enhanced ' : ''}${ABILITY_NAMES[active.evolution]} — swap to activate!`, 2500);
+        showMessage('Swap this monster with a neighbour to use its power.', 2500);
       } else clearPowerPreview();
     } else clearPowerPreview();
   }

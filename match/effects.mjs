@@ -110,12 +110,7 @@ export function castElementalMatches(board, matches = [], chain = 1) {
       particle.style.setProperty('--particle-size', `${Math.max(5, Math.round(cellSize * (.12 + (i % 3) * .045)))}px`);
       host.append(particle);
     }
-    if (groupIndex === 0 && !prefersReducedMotion) {
-      const name = document.createElement('strong');
-      name.className = 'elemental-title';
-      name.textContent = profile.title + (chain > 1 ? ` x${Math.min(chain, 32)}` : '');
-      host.append(name);
-    }
+    // Visual attack only: no on-board text or floating effect names.
     board.append(host);
     const cleanup = () => host.remove();
     // animationend may not fire if a page is hidden or reduced motion is on.

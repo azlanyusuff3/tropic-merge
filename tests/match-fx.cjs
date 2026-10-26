@@ -70,8 +70,8 @@ const seedAndTap = async (page, kind, tier) => {
       assert.ok(duration >= 1.1, `Elemental effect should be visible beyond 1 second: ${duration}s`);
       await page.waitForTimeout(560);
       assert.ok(await page.locator(selector).count() > 0, 'Effect must still be present after 560ms');
-      const titleOpacity = await page.locator(selector + ' .elemental-title').evaluate(node => parseFloat(getComputedStyle(node).opacity));
-      assert.ok(titleOpacity > .6, 'Attack name must be readable during the visual effect');
+      assert.equal(await page.locator(selector + ' .elemental-title').count(), 0, 'Elemental attack has visuals only, no floating title');
+      assert.equal(await page.locator('.elemental-title').count(), 0, 'No attack words should overlay the board');
       assert.ok(await page.locator(selector + ' .elemental-beam').count() >= 1, 'Attack follows the matching tile line');
       await page.waitForFunction(() => !window.__monsterMatch.state().busy, null, { timeout: 16000 });
       assert.ok((await page.evaluate(() => window.__monsterMatch.state().score)) > 0);

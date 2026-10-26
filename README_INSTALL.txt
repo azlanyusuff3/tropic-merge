@@ -1,4 +1,4 @@
-MONSTER ISLAND v18.7 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
+MONSTER ISLAND v18.7.1 - MONSTER MERGE + MONSTER MATCH ELEMENTAL FX
 
 Play: https://azlanyusuff3.github.io/tropic-merge/
 
@@ -55,3 +55,9 @@ VISIBLE ELEMENTAL ATTACKS & EVOLUTION RANKS (v18.7):
 - Reduced-motion accessibility setting is respected.
 
 Run: npm run test:match (includes tests/match-ranks.mjs).
+
+VISUAL-ONLY ATTACK LABELS (v18.7.1):
+- No floating ICE SHATTER, ROCK SMASH, EVOLVE, SUPER EVOLUTION, or ability name text during attacks.
+- Elemental beams, particles, monster glow, power blasts, score popups and combo counters remain.
+- Neutral gameplay tips remain under the board; How to Play still explains powers.
+- Match 3/4/5/6/7+ effects and timing remain unchanged, as do saved boards and scores.

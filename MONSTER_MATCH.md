@@ -119,3 +119,6 @@ powers' stronger footprints, exact-preview equivalence, and older saves.
 The browser FX tests measure visible animation duration and attack-title
 opacity; mobile-size tests cover 320, 390, 430 and 768 px widths. Physical
 Android PWA testing is still recommended.
+
+## Visual-only attack FX (v18.7.1)
+Floating elemental titles and evolution/ability name callouts are no longer rendered during gameplay. The existing visual-only particles, glows, beams, power highlights and long animation timings remain unchanged. Score popups, chain multipliers and generic instructions remain to support play. The How to Play reference still names the abilities. Existing save keys and all gameplay logic remain unchanged.
