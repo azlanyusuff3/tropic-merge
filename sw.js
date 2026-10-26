@@ -1,4 +1,4 @@
-const CACHE='monster-island-v18-8-2-match-moods-20261026';
+const CACHE='monster-island-v18-9-depth-evolution-20261026';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
  './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/faces.mjs','./match/face-rig.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',

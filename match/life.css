@@ -230,3 +230,16 @@
   border:1px solid #2b86c4;animation:face-sweat 1.9s ease-in both}
 @keyframes face-sweat{0%{opacity:0;transform:translateY(-20%) scale(.4)}15%{opacity:1;transform:none}75%{opacity:1;transform:translateY(55%)}100%{opacity:0;transform:translateY(90%)}}
 @media(prefers-reduced-motion:reduce){.monster-body.mm-joy,.monster-body.mm-scared{animation:none!important}.tile .face::before,.tile .face::after{display:none!important}}
+
+/* Soft depth, travelling elemental impacts, and energy convergence. */
+.tile-well{background-blend-mode:soft-light;box-shadow:inset 0 3px 4px #ffffff85,inset 0 -4px 5px #265b4638,0 3px 2px #20493c40}
+.tile .monster-body{filter:drop-shadow(0 5px 2px #183d4940)}
+.tile.chosen .monster-body{filter:drop-shadow(0 9px 3px #183d4960)}
+.mm-energy{position:absolute;z-index:12;width:10px;height:10px;pointer-events:none;border-radius:50%;background:#fff;box-shadow:0 0 8px 3px var(--tint);animation:mm-converge 620ms cubic-bezier(.55,.05,.75,.5) both}
+@keyframes mm-converge{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}20%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--ex)),calc(-50% + var(--ey))) scale(.2)}}
+.blast-fx.exact-footprint .blast-cell{animation:mm-impact 600ms ease-out both;animation-delay:var(--travel,0ms)}
+@keyframes mm-impact{0%{opacity:0;transform:scale(.25)}25%{opacity:1;transform:scale(1.12)}65%{opacity:.85;transform:scale(.98)}100%{opacity:0;transform:scale(.8)}}
+@media(prefers-reduced-motion:reduce){.mm-energy{display:none}.blast-fx.exact-footprint .blast-cell{animation:none;opacity:.6}}
+
+.tile .tile-well{rotate:var(--drag-lean,0deg);transition:rotate 100ms ease,transform 130ms ease,filter 130ms ease}
+@media(prefers-reduced-motion:reduce){.tile .tile-well{rotate:0deg;transition:none}}

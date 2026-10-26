@@ -225,6 +225,7 @@ function showBlast(effect) {
   for (const [r, c] of effect.cells || []) {
     const hit = document.createElement('span');
     hit.className = 'blast-cell';
+    hit.style.setProperty('--travel', `${Math.min(420, Math.hypot(r - effect.r, c - effect.c) * 55)}ms`);
     hit.style.left = `${c * 100 / SIZE}%`;
     hit.style.top = `${r * 100 / SIZE}%`;
     fx.append(hit);
@@ -269,10 +270,12 @@ async function playMove(from, to) {
       life.castPose(boardEl, stage.matches);
       const g = stage.matches[0].cells, gr = g.reduce((t, [r]) => t + r, 0) / g.length, gc = g.reduce((t, [, c]) => t + c, 0) / g.length;
       faces.lookAt(boardEl, gr, gc, 1500, 3.6);
-      if (cast.tier >= 5 || stage.chain >= 3) life.shake(frameEl, cast.tier >= 7 ? 2 : 1);
+      if (cast.tier >= 7) life.shake(frameEl, 1);
       tone(260 + cast.kind * 72 + (cast.tier - 3) * 54 + Math.min(stage.chain, 4) * 24, .075);
       if (!cast.reducedMotion) await delay(cast.holdMs);
     }
+    const gathering = life.gatherEvolution(boardEl, stage.matches, stage.created);
+    if (gathering) await delay(gathering);
     clearElementalCharge(boardEl);
     highlight(stage.clear, 'clearing');
     const mega = stage.effects.some(effect => effect.type === 'mega');
@@ -284,9 +287,15 @@ async function playMove(from, to) {
       el('chain-badge').textContent = `CHAIN x${stage.chain}!`;
       el('chain-badge').classList.add('combo-live');
     }
+    for (const [r,c] of stage.clear) {
+      const tile = boardEl.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+      const special = tile?.dataset.appearance?.split('|')[1];
+      if (special === 'row' || special === 'col') showBlast({ type: 'line', evolution: special, r, c,
+        cells: Array.from({length: SIZE}, (_, i) => special === 'row' ? [r,i] : [i,c]) });
+    }
     for (const effect of stage.effects) showBlast(effect);
     if (mega) { life.shake(frameEl, 3); life.flash(boardEl, '#fff3c4'); }
-    else if (blast) life.shake(frameEl, powers.some(p => p.rank === 3) ? 3 : 2);
+    else if (powers.some(p => p.rank === 3)) life.shake(frameEl, 1);
     // Keep feedback on the ACTUAL matched area. The middle of stage.clear
     // could belong to an unrelated simultaneous cascade or a wide power blast.
     const mainMatch = stage.matches.find(group => group.tier === 5) || stage.matches[0];
@@ -298,15 +307,15 @@ async function playMove(from, to) {
     if (!cast) tone(400 + stage.chain * 95, .12);
     // Allow the whole elemental attack to be seen before tiles disappear.
     // Evolved abilities also get their own longer, visible impact window.
-    await delay(stage.effects.length ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 165 : mega ? 1200 : 1070) : cast ? 165 : 230);
+    await delay(boardEl.querySelector('.blast-fx') ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 165 : mega ? 1200 : 1070) : cast ? 165 : 230);
     life.poof(boardEl, stage.clear);
     render(stage.afterClear);
     if (blast || mega) { life.shock(boardEl, stage.clear); faces.react(boardEl, neighbours(stage.clear), 'face-wow', 700); }
     showEvolution(stage.created);
     await delay(evolution ? (stage.created.some(t => t.rank === 3) ? 620 : stage.created.some(t => t.rank === 2) ? 500 : 390) : 85);
-    const landing = render(stage.afterFall);
+    const landing = render(stage.afterFall, { stagger: true });
     // Wait for the falling monsters to (nearly) land so chains read clearly.
-    await delay(Math.max(stage.chain > 2 ? 125 : 190, landing * .9));
+    await delay(Math.max(stage.chain > 2 ? 125 : 190, landing));
   }
   const newEvolution = result.stages.flatMap(stage => stage.created).find(item => item.special === 'evolved');
   const megaBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'mega'));
@@ -334,6 +343,9 @@ boardEl.addEventListener('pointermove', event => {
   if (!touchStart || touchStart.id !== event.pointerId || busy) return;
   const start = touchStart;
   const dx = event.clientX - start.x, dy = event.clientY - start.y;
+  const leaning = boardEl.querySelector(`.tile[data-r="${start.r}"][data-c="${start.c}"]`);
+  leaning?.style.setProperty('--drag-lean', `${Math.max(-9, Math.min(9, dx / 5))}deg`);
+
   const threshold = Math.max(12, boardEl.clientWidth / SIZE * .25);
   if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
   const to = Math.abs(dx) > Math.abs(dy) ? [start.r, start.c + Math.sign(dx)] : [start.r + Math.sign(dy), start.c];
@@ -342,6 +354,7 @@ boardEl.addEventListener('pointermove', event => {
   showPowerPreview([start.r, start.c], to);
 });
 boardEl.addEventListener('pointerup', event => {
+  boardEl.querySelectorAll('.tile').forEach(t => t.style.removeProperty('--drag-lean'));
   if (!touchStart || event.pointerId !== touchStart.id || busy) return;
   const start = touchStart; touchStart = null;
   const dx = event.clientX - start.x, dy = event.clientY - start.y;
@@ -369,7 +382,7 @@ boardEl.addEventListener('pointerup', event => {
     } else { clearPowerPreview(); faces.clearSelectReact(boardEl); }
   }
 });
-boardEl.addEventListener('pointercancel', () => { touchStart = null; clearPowerPreview(); });
+boardEl.addEventListener('pointercancel', () => { touchStart = null; clearPowerPreview(); boardEl.querySelectorAll('.tile').forEach(t => t.style.removeProperty('--drag-lean')); });
 let keyboardCell = [3, 3];
 boardEl.addEventListener('keydown', event => {
   if (busy) return;

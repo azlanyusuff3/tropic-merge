@@ -169,3 +169,25 @@ export function startAmbient(board, isBusy) {
   };
   tick();
 }
+
+// Gather energy from the actual matching creatures into the evolution anchor.
+export function gatherEvolution(board, matches, created) {
+  if (reduced()) return 0;
+  let count = 0;
+  for (const item of created.filter(t => t.special === 'evolved')) {
+    const group = matches.find(g => g.cells.some(([r,c]) => r === item.r && c === item.c));
+    if (!group) continue;
+    for (const [r,c] of group.cells) {
+      if (r === item.r && c === item.c) continue;
+      const mote = document.createElement('span');
+      mote.className = 'mm-energy'; mote.setAttribute('aria-hidden', 'true');
+      mote.style.left = `${(c + .5) * 100 / SIZE}%`;
+      mote.style.top = `${(r + .5) * 100 / SIZE}%`;
+      mote.style.setProperty('--ex', `${(item.c - c) * board.clientWidth / SIZE}px`);
+      mote.style.setProperty('--ey', `${(item.r - r) * board.clientHeight / SIZE}px`);
+      mote.style.setProperty('--tint', TINTS[group.kind]);
+      board.append(mote); setTimeout(() => mote.remove(), 700); count++;
+    }
+  }
+  return count ? 620 : 0;
+}
