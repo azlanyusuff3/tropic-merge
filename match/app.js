@@ -1,6 +1,7 @@
 import { SIZE, shuffleBoard, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 import { castElementalMatches, clearElementalCharge } from './effects.mjs';
 import * as life from './life.mjs';
+import * as faces from './faces.mjs';
 
 const SPRITES = [
   ['Slimelet', './assets/monsters/01-slimelet.webp'],
@@ -99,7 +100,8 @@ function faceHTML(cell) {
   // Keep the evolved sprite unobstructed. Only legacy/non-evolved powers
   // need a small power symbol; evolved monsters communicate via their face.
   const powerBadge = !evolved && icon ? `<span class="power-icon" aria-hidden="true">${icon}</span>` : '';
-  return `<span class="tile-well"><span class="monster-body"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager"></span>${powerBadge}</span>`;
+  const [name, url] = artwork(cell);
+  return `<span class="tile-well"><span class="monster-body"><span class="sprite">${faces.spriteHTML(name.toLowerCase(), url)}</span></span>${powerBadge}</span>`;
 }
 // Returns how long (ms) the longest falling monster needs to land.
 function render(board, { stagger = false } = {}) {
@@ -265,6 +267,8 @@ async function playMove(from, to) {
     const cast = castElementalMatches(boardEl, stage.matches, stage.chain);
     if (cast) {
       life.castPose(boardEl, stage.matches);
+      const g = stage.matches[0].cells, gr = g.reduce((t, [r]) => t + r, 0) / g.length, gc = g.reduce((t, [, c]) => t + c, 0) / g.length;
+      faces.lookAt(boardEl, gr, gc, 1500, 3.6);
       if (cast.tier >= 5 || stage.chain >= 3) life.shake(frameEl, cast.tier >= 7 ? 2 : 1);
       tone(260 + cast.kind * 72 + (cast.tier - 3) * 54 + Math.min(stage.chain, 4) * 24, .075);
       if (!cast.reducedMotion) await delay(cast.holdMs);
@@ -297,7 +301,7 @@ async function playMove(from, to) {
     await delay(stage.effects.length ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 165 : mega ? 1200 : 1070) : cast ? 165 : 230);
     life.poof(boardEl, stage.clear);
     render(stage.afterClear);
-    if (blast || mega) life.shock(boardEl, stage.clear);
+    if (blast || mega) { life.shock(boardEl, stage.clear); faces.react(boardEl, neighbours(stage.clear), 'face-wow', 700); }
     showEvolution(stage.created);
     await delay(evolution ? (stage.created.some(t => t.rank === 3) ? 620 : stage.created.some(t => t.rank === 2) ? 500 : 390) : 85);
     const landing = render(stage.afterFall);
@@ -355,6 +359,7 @@ boardEl.addEventListener('pointerup', event => {
     selected = same ? null : [start.r, start.c];
     render(game.board);
     if (selected) {
+      faces.lookAt(boardEl, selected[0], selected[1], 1600);
       const active = game.board[selected[0]][selected[1]];
       if (active.special === 'evolved') {
         const fx = showPowerPreview(selected);
@@ -414,6 +419,26 @@ el('confirm-reset').addEventListener('click', () => {
 for (const id of ['help-modal', 'reset-modal']) el(id).addEventListener('pointerdown', e => { if (e.target === el(id)) modal(id, false); });
 addEventListener('keydown', event => { if (event.key === 'Escape') { modal('help-modal', false); modal('reset-modal', false); } });
 addEventListener('pagehide', store);
+function neighbours(cells) {
+  const hit = new Set(cells.map(([r, c]) => r * SIZE + c)), out = [];
+  for (const [r, c] of cells) for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nr = r + dr, nc = c + dc, k = nr * SIZE + nc;
+    if (nr >= 0 && nc >= 0 && nr < SIZE && nc < SIZE && !hit.has(k)) { hit.add(k); out.push([nr, nc]); }
+  }
+  return out;
+}
+// Swap the plain sprites for living faces once their artwork has loaded,
+// in place, so it never disturbs a move that is animating.
+faces.preload().then(() => {
+  for (const button of tiles.values()) {
+    const r = Number(button.dataset.r), c = Number(button.dataset.c), cell = game.board[r]?.[c];
+    const sprite = button.querySelector('.sprite');
+    if (!sprite || !cell || String(cell.id) !== button.dataset.tileId) { button.dataset.appearance = ''; continue; }
+    const [name, url] = artwork(cell);
+    sprite.innerHTML = faces.spriteHTML(name.toLowerCase(), url);
+  }
+}).catch(() => {});
+faces.start(boardEl, () => busy);
 // Monsters tumble onto the board; input waits until they have landed.
 function introDrop() {
   const landing = render(game.board, { stagger: true });

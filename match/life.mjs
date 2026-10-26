@@ -5,7 +5,10 @@
 const SIZE = 8;
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
 const TINTS = ['#a0fa78', '#77e8ff', '#ffc2ee', '#b2f68a', '#ffd58c', '#bbf5ff'];
-const AMBIENT = ['mm-act-hop', 'mm-act-look', 'mm-act-wiggle', 'mm-act-stretch', 'mm-act-spin'];
+// Kind-flavoured little acts: Sproutiball bounces, Frostbop shivers, others hop or wiggle.
+const ambientFor = tile => tile.dataset.kind === '3' && !tile.classList.contains('is-evolved') ? 'mm-act-bounce'
+  : tile.dataset.kind === '5' && !tile.classList.contains('is-evolved') ? 'mm-act-shiver'
+  : Math.random() < .55 ? 'mm-act-hop' : 'mm-act-wiggle';
 const landTimers = new WeakMap();
 
 const tileAt = (board, r, c) => board.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
@@ -44,7 +47,7 @@ export function startFall(tile, rows, delayMs = 0) {
     tile.style.removeProperty('--fall-delay');
     body?.classList.remove('mm-falling');
     // Bigger drops land with a bigger jelly squash.
-    body?.style.setProperty('--land', String(Math.min(1.35, .55 + rows * .16)));
+    body?.style.setProperty('--land', String(Math.min(1, .45 + rows * .1)));
     oneShot(body, 'mm-land', 560);
   }, ms + delayMs));
   return ms + delayMs;
@@ -156,18 +159,13 @@ let ambientTimer = 0;
 export function startAmbient(board, isBusy) {
   clearTimeout(ambientTimer);
   const tick = () => {
-    ambientTimer = setTimeout(tick, 900 + Math.random() * 1300);
+    ambientTimer = setTimeout(tick, 2600 + Math.random() * 3400);
     if (reduced() || document.hidden || isBusy()) return;
     const tiles = [...board.querySelectorAll('.tile:not(.chosen):not(.hinted):not(.power-preview)')];
-    const count = 1 + (Math.random() < .45 ? 1 : 0);
-    for (let i = 0; i < count && tiles.length; i++) {
-      const tile = tiles.splice(Math.floor(Math.random() * tiles.length), 1)[0];
-      const body = bodyOf(tile);
-      if (!body || [...body.classList].some(c => c.startsWith('mm-') && c !== 'mm-idle')) continue;
-      const act = AMBIENT[Math.floor(Math.random() * AMBIENT.length)];
-      body.style.setProperty('--look', Math.random() < .5 ? '-1' : '1');
-      oneShot(body, act, 1000);
-    }
+    const tile = tiles[Math.floor(Math.random() * tiles.length)];
+    const body = bodyOf(tile);
+    if (!body || [...body.classList].some(c => c.startsWith('mm-'))) return;
+    oneShot(body, ambientFor(tile), 950);
   };
   tick();
 }

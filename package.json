@@ -1,6 +1,6 @@
 {
   "name": "monster-merge",
-  "version": "18.8.0",
+  "version": "18.8.1",
   "private": true,
   "scripts": {
     "test": "node tests/sling-model.cjs && node tests/sling-levels.mjs && node tests/playable.cjs && node tests/sling.cjs && node tests/match-engine.mjs && node tests/match-abilities.mjs && node tests/match-elements.mjs && node tests/match5-evolution.mjs && node tests/match-ranks.mjs && node tests/match.cjs && node tests/match-fx.cjs",

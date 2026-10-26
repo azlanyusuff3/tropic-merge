@@ -1,11 +1,13 @@
-const CACHE='monster-island-v18-8-0-living-match-20261026';
+const CACHE='monster-island-v18-8-1-match-faces-20261026';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
+ './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/faces.mjs','./match/face-rig.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
  './assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2',
  './sling/menu.css','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',
- ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`)
+ ...['slimelet','bubblo','puffling','sproutiball','rockro','frostbop','shadebub','groveling','tidalon','lumiorb','infernodon'].map((n,i)=>`./assets/monsters/${String(i+1).padStart(2,'0')}-${n}.webp`),
+ // Monster Match living faces: bare sprite + eye/mouth patches per monster.
+ ...['slimelet','tidalon','puffling','sproutiball','rockro','frostbop','bubblo','shadebub','groveling','lumiorb','infernodon'].flatMap(n=>['','-e0','-e1','-m'].map(s=>`./match/faces/${n}${s}.webp`))
 ];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
