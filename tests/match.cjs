@@ -21,6 +21,11 @@ const server = http.createServer((req, res) => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = 'http://127.0.0.1:' + server.address().port;
   const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox'] });
+  // Test seeds are written to localStorage and then the page reloads. Newer
+  // Chromium fires the game's pagehide autosave on reload, which would overwrite
+  // the seed with the previous board. Seeded tests therefore skip that autosave.
+  const openContext = browser.newContext.bind(browser);
+  browser.newContext = async options => { const ctx = await openContext(options); await ctx.addInitScript(() => addEventListener('pagehide', e => e.stopImmediatePropagation(), true)); return ctx; };
   try {
     for (const [width, height] of [[320, 568], [390, 844], [430, 932], [768, 1024]]) {
       const context = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
@@ -102,7 +107,7 @@ const server = http.createServer((req, res) => {
       const score=await page.evaluate(()=>window.__monsterMatch.state().score);
       await page.reload();
       assert.equal(await page.evaluate(()=>window.__monsterMatch.state().score),score);
-      const pos=await page.locator('.tile.is-evolved').first.evaluate(n=>({r:+n.dataset.r,c:+n.dataset.c}));
+      const pos=await page.locator('.tile.is-evolved').first().evaluate(n=>({r:+n.dataset.r,c:+n.dataset.c}));
       const neighbour=pos.c<7?pos.c+1:pos.c-1;
       await page.locator('.tile[data-r="'+pos.r+'"][data-c="'+pos.c+'"]').tap();
       await page.locator('.tile[data-r="'+pos.r+'"][data-c="'+neighbour+'"]').tap();

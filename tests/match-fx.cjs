@@ -53,6 +53,11 @@ const seedAndTap = async (page, kind, tier) => {
   const base = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch({ headless: true,
     executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox'] });
+  // Test seeds are written to localStorage and then the page reloads. Newer
+  // Chromium fires the game's pagehide autosave on reload, which would overwrite
+  // the seed with the previous board. Seeded tests therefore skip that autosave.
+  const openContext = browser.newContext.bind(browser);
+  browser.newContext = async options => { const ctx = await openContext(options); await ctx.addInitScript(() => addEventListener('pagehide', e => e.stopImmediatePropagation(), true)); return ctx; };
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 },
       isMobile: true, hasTouch: true, serviceWorkers: 'block' });

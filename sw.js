@@ -1,7 +1,7 @@
-const CACHE='monster-island-v18-11-match-fixes-20261026';
+const CACHE='monster-island-v18-8-0-living-match-20261026';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
+ './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
  './assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2',
  './sling/menu.css','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',

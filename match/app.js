@@ -1,5 +1,6 @@
 import { SIZE, shuffleBoard, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 import { castElementalMatches, clearElementalCharge } from './effects.mjs';
+import * as life from './life.mjs';
 
 const SPRITES = [
   ['Slimelet', './assets/monsters/01-slimelet.webp'],
@@ -23,6 +24,7 @@ const BEST_KEY = 'monsterMatchBestV1';
 const AUDIO_KEY = 'monsterMatchSoundV1';
 const el = id => document.getElementById(id);
 const boardEl = el('board');
+const frameEl = boardEl.closest('.board-frame');
 const tiles = new Map();
 let soundOn = false;
 let audio = null;
@@ -97,24 +99,38 @@ function faceHTML(cell) {
   // Keep the evolved sprite unobstructed. Only legacy/non-evolved powers
   // need a small power symbol; evolved monsters communicate via their face.
   const powerBadge = !evolved && icon ? `<span class="power-icon" aria-hidden="true">${icon}</span>` : '';
-  return `<span class="tile-well"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager">${powerBadge}</span>`;
+  return `<span class="tile-well"><span class="monster-body"><img src="${artwork(cell)[1]}" alt="" draggable="false" loading="eager"></span>${powerBadge}</span>`;
 }
-function render(board) {
+// Returns how long (ms) the longest falling monster needs to land.
+function render(board, { stagger = false } = {}) {
   const used = new Set();
+  const motion = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Monsters new to the board spawn above it, stacked per column, then fall in.
+  const spawnCount = Array(SIZE).fill(0);
+  board.forEach(row => row.forEach((cell, c) => { if (cell && !tiles.has(cell.id)) spawnCount[c]++; }));
+  const drops = [];
   board.forEach((row, r) => row.forEach((cell, c) => {
     if (!cell) return;
     used.add(cell.id);
     let button = tiles.get(cell.id);
     if (!button) {
       button = document.createElement('button');
-      button.type = 'button'; button.className = 'tile is-new'; button.dataset.tileId = cell.id;
+      button.type = 'button'; button.className = motion ? 'tile' : 'tile is-new'; button.dataset.tileId = cell.id;
       button.tabIndex = -1;
+      // Personal rhythm, so the board never breathes in lock-step.
+      button.style.setProperty('--ph', `${-((cell.id * 0.6180339) % 1 * 3.4).toFixed(2)}s`);
+      if (motion) {
+        button.style.setProperty('--c', c);
+        button.style.setProperty('--r', r - spawnCount[c]);
+        button.dataset.r = r - spawnCount[c];
+      } else button.addEventListener('animationend', () => button.classList.remove('is-new'), { once: true });
       boardEl.append(button); tiles.set(cell.id, button);
-      button.addEventListener('animationend', () => button.classList.remove('is-new'), { once: true });
     }
+    const prevR = Number(button.dataset.r);
+    if (motion && Number.isFinite(prevR) && r > prevR) drops.push([button, r - prevR, stagger ? c * 28 + (SIZE - 1 - r) * 10 : 0]);
     button.style.setProperty('--c', c);
-    button.style.setProperty('--r', r);
-    button.dataset.r = r; button.dataset.c = c; button.dataset.evolution = cell.evolution || '';
+    if (!(motion && r > prevR)) button.style.setProperty('--r', r);
+    button.dataset.r = r; button.dataset.c = c; button.dataset.kind = cell.kind; button.dataset.evolution = cell.evolution || '';
     button.dataset.rank = String(cell.rank || 1);
     const appearance = `${cell.kind}|${cell.special || ''}|${cell.evolution || ''}|${cell.rank || 1}`;
     if (button.dataset.appearance !== appearance) {
@@ -128,6 +144,21 @@ function render(board) {
     button.classList.toggle('chosen', !!selected && selected[0] === r && selected[1] === c);
   }));
   for (const [id, node] of tiles) if (!used.has(id)) { node.remove(); tiles.delete(id); }
+  if (!drops.length) return 0;
+  // Spawned tiles were placed above the board; one reflow commits that start
+  // position, then the new --r values transition down with gravity easing.
+  for (const [button, rows, wait] of drops) {
+    button.style.setProperty('--fall-ms', life.fallMs(rows) + 'ms');
+    button.style.setProperty('--fall-delay', wait + 'ms');
+    button.classList.add('mm-dropping');
+  }
+  void boardEl.offsetHeight;
+  let longest = 0;
+  for (const [button, rows, wait] of drops) {
+    button.style.setProperty('--r', button.dataset.r);
+    longest = Math.max(longest, life.startFall(button, rows, wait));
+  }
+  return longest;
 }
 function clearHints() { clearTimeout(hintTimeout); boardEl.querySelectorAll('.hinted').forEach(node => node.classList.remove('hinted')); }
 function clearSelection() { selected = null; boardEl.querySelectorAll('.chosen').forEach(node => node.classList.remove('chosen')); }
@@ -153,13 +184,14 @@ function highlight(cells, className) {
     node?.classList.add(className);
   }
 }
-function popup(text, cell = [3, 3]) {
+function popup(text, cell = [3, 3], { size = 1, chain = 1 } = {}) {
   const label = document.createElement('span');
   label.className = 'floating-score'; label.textContent = text;
+  label.dataset.size = String(size); label.dataset.chain = String(Math.min(chain, 4));
   label.style.left = `${(cell[1] + .5) * 100 / SIZE}%`;
   label.style.top = `${(cell[0] + .5) * 100 / SIZE}%`;
   boardEl.append(label);
-  setTimeout(() => label.remove(), 750);
+  setTimeout(() => label.remove(), 980);
 }
 function setBusy(value) {
   busy = value;
@@ -205,6 +237,8 @@ function showEvolution(created) {
     if (item.special !== 'evolved') continue;
     const tile = boardEl.querySelector(`.tile[data-r="${item.r}"][data-c="${item.c}"]`);
     tile?.classList.add('evolve-born');
+    life.evolveRays(boardEl, item);
+    if (item.rank >= 2) life.flash(boardEl, item.rank === 3 ? '#fff0a0' : '#d6f6ff');
     setTimeout(() => tile?.classList.remove('evolve-born'), 950);
     tone(item.rank === 3 ? 1000 : item.rank === 2 ? 870 : 720, .18);
   }
@@ -214,7 +248,7 @@ async function playMove(from, to) {
   setBusy(true); clearHints(); clearSelection(); clearPowerPreview();
   const result = makeMove(game.board, from, to);
   if (!result.valid) {
-    if (result.swapped) { render(result.swapped); await delay(175); render(game.board); }
+    if (result.swapped) { render(result.swapped); life.swapHop(boardEl, to, from, false); await delay(190); render(game.board); }
     showMessage('Try to match at least 3 monsters!');
     setBusy(false); return;
   }
@@ -223,13 +257,15 @@ async function playMove(from, to) {
   game.matches += result.stages.reduce((count, step) => count + step.removed, 0);
   game.score += result.score; game.best = Math.max(game.best, game.score);
   store(); updateHud();
-  render(result.swapped); tone(330, .07);
-  await delay(180);
+  render(result.swapped); life.swapHop(boardEl, to, from, true); tone(330, .07);
+  await delay(200);
   for (const stage of result.stages) {
     // Monsters visibly cast their own element BEFORE disappearing. Cascades
     // cast as well; special blasts keep their existing distinct effects.
     const cast = castElementalMatches(boardEl, stage.matches, stage.chain);
     if (cast) {
+      life.castPose(boardEl, stage.matches);
+      if (cast.tier >= 5 || stage.chain >= 3) life.shake(frameEl, cast.tier >= 7 ? 2 : 1);
       tone(260 + cast.kind * 72 + (cast.tier - 3) * 54 + Math.min(stage.chain, 4) * 24, .075);
       if (!cast.reducedMotion) await delay(cast.holdMs);
     }
@@ -245,20 +281,28 @@ async function playMove(from, to) {
       el('chain-badge').classList.add('combo-live');
     }
     for (const effect of stage.effects) showBlast(effect);
+    if (mega) { life.shake(frameEl, 3); life.flash(boardEl, '#fff3c4'); }
+    else if (blast) life.shake(frameEl, powers.some(p => p.rank === 3) ? 3 : 2);
     // Keep feedback on the ACTUAL matched area. The middle of stage.clear
     // could belong to an unrelated simultaneous cascade or a wide power blast.
     const mainMatch = stage.matches.find(group => group.tier === 5) || stage.matches[0];
     const center = mainMatch?.cells[Math.floor(mainMatch.cells.length / 2)] || stage.effects[0]?.cells?.[0] || stage.clear[0] || [3, 3];
-    popup(`+${stage.points.toLocaleString()}`, center);
+    popup(`+${stage.points.toLocaleString()}`, center, {
+      size: mega || powers.some(p => p.rank === 3) ? 3 : blast || (mainMatch?.tier || 3) >= 5 || stage.chain >= 3 ? 2 : 1,
+      chain: stage.chain
+    });
     if (!cast) tone(400 + stage.chain * 95, .12);
     // Allow the whole elemental attack to be seen before tiles disappear.
     // Evolved abilities also get their own longer, visible impact window.
     await delay(stage.effects.length ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 165 : mega ? 1200 : 1070) : cast ? 165 : 230);
+    life.poof(boardEl, stage.clear);
     render(stage.afterClear);
+    if (blast || mega) life.shock(boardEl, stage.clear);
     showEvolution(stage.created);
     await delay(evolution ? (stage.created.some(t => t.rank === 3) ? 620 : stage.created.some(t => t.rank === 2) ? 500 : 390) : 85);
-    render(stage.afterFall);
-    await delay(stage.chain > 2 ? 125 : 190);
+    const landing = render(stage.afterFall);
+    // Wait for the falling monsters to (nearly) land so chains read clearly.
+    await delay(Math.max(stage.chain > 2 ? 125 : 190, landing * .9));
   }
   const newEvolution = result.stages.flatMap(stage => stage.created).find(item => item.special === 'evolved');
   const megaBlast = result.stages.some(stage => stage.effects.some(effect => effect.type === 'mega'));
@@ -346,7 +390,7 @@ el('hint-btn').addEventListener('click', () => {
 el('shuffle-btn').addEventListener('click', () => {
   if (busy) return;
   clearHints(); clearSelection();
-  clearPowerPreview(); game.board = shuffleBoard(game.board); store(); render(game.board); tone(540, .09);
+  clearPowerPreview(); game.board = shuffleBoard(game.board); store(); render(game.board); life.shuffleDance(boardEl); tone(540, .09);
   showMessage('Shuffled! Your score is safe.');
 });
 el('sound-btn').addEventListener('click', () => {
@@ -364,11 +408,20 @@ el('cancel-reset').addEventListener('click', () => modal('reset-modal', false));
 el('confirm-reset').addEventListener('click', () => {
   clearHints(); clearSelection(); clearPowerPreview();
   game = { board: createBoard(), score: 0, best: game.best, matches: 0, moves: 0 };
-  store(); render(game.board); updateHud(); modal('reset-modal', false); showMessage('New game! Make your first match.');
+  for (const node of tiles.values()) node.remove(); tiles.clear();
+  store(); introDrop(); updateHud(); modal('reset-modal', false); showMessage('New game! Make your first match.');
 });
 for (const id of ['help-modal', 'reset-modal']) el(id).addEventListener('pointerdown', e => { if (e.target === el(id)) modal(id, false); });
 addEventListener('keydown', event => { if (event.key === 'Escape') { modal('help-modal', false); modal('reset-modal', false); } });
 addEventListener('pagehide', store);
-render(game.board); updateHud();
+// Monsters tumble onto the board; input waits until they have landed.
+function introDrop() {
+  const landing = render(game.board, { stagger: true });
+  if (!landing) return;
+  setBusy(true);
+  setTimeout(() => setBusy(false), landing + 60);
+}
+introDrop(); updateHud();
+life.startAmbient(boardEl, () => busy || !!touchStart);
 // Small, read-only test hook for browser regression checks.
 window.__monsterMatch = { state: () => ({ score: game.score, best: game.best, matches: game.matches, moves: game.moves, busy }), board: () => cloneBoard(game.board) };
