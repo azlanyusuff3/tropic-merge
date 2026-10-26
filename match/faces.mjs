@@ -47,7 +47,13 @@ export function spriteHTML(key, originalUrl) {
         `--mx:${(rx * .25 / (er * 2) * 100).toFixed(2)}%;--my:${(ry * .2 / (eh * 2) * 100).toFixed(2)}%"></i>`;
     }
   }
-  return `<img src="${BASE}${key}.webp" alt="" draggable="false" loading="eager"><span class="face" data-t="${rig.t}" aria-hidden="true">${parts}</span>`;
+  // Soft blush under each eye (polish only; positions come from the eye rig).
+  for (const [k, , cx, cy, rx, ry] of rig.f) {
+    if (k === 'm') continue;
+    const w = rx * 1.5, h = rx * .7, y = cy + (rig.t === 'closed' ? ry * 1.6 + rx * .2 : ry * 1.15);
+    parts = `<i class="blush" style="left:${pct(cx - w / 2)};top:${pct(y - h / 2)};width:${pct(w)};height:${pct(h)}"></i>` + parts;
+  }
+  return `<img src="${BASE}${key}.webp" alt="" draggable="false" loading="eager"><span class="gloss" aria-hidden="true"></span><span class="face" data-t="${rig.t}" aria-hidden="true">${parts}</span>`;
 }
 
 // Timed class on a tile, restarting cleanly if it is already playing.

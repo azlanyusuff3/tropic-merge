@@ -243,3 +243,31 @@
 
 .tile .tile-well{rotate:var(--drag-lean,0deg);transition:rotate 100ms ease,transform 130ms ease,filter 130ms ease}
 @media(prefers-reduced-motion:reduce){.tile .tile-well{rotate:0deg;transition:none}}
+
+/* ---------- v18.9 cute polish (Match only; artwork files unchanged) ---------- */
+/* softer, pastel tiles with a gentle inner glow */
+.tile .tile-well{border-radius:30%;border-width:2px;
+  box-shadow:0 2px 0 #36786a40,0 4px 8px #2f6a6022,inset 0 3px 4px #ffffffc0,inset 0 -4px 8px #00000010}
+.tile[data-appearance^="0"] .tile-well{background:radial-gradient(circle at 35% 25%,#fbffe6,#d9f4b4 55%,#b9e595)}
+.tile[data-appearance^="1"] .tile-well{background:radial-gradient(circle at 35% 25%,#bdeeff,#5cc2f2 55%,#2a8fd0);border-color:#d6f6ff;box-shadow:0 2px 0 #3c8fb855,0 4px 8px #1d5f8722,inset 0 3px 4px #ffffffd0}
+.tile[data-appearance^="2"] .tile-well{background:radial-gradient(circle at 35% 25%,#fff3fa,#ffd3ea 55%,#f6b3d4)}
+.tile[data-appearance^="3"] .tile-well{background:radial-gradient(circle at 35% 25%,#fffbe6,#ffe9a8 55%,#f6d57e)}
+.tile[data-appearance^="4"] .tile-well{background:radial-gradient(circle at 35% 25%,#fff3ea,#ffd4b8 55%,#f3b28e)}
+.tile[data-appearance^="5"] .tile-well{background:radial-gradient(circle at 35% 25%,#ffffff,#e9f8ff 55%,#c9ecfb)}
+/* soft contact shadow so monsters sit in their tile instead of floating */
+.tile .monster-body::before{content:'';position:absolute;left:22%;right:22%;bottom:5%;height:11%;border-radius:50%;
+  background:radial-gradient(ellipse,#2c4f4a55,transparent 70%);z-index:0;pointer-events:none}
+/* a touch softer and brighter, less flat-cartoon */
+.tile .sprite>img{filter:drop-shadow(0 1px 1.5px #2d575533) saturate(1.06) brightness(1.03)}
+/* glossy rim light on the body */
+.sprite .gloss{position:absolute;left:24%;top:20%;width:30%;height:22%;border-radius:50%;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at 40% 40%,#ffffffa8,#ffffff30 45%,transparent 70%);transform:rotate(-24deg);mix-blend-mode:soft-light}
+/* rosy cheeks */
+.sprite .blush{position:absolute;border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse,#ff7fa8 0%,#ff9fbf66 40%,transparent 70%);opacity:.42;filter:blur(.4px)}
+.tile.face-happy .sprite .blush,.tile.face-smile .sprite .blush{opacity:.75}
+/* sparkly catchlights in open eyes (big + small, anime style) */
+.face[data-t="open"] .ft.eye::before,.face[data-t="open"] .ft.eye::after{content:'';position:absolute;border-radius:50%;background:#fff;pointer-events:none}
+.face[data-t="open"] .ft.eye::before{left:30%;top:24%;width:24%;height:22%;box-shadow:0 0 3px #ffffffcc}
+.face[data-t="open"] .ft.eye::after{left:56%;top:58%;width:11%;height:10%;opacity:.85}
+.sprite .pk::after{content:'';position:absolute;left:58%;top:22%;width:14%;height:14%;border-radius:50%;background:#fff;opacity:.8}
