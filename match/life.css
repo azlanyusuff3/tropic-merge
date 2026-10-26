@@ -199,3 +199,34 @@
 .tile.face-ow{--msx:1.12;--msy:.72;--eo:.25}
 
 @media(prefers-reduced-motion:reduce){.sprite .ft,.sprite .pk{transition:none!important;animation:none!important}}
+
+/* ---------- reactions to the selected monster ----------
+   happy: same kind nearby ("let's match!") · scared: elemental rival or an evolved power */
+.tile.face-happy{--msx:1.1;--msy:1.26}
+.tile.face-happy .face[data-t="open"]{--eo:.55}
+.tile.face-scared{--ew:1.22;--msx:.7;--msy:.62}
+.tile.face-scared .face[data-t="closed"] .ft.eye{opacity:0}
+.tile.face-scared .face[data-t="closed"] .pk{opacity:1;transform:translate(calc(var(--lx,0) * var(--mx)),calc(var(--ly,.15) * var(--my))) scale(1.15)}
+.monster-body.mm-joy{animation:mm-joy .9s ease-out both}
+.monster-body.mm-scared{animation:mm-scared 1.9s ease-out both}
+@keyframes mm-joy{0%,100%{transform:none}14%{transform:scale(1.06,.93)}30%{transform:translateY(-12%) scale(.96,1.05)}46%{transform:scale(1.05,.95)}60%{transform:translateY(-6%)}74%{transform:scale(1.02,.98)}}
+@keyframes mm-scared{
+  0%{transform:none}
+  10%{transform:translate(var(--ax,0),var(--ay,0)) scale(.9,1.06)}
+  16%,28%,40%,52%,64%,76%{transform:translate(calc(var(--ax,0) + 1.5%),var(--ay,0)) scale(.92,1.03) rotate(1.5deg)}
+  22%,34%,46%,58%,70%,82%{transform:translate(calc(var(--ax,0) - 1.5%),var(--ay,0)) scale(.92,1.03) rotate(-1.5deg)}
+  100%{transform:none}
+}
+/* a little heart floats up from happy monsters; scared ones sweat */
+.tile.face-happy .face::before,.tile.face-scared .face::after{content:'';position:absolute;pointer-events:none}
+.tile.face-happy .face::before{content:'\2665'}
+.tile.face-happy .face::before{content:'\2665';left:60%;top:2%;width:auto;height:auto;
+  font:700 clamp(11px,3.6vw,19px)/1 system-ui,sans-serif;color:#ff5b8e;
+  text-shadow:0 0 2px #fff,0 1px 0 #fff,0 0 5px #ffb3cb;animation:face-heart 1.5s ease-out both}
+@keyframes face-heart{0%{opacity:0;transform:translateY(30%) scale(.3)}18%{opacity:1;transform:translateY(0) scale(1.15)}30%{transform:scale(1)}100%{opacity:0;transform:translateY(-90%) scale(.85) rotate(12deg)}}
+.tile.face-scared .face::after{left:72%;top:16%;width:12%;height:18%;
+  background:radial-gradient(circle at 38% 62%,#fff 0 14%,transparent 17%),linear-gradient(#c6f3ff,#58c3ef);
+  border-radius:50% 50% 50% 50% / 62% 62% 40% 40%;clip-path:polygon(50% 0,100% 62%,92% 85%,70% 100%,30% 100%,8% 85%,0 62%);
+  border:1px solid #2b86c4;animation:face-sweat 1.9s ease-in both}
+@keyframes face-sweat{0%{opacity:0;transform:translateY(-20%) scale(.4)}15%{opacity:1;transform:none}75%{opacity:1;transform:translateY(55%)}100%{opacity:0;transform:translateY(90%)}}
+@media(prefers-reduced-motion:reduce){.monster-body.mm-joy,.monster-body.mm-scared{animation:none!important}.tile .face::before,.tile .face::after{display:none!important}}

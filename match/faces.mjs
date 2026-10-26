@@ -82,6 +82,50 @@ export function lookAt(board, r, c, ms = 1400, radius = 3.2) {
   }
 }
 
+// --- Reactions when the player picks a monster -------------------------------
+// Same kind nearby: happy ("let's match!"). Elemental rival nearby: scared.
+// An evolved monster: everyone inside its power area is scared of the blast.
+// Kinds: 0 Slimelet, 1 Tidalon, 2 Puffling, 3 Sproutiball, 4 Rockro, 5 Frostbop.
+// Water puts out lava, lava melts ice, ice freezes sprouts, sprouts soak up water.
+// Puffling and Slimelet are friends with everyone.
+export const FEARS = Object.freeze({ 1: [4], 4: [5], 5: [3], 3: [1] });
+const MOODS = ['face-happy', 'face-scared'];
+const BODY = ['mm-joy', 'mm-scared'];
+
+function setMood(tile, mood, away, ms) {
+  const body = tile.querySelector('.monster-body');
+  flag(tile, mood, ms);
+  if (!body) return;
+  if (away) { body.style.setProperty('--ax', `${(away[1] * 9).toFixed(1)}%`); body.style.setProperty('--ay', `${(away[0] * 9).toFixed(1)}%`); }
+  flag(body, mood === 'face-happy' ? 'mm-joy' : 'mm-scared', ms);
+}
+
+export function clearSelectReact(board) {
+  for (const node of board.querySelectorAll('.face-happy,.face-scared,.mm-joy,.mm-scared')) node.classList.remove(...MOODS, ...BODY);
+}
+
+// cell: the selected engine cell. powerCells: [[r,c]] an evolved monster would hit.
+export function selectReact(board, r, c, cell, powerCells = []) {
+  clearSelectReact(board);
+  if (reduced() || !cell) return { happy: 0, scared: 0 };
+  const ms = 1900, out = { happy: 0, scared: 0 };
+  const inPower = new Set(powerCells.map(([pr, pc]) => pr * 8 + pc));
+  for (const tile of board.querySelectorAll('.tile')) {
+    const tr = Number(tile.dataset.r), tc = Number(tile.dataset.c);
+    const dr = tr - r, dc = tc - c, ring = Math.max(Math.abs(dr), Math.abs(dc));
+    if (!ring) continue;
+    const d = Math.hypot(dr, dc), away = [dr / d, dc / d];
+    if (cell.special === 'evolved') {
+      if (inPower.has(tr * 8 + tc) || ring === 1) { setMood(tile, 'face-scared', away, ms); out.scared++; }
+      continue;
+    }
+    const kind = Number(tile.dataset.kind), evolved = tile.classList.contains('is-evolved');
+    if (!evolved && kind === cell.kind && ring <= 2) { setMood(tile, 'face-happy', null, ms); out.happy++; }
+    else if (!evolved && ring === 1 && FEARS[cell.kind]?.includes(kind)) { setMood(tile, 'face-scared', away, ms); out.scared++; }
+  }
+  return out;
+}
+
 // Short facial reaction on specific cells: 'face-wow', 'face-smile', 'face-ow'.
 export function react(board, cells, cls = 'face-wow', ms = 650) {
   if (reduced()) return;

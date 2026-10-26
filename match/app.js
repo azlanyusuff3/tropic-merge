@@ -247,7 +247,7 @@ function showEvolution(created) {
 }
 async function playMove(from, to) {
   if (busy || !adjacent(from, to)) return;
-  setBusy(true); clearHints(); clearSelection(); clearPowerPreview();
+  setBusy(true); clearHints(); clearSelection(); clearPowerPreview(); faces.clearSelectReact(boardEl);
   const result = makeMove(game.board, from, to);
   if (!result.valid) {
     if (result.swapped) { render(result.swapped); life.swapHop(boardEl, to, from, false); await delay(190); render(game.board); }
@@ -363,9 +363,10 @@ boardEl.addEventListener('pointerup', event => {
       const active = game.board[selected[0]][selected[1]];
       if (active.special === 'evolved') {
         const fx = showPowerPreview(selected);
+        faces.selectReact(boardEl, selected[0], selected[1], active, fx?.cells || []);
         showMessage('Swap this monster with a neighbour to use its power.', 2500);
-      } else clearPowerPreview();
-    } else clearPowerPreview();
+      } else { clearPowerPreview(); faces.selectReact(boardEl, selected[0], selected[1], active); }
+    } else { clearPowerPreview(); faces.clearSelectReact(boardEl); }
   }
 });
 boardEl.addEventListener('pointercancel', () => { touchStart = null; clearPowerPreview(); });
@@ -383,7 +384,7 @@ boardEl.addEventListener('keydown', event => {
     const node = event.target.closest('.tile');
     if (node) keyboardCell = [Number(node.dataset.r), Number(node.dataset.c)];
     if (selected && adjacent(selected, keyboardCell)) playMove(selected, keyboardCell);
-    else { selected = [...keyboardCell]; render(game.board); showPowerPreview(selected); }
+    else { selected = [...keyboardCell]; render(game.board); const fx = showPowerPreview(selected); faces.selectReact(boardEl, selected[0], selected[1], game.board[selected[0]][selected[1]], fx?.cells || []); }
   }
 });
 el('hint-btn').addEventListener('click', () => {
