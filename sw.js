@@ -1,4 +1,4 @@
-const CACHE='monster-island-v18-10-visual-only-20261026';
+const CACHE='monster-island-v18-11-match-fixes-20261026';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
  './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',

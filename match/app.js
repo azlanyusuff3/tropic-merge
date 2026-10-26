@@ -1,4 +1,4 @@
-import { SIZE, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
+import { SIZE, shuffleBoard, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 import { castElementalMatches, clearElementalCharge } from './effects.mjs';
 
 const SPRITES = [
@@ -123,8 +123,8 @@ function render(board) {
       button.classList.toggle('is-power', !!cell.special);
       button.classList.toggle('is-rainbow', cell.special === 'rainbow');
       button.classList.toggle('is-evolved', cell.special === 'evolved');
-      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', ' + (cell.rank === 3 ? 'Super ' : cell.rank === 2 ? 'Enhanced ' : '') + ABILITY_NAMES[cell.evolution] + ' power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
     }
+      button.setAttribute('aria-label', `${artwork(cell)[0]}${cell.special === 'evolved' ? ', ' + (cell.rank === 3 ? 'Super ' : cell.rank === 2 ? 'Enhanced ' : '') + ABILITY_NAMES[cell.evolution] + ' power' : cell.special ? ', ' + cell.special + ' power' : ''}, row ${r + 1}, column ${c + 1}`);
     button.classList.toggle('chosen', !!selected && selected[0] === r && selected[1] === c);
   }));
   for (const [id, node] of tiles) if (!used.has(id)) { node.remove(); tiles.delete(id); }
@@ -184,19 +184,19 @@ function showBlast(effect) {
   fx.style.top = `${centerY}%`;
   fx.style.setProperty('--power-row', `${(effect.r + .5) * 100 / SIZE}%`);
   fx.style.setProperty('--power-col', `${(effect.c + .5) * 100 / SIZE}%`);
-  const radius = effect.type === 'mega' ? 2 : 1;
-  fx.style.width = `${(radius * 2 + 1) * 100 / SIZE}%`;
-  fx.style.height = `${(radius * 2 + 1) * 100 / SIZE}%`;
-  if (effect.evolution === 'bubblo') {
-    const row = effect.r < SIZE - 1 ? effect.r : effect.r - 1;
-    fx.style.left = '50%';
-    fx.style.top = `${(row + 1) * 100 / SIZE}%`;
-    fx.style.width = '100%'; fx.style.height = `${2 * 100 / SIZE}%`;
-  } else if (['groveling', 'lumiorb', 'infernodon'].includes(effect.evolution)) {
-    fx.style.left = '50%';fx.style.top = '50%';fx.style.width = '100%';fx.style.height = '100%';
+  // Draw only cells returned by the resolver, including rank and edge clipping.
+  fx.style.left = '0'; fx.style.top = '0';
+  fx.style.width = '100%'; fx.style.height = '100%';
+  fx.classList.add('exact-footprint');
+  for (const [r, c] of effect.cells || []) {
+    const hit = document.createElement('span');
+    hit.className = 'blast-cell';
+    hit.style.left = `${c * 100 / SIZE}%`;
+    hit.style.top = `${r * 100 / SIZE}%`;
+    fx.append(hit);
   }
   boardEl.append(fx);
-  fx.addEventListener('animationend', () => fx.remove(), { once: true });
+  fx.addEventListener('animationend', event => { if (event.target === fx) fx.remove(); });
   setTimeout(() => fx.remove(), 1500);
 }
 
@@ -253,7 +253,7 @@ async function playMove(from, to) {
     if (!cast) tone(400 + stage.chain * 95, .12);
     // Allow the whole elemental attack to be seen before tiles disappear.
     // Evolved abilities also get their own longer, visible impact window.
-    await delay(cast ? 165 : stage.effects.length ? 680 : 210);
+    await delay(stage.effects.length ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 165 : mega ? 1200 : 1070) : cast ? 165 : 230);
     render(stage.afterClear);
     showEvolution(stage.created);
     await delay(evolution ? (stage.created.some(t => t.rank === 3) ? 620 : stage.created.some(t => t.rank === 2) ? 500 : 390) : 85);
@@ -320,13 +320,21 @@ boardEl.addEventListener('pointerup', event => {
   }
 });
 boardEl.addEventListener('pointercancel', () => { touchStart = null; clearPowerPreview(); });
+let keyboardCell = [3, 3];
 boardEl.addEventListener('keydown', event => {
   if (busy) return;
   const directions = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
-  if (directions[event.key]) {
+  const d = directions[event.key];
+  if (d) {
     event.preventDefault();
-    const from = selected || [3, 3], d = directions[event.key];
-    playMove(from, [from[0] + d[0], from[1] + d[1]]);
+    keyboardCell = [Math.max(0, Math.min(7, keyboardCell[0] + d[0])), Math.max(0, Math.min(7, keyboardCell[1] + d[1]))];
+    boardEl.querySelector(`.tile[data-r="${keyboardCell[0]}"][data-c="${keyboardCell[1]}"]`)?.focus();
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    const node = event.target.closest('.tile');
+    if (node) keyboardCell = [Number(node.dataset.r), Number(node.dataset.c)];
+    if (selected && adjacent(selected, keyboardCell)) playMove(selected, keyboardCell);
+    else { selected = [...keyboardCell]; render(game.board); showPowerPreview(selected); }
   }
 });
 el('hint-btn').addEventListener('click', () => {
@@ -338,7 +346,7 @@ el('hint-btn').addEventListener('click', () => {
 el('shuffle-btn').addEventListener('click', () => {
   if (busy) return;
   clearHints(); clearSelection();
-  clearPowerPreview(); game.board = createBoard(); store(); render(game.board); tone(540, .09);
+  clearPowerPreview(); game.board = shuffleBoard(game.board); store(); render(game.board); tone(540, .09);
   showMessage('Shuffled! Your score is safe.');
 });
 el('sound-btn').addEventListener('click', () => {

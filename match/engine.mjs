@@ -372,3 +372,17 @@ export function makeMove(board, from, to, rng = Math.random) {
   }
   return { valid: true, swapped, board: working, score, chains: stages.length, stages, reshuffled };
 }
+
+// Rearrange existing tiles without discarding earned powers or identities.
+export function shuffleBoard(board, rng = Math.random) {
+  const pieces = cloneBoard(board).flat();
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    for (let i = pieces.length - 1; i > 0; i--) {
+      const j = pick(i + 1, rng);
+      [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+    }
+    const candidate = Array.from({ length: SIZE }, (_, r) => pieces.slice(r * SIZE, (r + 1) * SIZE));
+    if (!findRuns(candidate).length && hasMove(candidate)) return candidate;
+  }
+  return cloneBoard(board);
+}
