@@ -258,7 +258,7 @@ function showEvolution(created) {
   }
 }
 async function playMove(from, to) {
-  if (busy || !adjacent(from, to)) return;
+  if (busy || document.querySelector('.game-shell').classList.contains('menu-open') || !adjacent(from, to)) return;
   setBusy(true); clearHints(); clearSelection(); clearPowerPreview(); faces.clearSelectReact(boardEl);
   const result = makeMove(game.board, from, to);
   if (!result.valid) {
@@ -340,6 +340,7 @@ async function playMove(from, to) {
   else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');
   el('chain-badge').textContent = 'NO MOVE LIMIT';
+  el('adventure-star-track').hidden = true;
   if (mode === 'adventure' && run) {
     const level = getLevel(run.level);
     if (isLevelWon(level, run)) {
@@ -470,6 +471,7 @@ addEventListener('pagehide', store);
 function resetTiles() { clearHints(); clearSelection(); clearPowerPreview(); for (const node of tiles.values()) node.remove(); tiles.clear(); }
 function enterClassic() {
   if (busy) return;
+  document.querySelector('.game-shell').classList.remove('menu-open');
   if (mode === 'adventure') { store(); game = classicGame || game; }
   mode = 'classic'; run = null; classicGame = null;
   document.querySelector('.game-shell').classList.remove('map-open','adventure-active');
@@ -481,6 +483,7 @@ function enterClassic() {
 }
 function openAdventureMap() {
   if (busy) return;
+  document.querySelector('.game-shell').classList.remove('menu-open');
   if (mode === 'classic') { classicGame = classicSnapshot(); }
   else store();
   mode = 'adventure';
@@ -491,6 +494,8 @@ function openAdventureMap() {
 }
 function renderAdventureMap() {
   el('island-list').replaceChildren();
+  const selectedIsland = Math.max(0,Math.min(9,Math.floor((adventure.unlocked-1)/10)));
+  el('map-stars').textContent = '⭐ ' + totalStars(adventure);
   ISLANDS.forEach((island, index) => {
     const start = index * 10 + 1;
     const panel = document.createElement('section'); panel.className = 'island-panel' + (start > adventure.unlocked ? ' locked' : '');
@@ -507,8 +512,10 @@ function renderAdventureMap() {
       const stars = document.createElement('span'); stars.className = 'stars'; stars.textContent = '★'.repeat(adventure.stars[id]||0) + '☆'.repeat(3-(adventure.stars[id]||0));
       button.append(stars); button.addEventListener('click', () => startAdventureLevel(id)); grid.append(button);
     }
-    panel.append(grid); el('island-list').append(panel);
+    panel.append(grid); panel.hidden = index !== selectedIsland; panel.dataset.island = String(index); el('island-list').append(panel);
   });
+  const tabs = el('island-tabs'); tabs.replaceChildren();
+  ISLANDS.forEach((island,index)=>{const b=document.createElement('button');b.type='button';b.textContent=(index*10+1>adventure.unlocked?'🔒 ':'🏝 ')+island.name;b.disabled=index*10+1>adventure.unlocked;b.classList.toggle('active',index===selectedIsland);b.addEventListener('click',()=>{document.querySelectorAll('.island-panel').forEach(p=>p.hidden=Number(p.dataset.island)!==index);tabs.querySelectorAll('button').forEach((x,i)=>x.classList.toggle('active',i===index));});tabs.append(b);});
 }
 function startAdventureLevel(id) {
   if (id > adventure.unlocked || busy) return;
@@ -518,7 +525,8 @@ function startAdventureLevel(id) {
   run = valid ? active : beginLevel(id, createBoard());
   game = { ...run.game, board: cloneBoard(run.game.board) };
   mode = 'adventure'; adventure.active = run;
-  document.querySelector('.game-shell').classList.remove('map-open');
+  document.querySelector('.game-shell').classList.remove('map-open','menu-open');
+  el('adventure-star-track').hidden = false;
   el('adventure-map').hidden = true; el('adventure-objectives').hidden = false;
   document.querySelector('.mode-pill').textContent = getLevel(id).boss ? '👑 BOSS · LEVEL ' + id : '🏝 LEVEL ' + id;
   el('chain-badge').textContent = 'MOVES LIMITED';
@@ -539,6 +547,13 @@ function updateAdventureObjectives() {
     const label = document.createElement('span'); label.textContent = goal.text; item.append(label); area.append(item);
   }
 }
+function showHome(){if(busy)return;if(mode==='adventure')store();else store();document.querySelector('.game-shell').classList.add('menu-open');document.querySelector('.game-shell').classList.remove('map-open');el('adventure-map').hidden=true;}
+el('home-classic').addEventListener('click',enterClassic);
+el('home-adventure').addEventListener('click',openAdventureMap);
+el('map-home').addEventListener('click',showHome);
+el('home-help').addEventListener('click',()=>modal('help-modal',true));
+el('home-settings').addEventListener('click',()=>{soundOn=!soundOn;write(AUDIO_KEY,soundOn?'1':'0');updateHud();showMessage(soundOn?'Sound enabled':'Sound muted');});
+el('home-monsters').addEventListener('click',()=>modal('help-modal',true));
 el('mode-classic').addEventListener('click', enterClassic);
 el('mode-adventure').addEventListener('click', openAdventureMap);
 el('result-map').addEventListener('click', () => { el('adventure-result').hidden = true; openAdventureMap(); });
