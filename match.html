@@ -14,14 +14,14 @@
   <title>Monster Match | Monster Island</title>
 </head>
 <body>
-  <main class="game-shell">
+  <main class="game-shell menu-open"><section id="match-home" class="match-home"><div class="home-logo">MONSTER<br><span>MATCH!</span></div><div class="home-mascots"><img src="./assets/monsters/01-slimelet.webp" alt="Slimelet"><img src="./assets/monsters/09-tidalon.webp" alt="Tidalon"><img src="./assets/monsters/03-puffling.webp" alt="Puffling"><img src="./assets/monsters/04-sproutiball.webp" alt="Sproutiball"><img src="./assets/monsters/05-rockro.webp" alt="Rockro"><img src="./assets/monsters/06-frostbop.webp" alt="Frostbop"></div><div class="home-actions"><button id="home-adventure" class="home-choice adventure-choice" type="button"><span>🏝</span><strong>Adventure<small>EXPLORE · PROGRESS · UNLOCK</small></strong><b>›</b></button><button id="home-classic" class="home-choice classic-choice" type="button"><span>∞</span><strong>Classic<small>ENDLESS FUN · NO MOVE LIMIT</small></strong><b>›</b></button></div><div class="home-tools"><button id="home-monsters" type="button">🐲<small>Monsters</small></button><button id="home-help" type="button">❔<small>How to Play</small></button><button id="home-settings" type="button">⚙<small>Settings</small></button></div></section>
     <header class="topbar">
       <a class="back-btn" href="./index.html" aria-label="Back to Monster Island"><span aria-hidden="true">&#8592;</span></a>
       <div class="game-title"><div class="eyebrow">MONSTER ISLAND PRESENTS</div><h1>MONSTER <span>MATCH!</span></h1></div>
       <button type="button" id="sound-btn" class="icon-btn" aria-label="Toggle sound" aria-pressed="false"><span aria-hidden="true">&#9835;</span></button>
     </header>
 
-    <section class="adventure-navigation"><button id="mode-classic" type="button" class="mode-tab active">∞ Classic</button><button id="mode-adventure" type="button" class="mode-tab">🗺 Adventure</button></section><section id="adventure-map" class="adventure-map" hidden><div class="map-header"><h2>Island Adventure</h2><p>Complete goals before your moves run out. Earn up to 3 stars!</p></div><div id="island-list"></div></section><section id="adventure-objectives" class="adventure-objectives" hidden></section><section class="hud" aria-label="Game scores">
+    <section class="adventure-navigation"><button id="mode-classic" type="button" class="mode-tab active">∞ Classic</button><button id="mode-adventure" type="button" class="mode-tab">🗺 Adventure</button></section><section id="adventure-map" class="adventure-map" hidden><div class="map-header"><button type="button" id="map-home" class="map-home-btn" aria-label="Back to menu">←</button><h2>Adventure</h2><span id="map-stars" class="map-stars">⭐ 0</span><p>Complete goals before your moves run out. Earn up to 3 stars!</p></div><div id="island-list"></div><div id="island-tabs" class="island-tabs"></div></section><section id="adventure-objectives" class="adventure-objectives" hidden></section><section class="hud" aria-label="Game scores">
       <div class="stat-card stat-score"><span class="stat-label">SCORE</span><strong id="score">0</strong></div>
       <div class="stat-card stat-best"><span class="stat-label">BEST</span><strong id="best">0</strong></div>
       <div class="stat-card stat-moves"><span class="stat-label">CLEARED</span><strong id="matches">0</strong></div>
@@ -29,7 +29,7 @@
 
     <section class="game-stage" aria-label="Endless Monster Match game">
       <div class="stage-top"><div class="mode-pill"><span aria-hidden="true">&#8734;</span> CLASSIC ENDLESS</div><div id="chain-badge" class="chain-badge" aria-live="polite">NO MOVE LIMIT</div></div>
-      <div class="board-frame"><div id="board" class="board" role="group" aria-label="8 by 8 monster matching board. Swipe a tile or tap two adjacent monsters." tabindex="0"></div><div class="board-gloss" aria-hidden="true"></div></div>
+      <div id="adventure-star-track" class="adventure-star-track" hidden>☆ <span>★</span> ☆</div><div class="board-frame"><div id="board" class="board" role="group" aria-label="8 by 8 monster matching board. Swipe a tile or tap two adjacent monsters." tabindex="0"></div><div class="board-gloss" aria-hidden="true"></div></div>
       <p class="game-message" id="game-message" aria-live="polite">Swipe to match 3 or more monsters!</p>
     </section>
 
