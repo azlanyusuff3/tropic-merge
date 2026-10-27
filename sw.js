@@ -1,7 +1,7 @@
-const CACHE='monster-island-v18-10-merge-back-nav-20261026';
+const CACHE='monster-island-v19-0-match-adventure-20261028';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
- './match/style.css','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/faces.mjs','./match/face-rig.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
+ './match/style.css','./match/adventure.mjs','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/faces.mjs','./match/face-rig.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',
  './assets/fonts/fredoka-600.woff2','./assets/fonts/fredoka-700.woff2',
  './sling/menu.css','./sling/pwa.js',
  './assets/tropical.webp','./icons/apple-touch-icon.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png',

@@ -1,3 +1,4 @@
+import { getLevel, ISLANDS, BASE_MONSTERS, LEVELS, readProgress, beginLevel, applyLevelMove, isLevelWon, starsFor, recordVictory, totalStars } from './adventure.mjs';
 import { SIZE, shuffleBoard, EVOLUTIONS, createBoard, isValidBoard, restoreIds, cloneBoard, adjacent, makeMove, findHint, previewPower, ABILITY_NAMES } from './engine.mjs';
 import { castElementalMatches, clearElementalCharge } from './effects.mjs';
 import * as life from './life.mjs';
@@ -23,6 +24,13 @@ const EVOLVED_SPRITES = Object.freeze({
 const SAVE_KEY = 'monsterMatchSaveV1';
 const BEST_KEY = 'monsterMatchBestV1';
 const AUDIO_KEY = 'monsterMatchSoundV1';
+const ADVENTURE_KEY = 'monsterMatchAdventureV2';
+let adventure = readProgress(null);
+try { adventure = readProgress(JSON.parse(localStorage.getItem(ADVENTURE_KEY))); } catch {}
+let mode = 'classic', run = null;
+const classicSnapshot = () => ({ ...game, board: cloneBoard(game.board) });
+let classicGame = null;
+const saveAdventure = () => write(ADVENTURE_KEY, JSON.stringify(adventure));
 const el = id => document.getElementById(id);
 const boardEl = el('board');
 const frameEl = boardEl.closest('.board-frame');
@@ -61,6 +69,7 @@ soundOn = read(AUDIO_KEY) === '1';
 
 function store() {
   game.best = Math.max(game.best, game.score);
+  if (mode === 'adventure') { if (run) { run.game = { ...game, board: cloneBoard(game.board) }; adventure.active = run; } saveAdventure(); return; }
   write(BEST_KEY, String(game.best));
   write(SAVE_KEY, JSON.stringify({ version: 1, ...game }));
 }
@@ -86,7 +95,7 @@ function showMessage(message, duration = 1900) {
 function updateHud() {
   el('score').textContent = game.score.toLocaleString();
   el('best').textContent = game.best.toLocaleString();
-  el('matches').textContent = game.matches.toLocaleString();
+  el('matches').textContent = (mode === 'adventure' && run ? Math.max(0, getLevel(run.level).moves - game.moves) : game.matches).toLocaleString();
   el('sound-btn').classList.toggle('muted-btn', !soundOn);
   el('sound-btn').setAttribute('aria-label', soundOn ? 'Mute sound' : 'Enable sound');
   el('sound-btn').setAttribute('aria-pressed', String(soundOn));
@@ -199,6 +208,8 @@ function setBusy(value) {
   busy = value;
   boardEl.classList.toggle('busy', busy);
   for (const id of ['hint-btn', 'shuffle-btn', 'new-btn']) el(id).disabled = busy;
+  document.querySelectorAll('.mode-tab').forEach(btn => btn.disabled = busy);
+  document.querySelectorAll('.mode-tab').forEach(btn => btn.disabled = busy);
 }
 function showBlast(effect) {
   for (const [r, c] of effect.cells || []) {
@@ -256,7 +267,9 @@ async function playMove(from, to) {
     setBusy(false); return;
   }
   // Save the complete move immediately: leaving during an animation never loses progress.
+  const beforeRun = run;
   game.board = result.board; game.moves++;
+  if (mode === 'adventure' && beforeRun) run = applyLevelMove(getLevel(beforeRun.level), beforeRun, result);
   game.matches += result.stages.reduce((count, step) => count + step.removed, 0);
   game.score += result.score; game.best = Math.max(game.best, game.score);
   store(); updateHud();
@@ -327,6 +340,26 @@ async function playMove(from, to) {
   else showMessage('Nice match! Keep going.');
   el('chain-badge').classList.remove('combo-live');
   el('chain-badge').textContent = 'NO MOVE LIMIT';
+  if (mode === 'adventure' && run) {
+    const level = getLevel(run.level);
+    if (isLevelWon(level, run)) {
+      adventure = recordVictory(adventure, level, game.score, game.moves);
+      const earned = starsFor(level, game.moves);
+      adventure.active = null; run = null; saveAdventure();
+      document.getElementById('adventure-result-title').textContent = 'Level ' + level.id + ' Complete!';
+      document.getElementById('adventure-result-details').textContent = '⭐'.repeat(earned) + ' · ' + game.score.toLocaleString() + ' points · ' + Math.max(0,level.moves-game.moves) + ' moves left';
+      document.getElementById('result-retry').textContent = level.id === 100 ? 'Island Map' : 'Next Level';
+      document.getElementById('result-retry').dataset.next = String(Math.min(100,level.id+1));
+      document.getElementById('adventure-result').hidden = false;
+    } else if (game.moves >= level.moves) {
+      adventure.active = null; run = null; saveAdventure();
+      document.getElementById('adventure-result-title').textContent = 'Out of Moves!';
+      document.getElementById('adventure-result-details').textContent = 'Almost there! Try a different combo.';
+      document.getElementById('result-retry').textContent = 'Retry Level';
+      document.getElementById('result-retry').dataset.next = String(level.id);
+      document.getElementById('adventure-result').hidden = false;
+    } else updateAdventureObjectives();
+  }
   setBusy(false);
 }
 
@@ -409,6 +442,7 @@ el('hint-btn').addEventListener('click', () => {
 el('shuffle-btn').addEventListener('click', () => {
   if (busy) return;
   clearHints(); clearSelection();
+  if (mode === 'adventure') { showMessage('Shuffle is available in Classic mode.'); return; }
   clearPowerPreview(); game.board = shuffleBoard(game.board); store(); render(game.board); life.shuffleDance(boardEl); tone(540, .09);
   showMessage('Shuffled! Your score is safe.');
 });
@@ -422,7 +456,7 @@ function modal(id, visible) {
 }
 el('help-btn').addEventListener('click', () => modal('help-modal', true));
 el('help-modal').querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal('help-modal', false)));
-el('new-btn').addEventListener('click', () => { if (!busy) modal('reset-modal', true); });
+el('new-btn').addEventListener('click', () => { if (busy) return; if (mode === 'adventure') { openAdventureMap(); return; } modal('reset-modal', true); });
 el('cancel-reset').addEventListener('click', () => modal('reset-modal', false));
 el('confirm-reset').addEventListener('click', () => {
   clearHints(); clearSelection(); clearPowerPreview();
@@ -433,6 +467,87 @@ el('confirm-reset').addEventListener('click', () => {
 for (const id of ['help-modal', 'reset-modal']) el(id).addEventListener('pointerdown', e => { if (e.target === el(id)) modal(id, false); });
 addEventListener('keydown', event => { if (event.key === 'Escape') { modal('help-modal', false); modal('reset-modal', false); } });
 addEventListener('pagehide', store);
+function resetTiles() { clearHints(); clearSelection(); clearPowerPreview(); for (const node of tiles.values()) node.remove(); tiles.clear(); }
+function enterClassic() {
+  if (busy) return;
+  if (mode === 'adventure') { store(); game = classicGame || game; }
+  mode = 'classic'; run = null; classicGame = null;
+  document.querySelector('.game-shell').classList.remove('map-open','adventure-active');
+  el('adventure-map').hidden = true; el('adventure-objectives').hidden = true;
+  el('mode-classic').classList.add('active'); el('mode-adventure').classList.remove('active');
+  document.querySelector('.mode-pill').textContent = '∞ CLASSIC ENDLESS';
+  el('chain-badge').textContent = 'NO MOVE LIMIT';
+  resetTiles(); introDrop(); updateHud();
+}
+function openAdventureMap() {
+  if (busy) return;
+  if (mode === 'classic') { classicGame = classicSnapshot(); }
+  else store();
+  mode = 'adventure';
+  document.querySelector('.game-shell').classList.add('map-open','adventure-active');
+  el('adventure-map').hidden = false; el('adventure-objectives').hidden = true;
+  el('mode-classic').classList.remove('active'); el('mode-adventure').classList.add('active');
+  renderAdventureMap();
+}
+function renderAdventureMap() {
+  el('island-list').replaceChildren();
+  ISLANDS.forEach((island, index) => {
+    const start = index * 10 + 1;
+    const panel = document.createElement('section'); panel.className = 'island-panel' + (start > adventure.unlocked ? ' locked' : '');
+    const heading = document.createElement('div'); heading.className = 'island-heading';
+    const picture = document.createElement('img'); picture.src = './assets/monsters/' + island.image; picture.alt = '';
+    const copy = document.createElement('div'); const name = document.createElement('strong'); name.textContent = 'Island ' + (index+1) + ' · ' + island.name;
+    const info = document.createElement('small'); info.textContent = '⭐ ' + LEVELS.slice(index*10,index*10+10).reduce((n,l)=>n+(adventure.stars[l.id]||0),0) + '/30 · ' + (start > adventure.unlocked ? 'Locked' : 'Explore');
+    copy.append(name,info); heading.append(picture,copy); panel.append(heading);
+    const grid = document.createElement('div'); grid.className = 'level-grid';
+    for (let id = start; id < start+10; id++) {
+      const button = document.createElement('button'); button.type = 'button';
+      button.className = 'level-button' + (id % 10 === 0 ? ' boss' : '') + (id === adventure.unlocked ? ' current' : '');
+      button.disabled = id > adventure.unlocked; button.textContent = id > adventure.unlocked ? '🔒' : String(id);
+      const stars = document.createElement('span'); stars.className = 'stars'; stars.textContent = '★'.repeat(adventure.stars[id]||0) + '☆'.repeat(3-(adventure.stars[id]||0));
+      button.append(stars); button.addEventListener('click', () => startAdventureLevel(id)); grid.append(button);
+    }
+    panel.append(grid); el('island-list').append(panel);
+  });
+}
+function startAdventureLevel(id) {
+  if (id > adventure.unlocked || busy) return;
+  const active = adventure.active;
+  const valid = active?.level === id && isValidBoard(active.game?.board) && Number.isInteger(active.game?.moves) &&
+    active.game.moves >= 0 && active.game.moves < getLevel(id).moves && Array.isArray(active.counts) && active.counts.length === 6 && Array.isArray(active.frozen);
+  run = valid ? active : beginLevel(id, createBoard());
+  game = { ...run.game, board: cloneBoard(run.game.board) };
+  mode = 'adventure'; adventure.active = run;
+  document.querySelector('.game-shell').classList.remove('map-open');
+  el('adventure-map').hidden = true; el('adventure-objectives').hidden = false;
+  document.querySelector('.mode-pill').textContent = getLevel(id).boss ? '👑 BOSS · LEVEL ' + id : '🏝 LEVEL ' + id;
+  el('chain-badge').textContent = 'MOVES LIMITED';
+  resetTiles(); store(); updateAdventureObjectives(); introDrop(); updateHud();
+}
+function updateAdventureObjectives() {
+  if (!run) return;
+  const level = getLevel(run.level), area = el('adventure-objectives'); area.replaceChildren();
+  const title = document.createElement('strong'); title.textContent = 'Level ' + level.id + ' · ' + (level.boss ? 'Guardian Battle' : 'Goals');
+  area.append(title);
+  const goals = level.boss ? [{ text: '👑 HP ' + Math.max(0,level.bossHp-run.bossDamage) + '/' + level.bossHp, done: run.bossDamage >= level.bossHp }] :
+    level.goals.map(goal => ({ text: BASE_MONSTERS[goal.kind][0] + ' ' + Math.min(goal.count,run.counts[goal.kind]) + '/' + goal.count, sprite: BASE_MONSTERS[goal.kind][1], done: run.counts[goal.kind] >= goal.count }));
+  if (level.seals) goals.push({ text: '❄ Wards ' + run.frozen.length + '/' + level.seals, done: !run.frozen.length });
+  goals.push({ text: 'Moves ' + Math.max(0,level.moves-game.moves), done: false });
+  for (const goal of goals) {
+    const item = document.createElement('span'); item.className = 'goal' + (goal.done ? ' done' : '');
+    if (goal.sprite) { const img = document.createElement('img'); img.src = goal.sprite; img.alt = ''; item.append(img); }
+    const label = document.createElement('span'); label.textContent = goal.text; item.append(label); area.append(item);
+  }
+}
+el('mode-classic').addEventListener('click', enterClassic);
+el('mode-adventure').addEventListener('click', openAdventureMap);
+el('result-map').addEventListener('click', () => { el('adventure-result').hidden = true; openAdventureMap(); });
+el('result-retry').addEventListener('click', event => {
+  el('adventure-result').hidden = true;
+  if (Number(event.currentTarget.dataset.next) === 100 && adventure.stars[100]) openAdventureMap();
+  else startAdventureLevel(Number(event.currentTarget.dataset.next));
+});
+
 function neighbours(cells) {
   const hit = new Set(cells.map(([r, c]) => r * SIZE + c)), out = [];
   for (const [r, c] of cells) for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
