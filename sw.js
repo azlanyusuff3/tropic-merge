@@ -1,4 +1,4 @@
-const CACHE='monster-island-v19-2-merge-battery-20261031';
+const CACHE='monster-island-v19-3-match-battery-20261031';
 const CORE=[
  './','./index.html','./merge.html','./match.html','./manifest.webmanifest',
  './match/style.css','./match/adventure.mjs','./match/effects.css','./match/app.js','./match/engine.mjs','./match/effects.mjs','./match/life.mjs','./match/life.css','./match/faces.mjs','./match/face-rig.mjs','./match/assets/tidalon-match.webp','./match/assets/frostbop-match.webp',

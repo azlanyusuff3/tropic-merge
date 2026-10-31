@@ -142,7 +142,7 @@ let loop = 0, chatterAt = 0;
 export function start(board, isBusy) {
   clearInterval(loop);
   loop = setInterval(() => {
-    if (!ready || reduced() || document.hidden) return;
+    if (!ready || reduced() || document.hidden || !board.offsetParent || document.querySelector('.modal-screen:not([hidden])')) return;
     const now = performance.now();
     const tiles = board.querySelectorAll('.tile');
     for (const tile of tiles) {
@@ -171,5 +171,5 @@ export function start(board, isBusy) {
       const pick = tiles[Math.floor(Math.random() * tiles.length)];
       if (pick?.querySelector('.face')) Math.random() < .55 ? flag(pick, 'face-talk', 1300) : flag(pick, 'face-smile', 1100);
     }
-  }, 100);
+  }, 200); // 5 checks/s is plenty for blink/look timing (was 10/s over 64 tiles)
 }

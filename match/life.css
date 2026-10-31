@@ -233,7 +233,9 @@
 
 /* Soft depth, travelling elemental impacts, and energy convergence. */
 .tile-well{background-blend-mode:soft-light;box-shadow:inset 0 3px 4px #ffffff85,inset 0 -4px 5px #265b4638,0 3px 2px #20493c40}
-.tile .monster-body{filter:drop-shadow(0 5px 2px #183d4940)}
+/* Battery: a filter on .monster-body wraps the always-breathing .sprite, so the browser re-rendered
+   64 drop-shadows every frame. The ::before contact shadow already grounds the monster. */
+.tile .monster-body{filter:none}
 .tile.chosen .monster-body{filter:drop-shadow(0 9px 3px #183d4960)}
 .mm-energy{position:absolute;z-index:12;width:10px;height:10px;pointer-events:none;border-radius:50%;background:#fff;box-shadow:0 0 8px 3px var(--tint);animation:mm-converge 620ms cubic-bezier(.55,.05,.75,.5) both}
 @keyframes mm-converge{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}20%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--ex)),calc(-50% + var(--ey))) scale(.2)}}
@@ -261,13 +263,17 @@
 .tile .sprite>img{filter:drop-shadow(0 1px 1.5px #2d575533) saturate(1.06) brightness(1.03)}
 /* glossy rim light on the body */
 .sprite .gloss{position:absolute;left:24%;top:20%;width:30%;height:22%;border-radius:50%;z-index:1;pointer-events:none;
-  background:radial-gradient(ellipse at 40% 40%,#ffffffa8,#ffffff30 45%,transparent 70%);transform:rotate(-24deg);mix-blend-mode:soft-light}
+  background:radial-gradient(ellipse at 40% 40%,#ffffffa8,#ffffff30 45%,transparent 70%);transform:rotate(-24deg);opacity:.55} /* was mix-blend-mode:soft-light: forced a blend pass per tile per frame */
 /* rosy cheeks */
 .sprite .blush{position:absolute;border-radius:50%;pointer-events:none;
-  background:radial-gradient(ellipse,#ff7fa8 0%,#ff9fbf66 40%,transparent 70%);opacity:.42;filter:blur(.4px)}
+  background:radial-gradient(ellipse,#ff7fa8 0%,#ff9fbf66 40%,transparent 70%);opacity:.42}
 .tile.face-happy .sprite .blush,.tile.face-smile .sprite .blush{opacity:.75}
 /* sparkly catchlights in open eyes (big + small, anime style) */
 .face[data-t="open"] .ft.eye::before,.face[data-t="open"] .ft.eye::after{content:'';position:absolute;border-radius:50%;background:#fff;pointer-events:none}
 .face[data-t="open"] .ft.eye::before{left:30%;top:24%;width:24%;height:22%;box-shadow:0 0 3px #ffffffcc}
 .face[data-t="open"] .ft.eye::after{left:56%;top:58%;width:11%;height:10%;opacity:.85}
 .sprite .pk::after{content:'';position:absolute;left:58%;top:22%;width:14%;height:14%;border-radius:50%;background:#fff;opacity:.8}
+
+/* Battery: freeze idle board motion while a modal (blurred backdrop) covers it or the tab is in the background. */
+body:has(.modal-screen:not([hidden])) .board *,body:has(.modal-screen:not([hidden])) .board *::before,body:has(.modal-screen:not([hidden])) .board *::after{animation-play-state:paused!important}
+.tile .sprite{will-change:transform}
