@@ -4,10 +4,10 @@ const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');let base=process.env.TEST_URL;
-// Exact original b3afe41 engine and visual stylesheet; the only Merge addition is navigation.
+// Engine pinned (2026-10-31: battery fix — render/save throttling only) and visual stylesheet; the only Merge addition is navigation.
 const crypto=require('node:crypto'),original=fs.readFileSync(path.join(root,'merge.html'),'utf8');
-assert.equal(crypto.createHash('sha256').update(original.match(/<script>([\s\S]*?)<\/script>/)[1]).digest('hex'),'2a3f3608ee9739cbec91cdad50e28acb7d242ecf6f751a1b843ab83111d32729');
-assert.equal(crypto.createHash('sha256').update(original.match(/<style>([\s\S]*?)<\/style>/)[1]).digest('hex'),'35b6793b61469c990492c096571a96de37c5b9f93caac85b2a953046c58ca569');
+assert.equal(crypto.createHash('sha256').update(original.match(/<script>([\s\S]*?)<\/script>/)[1]).digest('hex'),'ff94f9ec4b6496183780b2be8a68223eba6fc988dc6b217a6ad23630417d098c');
+assert.equal(crypto.createHash('sha256').update(original.match(/<style>([\s\S]*?)<\/style>/)[1]).digest('hex'),'8d0c6c588b479b65a04024484bcf13f1a89c753b16d0e0237b66002faf81aa5f');
 
 const hook=`
 window.__game={balls,ballKinds,monsterImages,box,spawn,merge,physics,bombAt,shakeBox,reset,draw,getBallSprite,monsterPose,jellyKick,endGame,nextIconR,faceAssets,faceState,faceEvent,

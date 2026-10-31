@@ -125,7 +125,7 @@ let audioCtx=null;
 function audio(freq=420,dur=.07,type='sine',vol=.035){if(!soundOn)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 function randomFruit(){let r=Math.random();if(r<.36)return 0;if(r<.64)return 1;if(r<.83)return 2;if(r<.94)return 3;return 4}
 function advanceFruit(){currentLevel=nextLevel;nextLevel=randomFruit();drawNext();saveGame()}
-function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.6);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY);staticScene=null;forceRedraw=true}addEventListener('resize',resize);resize();
+function resize(){let rect=canvas.parentElement.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,1.3);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';scale=Math.min(rect.width/W,rect.height/H);offsetX=(rect.width-W*scale)/2;offsetY=(rect.height-H*scale)/2;ctx.setTransform(dpr*scale,0,0,dpr*scale,dpr*offsetX,dpr*offsetY);staticScene=null;forceRedraw=true}addEventListener('resize',resize);resize();
 const box={l:20,r:400,t:190,b:665,danger:239};
 let bestAtStart=best;
 function reset(){bombs=3;bombMilestone=0;mergeTotal=0;maxCombo=0;legendaryCount=0;bombUI();bestAtStart=best;balls.length=0;particles.length=0;floaters.length=0;effects.length=0;targetId=null;shake=0;lastDrop=0;lastMerge=0;lastBoxShake=-9999;score=0;scoreEl.textContent=0;scoreEl.classList.remove('compact');gameOver=false;bombMode=false;dragging=false;pointerId=null;bombBtn.classList.remove('active');bombBtn.setAttribute('aria-pressed','false');shakeBtn.classList.remove('cool');hint.classList.remove('show');aimX=210;combo=0;currentLevel=randomFruit();nextLevel=randomFruit();drawNext();document.getElementById('modal').style.display='none';physicsAccumulator=0;forceRedraw=true}
@@ -487,15 +487,16 @@ function loop(t){
   if(!pageVisible){last=t;return}
   let frameDt=Math.min(.05,(t-last)/1000);last=t;const busy=running&&!infoPaused&&sceneBusy();
   if(running&&!infoPaused){
-    if(t-lastSaved>2000)saveGame();
+    if(busy&&t-lastSaved>2000)saveGame(); // idle board = nothing new to save (was writing localStorage every 2s forever)
     animateParticles(frameDt);
     const hz=busy?45:10,step=1/hz;physicsAccumulator+=frameDt;let n=0,maxTicks=busy?2:1;
     try{while(physicsAccumulator>=step&&n<maxTicks){physics(step);physicsAccumulator-=step;n++}}catch(e){physicsAccumulator=0;console.error('physics error',e)}
     if(n===maxTicks&&physicsAccumulator>step*2)physicsAccumulator=0;
   }
-  // Idle monsters keep breathing, so keep a gentle 30fps while playing (was 15fps when the board was still).
-  const alive=running&&!gameOver&&!reducedMotion;
-  const renderMs=(busy||dragging)?1000/60:(alive?1000/30:1000/15);
+  // Battery: behind the start screen / game-over / info panel (all use backdrop blur) the board is hidden,
+  // so only redraw on demand. Idle breathing runs at 20fps; full 60fps only while something moves.
+  const hidden=!running||gameOver||infoPaused;
+  const renderMs=hidden?Infinity:(busy||dragging)?1000/60:(reducedMotion?1000/8:1000/20);
   if(forceRedraw||t-lastRender>=renderMs){try{draw()}catch(e){console.error('draw error',e)}lastRender=t;forceRedraw=false}
 }
 document.addEventListener('visibilitychange',()=>{pageVisible=!document.hidden;last=performance.now();physicsAccumulator=0;if(pageVisible){forceRedraw=true;requestAnimationFrame(()=>draw())}else if(audioCtx&&audioCtx.state==='running'){audioCtx.suspend().catch(()=>{})}});
